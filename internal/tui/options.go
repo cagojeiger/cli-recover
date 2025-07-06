@@ -15,14 +15,22 @@ func viewBackupOptions(m Model, width int) string {
 func viewPathInput(m Model, width int) string {
 	var view string
 	
-	view += "Backup Configuration:\n\n"
+	view += "=== Backup Configuration ===\n\n"
 	
-	// Configuration details
-	pathLabel := "Path"
-	
-	view += fmt.Sprintf("Namespace: %s\n", m.selectedNamespace)
-	view += fmt.Sprintf("Pod: %s\n", m.selectedPod)
-	view += fmt.Sprintf("%s: %s\n", pathLabel, m.selectedPath)
+	// Group related information together
+	if width < 80 {
+		// Compact view
+		view += fmt.Sprintf("Target: %s/%s\n", m.selectedNamespace, m.selectedPod)
+		view += fmt.Sprintf("Path:   %s\n", m.selectedPath)
+	} else {
+		// Extended view with more details
+		view += fmt.Sprintf("Namespace: %s\n", m.selectedNamespace)
+		view += fmt.Sprintf("Pod:       %s\n", m.selectedPod)
+		if m.selectedContainer != "" {
+			view += fmt.Sprintf("Container: %s\n", m.selectedContainer)
+		}
+		view += fmt.Sprintf("Path:      %s\n", m.selectedPath)
+	}
 	
 	// Show output file location
 	outputFile := m.backupOptions.OutputFile
@@ -39,11 +47,28 @@ func viewPathInput(m Model, width int) string {
 		}
 		outputFile = fmt.Sprintf("backup-%s-%s-%s.tar.gz", m.selectedNamespace, m.selectedPod, pathSuffix)
 	}
-	view += fmt.Sprintf("Output: %s\n", outputFile)
+	view += fmt.Sprintf("Output:    %s\n", outputFile)
 	
-	view += "\n---\n"
+	// Add compression info
+	if width >= 80 {
+		view += fmt.Sprintf("\nCompression: %s", m.backupOptions.CompressionType)
+		if len(m.backupOptions.ExcludePatterns) > 0 {
+			view += fmt.Sprintf(" | Excludes: %s", strings.Join(m.backupOptions.ExcludePatterns, ", "))
+		}
+		view += "\n"
+	}
+	
+	view += "\n"
 	view += "Command to execute:\n"
 	view += fmt.Sprintf("$ %s\n", m.commandBuilder.Preview())
+	
+	// Add recent backups if space allows
+	if width >= 100 {
+		// TODO: Would need to access recent backups from job manager
+		// For now, just show a placeholder structure
+		view += "\nRecent backups from this pod:\n"
+		view += "• No recent backups found\n"
+	}
 	
 	return view
 }

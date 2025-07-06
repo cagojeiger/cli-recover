@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 	
 	"github.com/cagojeiger/cli-recover/internal/kubernetes"
@@ -10,17 +11,44 @@ import (
 
 // viewMainMenu renders the main menu
 func viewMainMenu(m Model, width int) string {
-	items := []string{"Backup", "Restore", "Exit"}
+	items := []struct {
+		name string
+		desc string
+	}{
+		{"Backup", "Create backups from Kubernetes pods"},
+		{"Restore", "Restore backups to Kubernetes pods (Coming soon)"},
+		{"Exit", "Exit CLI Recover"},
+	}
 	
 	var view string
-	view += "Main Menu:\n"
+	view += "Main Menu:\n\n"
 	
-	// Menu items
+	// Menu items with descriptions for wider screens
 	for i, item := range items {
+		marker := "  "
 		if i == m.selected {
-			view += fmt.Sprintf("  > %s\n", item)
+			marker = "> "
+		}
+		
+		if width < 80 {
+			// Simple display
+			view += fmt.Sprintf("%s%s\n", marker, item.name)
 		} else {
-			view += fmt.Sprintf("    %s\n", item)
+			// Extended display with descriptions
+			view += fmt.Sprintf("%s%-10s - %s\n", marker, item.name, item.desc)
+		}
+	}
+	
+	// Add job summary if we have jobs
+	if m.jobManager != nil {
+		active := len(m.jobManager.GetActive())
+		queued := len(m.jobManager.GetQueued())
+		if active > 0 || queued > 0 {
+			view += fmt.Sprintf("\n─────────────────────────────\n")
+			view += fmt.Sprintf("Active Jobs: %d | Queued: %d\n", active, queued)
+			if active > 0 {
+				view += "Press [J] to view Job Manager\n"
+			}
 		}
 	}
 	
@@ -49,10 +77,26 @@ func viewPodList(m Model, width int) string {
 	var view string
 	view += fmt.Sprintf("Pods in %s:\n", m.selectedNamespace)
 	
-	// Pod list
+	// Pod list with dynamic info based on width
 	for i, pod := range m.pods {
-		// Simple pod display
-		display := fmt.Sprintf("%-30s %s %s", pod.Name, pod.Status, pod.Ready)
+		var display string
+		
+		if width < 80 {
+			// Compact display
+			display = fmt.Sprintf("%-30s %s", pod.Name, pod.Status)
+		} else {
+			// Extended display with more info
+			// Extract container count from pod.Containers
+			containerCount := len(pod.Containers)
+			containerInfo := "1 container"
+			if containerCount > 1 {
+				containerInfo = fmt.Sprintf("%d containers", containerCount)
+			}
+			
+			// Format with additional information
+			display = fmt.Sprintf("%-40s %-8s %-6s %s", 
+				pod.Name, pod.Status, pod.Ready, containerInfo)
+		}
 		
 		if i == m.selected {
 			view += fmt.Sprintf("  > %s\n", display)
@@ -96,15 +140,39 @@ func viewDirectoryBrowser(m Model, width int) string {
 	var view string
 	view += fmt.Sprintf("Browse: %s\n", m.currentPath)
 	
-	// Directory entries
+	// Show more info for wider screens
+	if width >= 100 && m.selectedPath != "" {
+		view += fmt.Sprintf("Selected: %s\n", m.selectedPath)
+	}
+	view += "\n"
+	
+	// Directory entries with dynamic display
 	for i, entry := range m.directories {
 		icon := "📄"
 		if entry.Type == "dir" {
 			icon = "📁"
 		}
 		
-		// Simple entry display
-		display := fmt.Sprintf("%s %-30s %s", icon, entry.Name, entry.Size)
+		var display string
+		if width < 80 {
+			// Compact: just name and size
+			display = fmt.Sprintf("%s %-30s %s", icon, entry.Name, entry.Size)
+		} else {
+			// Extended: add type and permissions if available
+			typeStr := "file"
+			if entry.Type == "dir" {
+				typeStr = "dir "
+			}
+			
+			// Add modification info if we have width
+			if width >= 100 {
+				display = fmt.Sprintf("%s %-40s %4s %10s", 
+					icon, entry.Name, typeStr, entry.Size)
+			} else {
+				display = fmt.Sprintf("%s %-35s %s %s", 
+					icon, entry.Name, typeStr, entry.Size)
+			}
+		}
 		
 		if i == m.selected {
 			view += fmt.Sprintf("  > %s\n", display)
@@ -204,17 +272,32 @@ func viewJobManager(m Model, width int) string {
 			progress := job.GetProgress()
 			duration := job.Duration()
 			
-			view += fmt.Sprintf("%s🔄 [%s] Running (%d%%) - %s\n", 
-				marker, job.ID, progress, duration.Round(time.Second))
+			// Build progress bar
+			barWidth := 20
+			if width >= 100 {
+				barWidth = 30
+			}
+			progressBar := makeProgressBar(progress, barWidth)
 			
-			// Show last output line if selected
-			if selected && len(job.GetOutput()) > 0 {
-				output := job.GetOutput()
-				lastLine := output[len(output)-1]
-				if len(lastLine) > width-6 {
-					lastLine = lastLine[:width-9] + "..."
+			if width < 80 {
+				// Compact display
+				view += fmt.Sprintf("%s%s %d%% %s\n", 
+					marker, job.ID[:8], progress, duration.Round(time.Second))
+			} else {
+				// Extended display
+				view += fmt.Sprintf("%s🔄 [%s] %s %d%% - %s\n", 
+					marker, job.ID[:16], progressBar, progress, duration.Round(time.Second))
+				
+				// Show last output line if selected
+				if selected && len(job.GetOutput()) > 0 {
+					output := job.GetOutput()
+					lastLine := output[len(output)-1]
+					maxLen := width - 10
+					if len(lastLine) > maxLen {
+						lastLine = lastLine[:maxLen-3] + "..."
+					}
+					view += fmt.Sprintf("     └─ %s\n", lastLine)
 				}
-				view += fmt.Sprintf("     └─ %s\n", lastLine)
 			}
 			jobIndex++
 		}
@@ -271,16 +354,36 @@ func viewJobManager(m Model, width int) string {
 			}
 			
 			duration := job.Duration()
-			view += fmt.Sprintf("%s%s [%s] %s - %s\n", 
-				marker, statusIcon, job.ID, statusText, duration.Round(time.Second))
 			
-			// Show error if failed and selected
-			if selected && job.Error != nil {
-				errMsg := job.Error.Error()
-				if len(errMsg) > width-10 {
-					errMsg = errMsg[:width-13] + "..."
+			if width < 80 {
+				// Compact display
+				view += fmt.Sprintf("%s%s %s %s\n", 
+					marker, statusIcon, job.ID[:8], duration.Round(time.Second))
+			} else {
+				// Extended display with more info
+				// Extract pod name from command
+				cmdParts := strings.Fields(job.Command)
+				podName := "unknown"
+				if len(cmdParts) >= 3 {
+					podName = cmdParts[2]
+					if len(podName) > 20 {
+						podName = podName[:17] + "..."
+					}
 				}
-				view += fmt.Sprintf("     └─ Error: %s\n", errMsg)
+				
+				view += fmt.Sprintf("%s%s [%s] %s - %s - %s\n", 
+					marker, statusIcon, job.ID[:16], statusText, 
+					duration.Round(time.Second), podName)
+				
+				// Show error if failed and selected
+				if selected && job.Error != nil {
+					errMsg := job.Error.Error()
+					maxLen := width - 15
+					if len(errMsg) > maxLen {
+						errMsg = errMsg[:maxLen-3] + "..."
+					}
+					view += fmt.Sprintf("     └─ Error: %s\n", errMsg)
+				}
 			}
 			jobIndex++
 		}
@@ -343,4 +446,21 @@ func viewJobDetail(m Model, width int) string {
 	view += "[Enter] Back to list  [c] Cancel job  [b/Esc] Exit job manager\n"
 	
 	return view
+}
+
+// makeProgressBar creates a visual progress bar
+func makeProgressBar(progress int, width int) string {
+	if width < 10 {
+		width = 10
+	}
+	
+	filled := (progress * width) / 100
+	empty := width - filled
+	
+	bar := "["
+	bar += strings.Repeat("█", filled)
+	bar += strings.Repeat("░", empty)
+	bar += "]"
+	
+	return bar
 }

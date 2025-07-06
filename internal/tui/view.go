@@ -30,6 +30,7 @@ func (m Model) View() string {
 	
 	var view string
 	view += renderHeader(width)
+	view += renderBreadcrumb(m)
 	view += renderContent(m, width)
 	view += renderCommand(m, width)
 	view += renderFooter(m, width)
@@ -63,6 +64,42 @@ func renderHeader(width int) string {
 	return fmt.Sprintf("=== %s ===\n\n", header)
 }
 
+// renderBreadcrumb shows current navigation path
+func renderBreadcrumb(m Model) string {
+	var path []string
+	
+	// Build breadcrumb based on current screen
+	switch m.screen {
+	case ScreenMain:
+		return ""  // No breadcrumb on main screen
+	case ScreenBackupType:
+		path = []string{"Backup"}
+	case ScreenNamespaceList:
+		path = []string{"Backup", m.selectedBackupType}
+	case ScreenPodList:
+		path = []string{"Backup", m.selectedBackupType, m.selectedNamespace}
+	case ScreenContainerList:
+		path = []string{"Backup", m.selectedBackupType, m.selectedNamespace, m.selectedPod}
+	case ScreenDirectoryBrowser:
+		path = []string{"Backup", m.selectedBackupType, m.selectedNamespace, m.selectedPod}
+	case ScreenBackupOptions:
+		path = []string{"Backup", m.selectedBackupType, "Options"}
+	case ScreenPathInput:
+		path = []string{"Backup", m.selectedBackupType, "Confirm"}
+	case ScreenJobManager:
+		// Show job count in breadcrumb
+		active := len(m.jobManager.GetActive())
+		queued := len(m.jobManager.GetQueued())
+		path = []string{fmt.Sprintf("Job Manager (%d active, %d queued)", active, queued)}
+	}
+	
+	if len(path) == 0 {
+		return ""
+	}
+	
+	return strings.Join(path, " > ") + "\n\n"
+}
+
 func renderContent(m Model, width int) string {
 	switch m.screen {
 	case ScreenMain:
@@ -90,17 +127,21 @@ func renderContent(m Model, width int) string {
 }
 
 func renderCommand(m Model, width int) string {
-	// Don't show command on main menu or error states
-	if m.screen == ScreenMain {
+	// Only show command in specific screens where it's not already displayed
+	switch m.screen {
+	case ScreenMain, ScreenPathInput, ScreenJobManager:
+		// These screens already show command in their content
+		return ""
+	case ScreenBackupOptions, ScreenDirectoryBrowser:
+		// Show command preview for these screens
+		command := m.commandBuilder.Preview()
+		if command == "cli-recover" {
+			return ""
+		}
+		return fmt.Sprintf("\n---\nCommand: %s\n", command)
+	default:
 		return ""
 	}
-	
-	command := m.commandBuilder.Preview()
-	if command == "cli-recover" {
-		return ""
-	}
-	
-	return fmt.Sprintf("\n---\nCommand: %s\n", command)
 }
 
 func renderFooter(m Model, width int) string {
@@ -131,9 +172,17 @@ func renderFooter(m Model, width int) string {
 		instructions += jobStatus
 	}
 	
-	// Add shortcut hint
+	// Add global shortcuts
+	var shortcuts []string
+	if m.screen != ScreenMain {
+		shortcuts = append(shortcuts, "[h] Home")
+	}
 	if m.screen != ScreenJobManager && m.jobManager != nil {
-		instructions += " [J] Job Manager"
+		shortcuts = append(shortcuts, "[J] Job Manager")
+	}
+	
+	if len(shortcuts) > 0 {
+		instructions += " " + strings.Join(shortcuts, " ")
 	}
 	
 	return fmt.Sprintf("\n%s\n", instructions)

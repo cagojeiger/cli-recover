@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -264,6 +266,45 @@ func parseProgress(line string) int {
 			}
 			return -1
 		}},
+		// "[PROGRESS] X files processed"
+		{"[PROGRESS]", "files", func(s string) int {
+			var files int
+			if _, err := fmt.Sscanf(s, "[PROGRESS] %d files", &files); err == nil {
+				// Estimate: assume 10000 files as 100% (will be refined with actual data)
+				pct := (files * 100) / 10000
+				if pct > 100 {
+					pct = 100
+				}
+				return pct
+			}
+			return -1
+		}},
+		// "2.3GB / 3.1GB" or "2.3/3.1GB"
+		{"", "GB", func(s string) int {
+			var current, total float64
+			// Try different formats
+			if _, err := fmt.Sscanf(s, "%fGB / %fGB", &current, &total); err == nil && total > 0 {
+				return int((current / total) * 100)
+			}
+			if _, err := fmt.Sscanf(s, "%f/%fGB", &current, &total); err == nil && total > 0 {
+				return int((current / total) * 100)
+			}
+			return -1
+		}},
+		// "1.2MB/3.4GB" mixed units
+		{"", "B", func(s string) int {
+			// Extract size with units
+			re := regexp.MustCompile(`(\d+\.?\d*)\s*([KMGT]?B)\s*/\s*(\d+\.?\d*)\s*([KMGT]?B)`)
+			matches := re.FindStringSubmatch(s)
+			if len(matches) == 5 {
+				current := parseSize(matches[1], matches[2])
+				total := parseSize(matches[3], matches[4])
+				if total > 0 {
+					return int((current / total) * 100)
+				}
+			}
+			return -1
+		}},
 	}
 
 	for _, pattern := range patterns {
@@ -275,6 +316,29 @@ func parseProgress(line string) int {
 	}
 
 	return -1
+}
+
+// parseSize converts size string with unit to bytes
+func parseSize(sizeStr, unit string) float64 {
+	size, err := strconv.ParseFloat(sizeStr, 64)
+	if err != nil {
+		return 0
+	}
+	
+	switch unit {
+	case "B":
+		return size
+	case "KB":
+		return size * 1024
+	case "MB":
+		return size * 1024 * 1024
+	case "GB":
+		return size * 1024 * 1024 * 1024
+	case "TB":
+		return size * 1024 * 1024 * 1024 * 1024
+	default:
+		return size
+	}
 }
 
 // killProcessGroup attempts to kill a process and all its children

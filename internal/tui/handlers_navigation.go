@@ -50,6 +50,18 @@ func HandleKey(m Model, key string) Model {
 			return showJobManager(m)
 		}
 		return m
+	case "h", "H":
+		// Quick access to home/main menu from any screen
+		if m.screen != ScreenMain {
+			// Clear screen stack and go home
+			m.screenStack = []Screen{}
+			m.screen = ScreenMain
+			m.selected = 0
+			// Clear any active job details view
+			m.jobDetailView = false
+			debugLog("Navigated to home from %s", m.screen)
+		}
+		return m
 	}
 	
 	return m
