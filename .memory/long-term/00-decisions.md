@@ -27,3 +27,11 @@
   * linux/amd64
   * linux/arm64
 - **Rationale**: Kubernetes runs on Linux servers
+
+## 2025-07-06: Memory Management Strategy
+- **Decision**: Short-term → Long-term transition rules
+- **Criteria**:
+  * Task completion → Move to decisions/learnings
+  * Pattern discovery → Document in patterns.md
+  * Milestone reached → Create checkpoint
+- **Rationale**: Keep active memory clean, preserve important knowledge

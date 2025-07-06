@@ -1,4 +1,4 @@
-# Current Task: v0.1.0 Implementation
+# [COMPLETED] Task: v0.1.0 Implementation
 
 ## Objective
 - `cli-restore --version` 명령어 구현
@@ -20,3 +20,8 @@
 
 ## Next Phase
 - See `.planning/01-future-features.md` for backup command
+
+## PR Created
+- Branch: feat/version-command
+- PR URL: https://github.com/cagojeiger/cli-recover/pull/1
+- Status: Ready for review
