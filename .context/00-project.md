@@ -5,12 +5,13 @@
 - tar 분할 압축 후 로컬 복사
 
 ## Current Phase
-- v0.1.0: 버전 명령어만 구현
-- 최소 기능으로 시작 (Simple Start)
+- v0.1.0: 버전 명령어 구현 완료 ✓
+- v0.2.0: TUI 기반 Pod 백업 기능 구현 중
 
 ## Target Features
-- `cli-restore --version`: 버전 확인
-- `cli-restore backup <pod> <path>`: Pod 백업 (향후)
+- `cli-restore --version`: 버전 확인 ✓
+- `cli-restore tui`: 대화형 백업 도구 (구현 중)
+- `cli-restore backup <pod> <path>`: Pod 백업 직접 실행 (구현 중)
 
 ## Constraints
 - 크로스 플랫폼 지원:

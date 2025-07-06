@@ -1,27 +1,28 @@
-# [COMPLETED] Task: v0.1.0 Implementation
+# [IN PROGRESS] Task: TUI Backup Feature Implementation
 
 ## Objective
-- `cli-restore --version` 명령어 구현
-- 최소 구조로 시작 (Simple Start)
+- TUI 기반 대화형 백업 도구 구현
+- `cli-restore tui` 명령어로 네임스페이스/Pod 선택
+- 최종적으로 `cli-restore backup` CLI 명령어 구성
+
+## Background
+- v0.1.0 성공적으로 릴리즈 완료
+- 새로운 요구사항: Pod 파일 백업, MinIO 업로드, MongoDB 백업
+- 자동완성 대신 TUI 접근법 선택 (의존성 최소화)
 
 ## Progress
-- [x] Context Engineering 디렉토리 생성
-- [x] 프로젝트 목표 문서화
-- [x] Go 모듈 초기화
-- [x] main.go 구현
-- [x] Makefile 작성
-- [x] GitHub Actions 설정
-- [x] 테스트 빌드 성공
+- [x] 브랜치 생성 (feature/tui-backup)
+- [x] 메모리 문서 업데이트
+- [ ] Survey 의존성 추가
+- [ ] 프로젝트 구조 확장
+- [ ] kubectl 래퍼 함수 구현
+- [ ] TUI 서브커맨드 구현
+- [ ] 백업 실행 로직 구현
 
-## Completed
-- `cli-restore --version` outputs: "cli-restore version v0.1.0"
-- Cross-platform build targets ready
-- GitHub Actions will auto-release on tag push
+## Target Commands
+- `cli-restore tui`: 대화형 모드
+- `cli-restore backup <pod> <path>`: 직접 실행 모드
 
-## Next Phase
-- See `.planning/01-future-features.md` for backup command
-
-## PR Created
-- Branch: feat/version-command
-- PR URL: https://github.com/cagojeiger/cli-recover/pull/1
-- Status: Ready for review
+## Current Focus
+- Phase 1: Pod 파일 백업 기능만 구현
+- Survey 라이브러리 사용 (가장 가벼운 TUI)

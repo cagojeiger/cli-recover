@@ -24,10 +24,34 @@ make build
 
 ## 사용법
 
+### 기본 명령어
 ```bash
 cli-restore --version    # 버전 확인
 cli-restore --help       # 도움말
 ```
+
+### 대화형 백업 (TUI)
+```bash
+cli-restore tui          # 대화형 인터페이스로 백업 설정
+```
+
+### 직접 백업 (CLI)
+```bash
+cli-restore backup <pod> <path> [flags]
+
+# 예시
+cli-restore backup my-app-pod /data
+cli-restore backup my-app-pod /data --namespace production --split-size 2G
+```
+
+### 플래그 옵션
+- `--namespace, -n`: Kubernetes 네임스페이스 (기본값: default)
+- `--split-size, -s`: 분할 크기 (기본값: 1G)
+- `--output, -o`: 출력 디렉토리 (기본값: ./backup)
+
+### 필수 요구사항
+- `kubectl` 설치 및 클러스터 연결
+- 백업 대상 Pod에 대한 접근 권한
 
 ## 개발
 
