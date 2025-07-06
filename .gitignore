@@ -30,3 +30,13 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Claude
+.claude/
+
+# Built binaries
+cli-restore
+cli-restore-*
+
+# Checksums
+checksums.txt
