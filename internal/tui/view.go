@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 )
 
 // version will be set by ldflags during build (import from main)
@@ -24,8 +23,8 @@ func (m Model) View() string {
 	var view string
 	view += renderHeader(width)
 	view += renderContent(m, width)
-	view += renderFooterBorder(width)
-	view += renderFooterInstructions(m)
+	view += renderCommand(m, width)
+	view += renderFooter(m, width)
 	
 	return view
 }
@@ -48,11 +47,7 @@ func getViewDimensions(m Model) (int, int) {
 
 func renderHeader(width int) string {
 	header := fmt.Sprintf("CLI Recover v%s", version)
-	headerPadding := width - len(header) - 4
-	if headerPadding < 0 {
-		headerPadding = 0
-	}
-	return "┌─ " + header + " " + strings.Repeat("─", headerPadding) + "┐\n"
+	return fmt.Sprintf("=== %s ===\n\n", header)
 }
 
 func renderContent(m Model, width int) string {
@@ -75,17 +70,33 @@ func renderContent(m Model, width int) string {
 	return ""
 }
 
-func renderFooterBorder(width int) string {
-	return "└" + strings.Repeat("─", width-2) + "┘\n"
+func renderCommand(m Model, width int) string {
+	// Don't show command on main menu or error states
+	if m.screen == ScreenMain {
+		return ""
+	}
+	
+	command := m.commandBuilder.Preview()
+	if command == "cli-recover" {
+		return ""
+	}
+	
+	return fmt.Sprintf("\n---\nCommand: %s\n", command)
 }
 
-func renderFooterInstructions(m Model) string {
+func renderFooter(m Model, width int) string {
+	var instructions string
+	
 	switch m.screen {
 	case ScreenDirectoryBrowser:
-		return "↑/↓ Navigate  Enter Open  Space Select  b Back  q Quit"
+		instructions = "[↑/↓] Navigate  [Enter] Open  [Space] Select  [b] Back  [q] Quit"
 	case ScreenBackupOptions:
-		return "↑/↓ Navigate  Space Toggle  Tab Category  Enter OK  b Back"
+		instructions = "[↑/↓] Navigate  [Space] Toggle  [Tab] Category  [Enter] OK  [b] Back"
+	case ScreenPathInput:
+		instructions = "[Enter] Execute  [b] Back  [q] Quit"
 	default:
-		return "↑/↓ Navigate  Enter Select  b Back  q Quit"
+		instructions = "[↑/↓] Navigate  [Enter] Select  [b] Back  [q] Quit"
 	}
+	
+	return fmt.Sprintf("\n%s\n", instructions)
 }

@@ -2,84 +2,23 @@ package tui
 
 import (
 	"fmt"
-	"strings"
-	
-	"github.com/cagojeiger/cli-recover/internal/kubernetes"
 )
 
-// Helper functions for safe string rendering
-
-// renderLine renders a line with proper padding and truncation
-func renderLine(content string, width int) string {
-	if width < 2 {
-		return "│" + strings.Repeat(" ", width) + "│\n"
-	}
-	
-	contentWidth := width - 2
-	if len(content) > contentWidth {
-		// Truncate with ellipsis
-		if contentWidth > 3 {
-			content = content[:contentWidth-3] + "..."
-		} else {
-			content = content[:contentWidth]
-		}
-	}
-	
-	padding := contentWidth - len(content)
-	if padding < 0 {
-		padding = 0
-	}
-	
-	return "│" + content + strings.Repeat(" ", padding) + "│\n"
-}
-
-// renderTitle renders a title line with separator
-func renderTitle(title string, width int) string {
-	if width < 2 {
-		return ""
-	}
-	
-	contentWidth := width - 2
-	titleContent := " " + title
-	
-	if len(titleContent) > contentWidth {
-		if contentWidth > 4 {
-			titleContent = titleContent[:contentWidth-3] + "..."
-		} else {
-			titleContent = titleContent[:contentWidth]
-		}
-	}
-	
-	padding := contentWidth - len(titleContent)
-	if padding < 0 {
-		padding = 0
-	}
-	
-	var result string
-	result += "│" + titleContent + strings.Repeat(" ", padding) + "│\n"
-	result += "├" + strings.Repeat("─", contentWidth) + "┤\n"
-	
-	return result
-}
 
 // viewMainMenu renders the main menu
 func viewMainMenu(m Model, width int) string {
 	items := []string{"Backup", "Restore", "Exit"}
 	
 	var view string
-	
-	// Title
-	view += renderTitle("Main Menu", width)
+	view += "Main Menu:\n"
 	
 	// Menu items
 	for i, item := range items {
-		var line string
 		if i == m.selected {
-			line = fmt.Sprintf(" > %s", item)
+			view += fmt.Sprintf("  > %s\n", item)
 		} else {
-			line = fmt.Sprintf("   %s", item)
+			view += fmt.Sprintf("    %s\n", item)
 		}
-		view += renderLine(line, width)
 	}
 	
 	return view
@@ -88,35 +27,15 @@ func viewMainMenu(m Model, width int) string {
 // viewNamespaceList renders namespace selection
 func viewNamespaceList(m Model, width int) string {
 	var view string
-	
-	// Title
-	view += renderTitle("Select Namespace", width)
-	
-	// Command preview
-	preview := m.commandBuilder.Preview()
-	if len(preview) > contentWidth {
-		preview = preview[:contentWidth-3] + "..."
-	}
-	previewPadding := contentWidth - len(preview)
-	if previewPadding < 0 {
-		previewPadding = 0
-	}
-	view += "│" + preview + strings.Repeat(" ", previewPadding) + "│\n"
-	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
+	view += "Select Namespace:\n"
 	
 	// Namespace list
 	for i, ns := range m.namespaces {
-		var line string
 		if i == m.selected {
-			line = fmt.Sprintf(" > %s", ns)
+			view += fmt.Sprintf("  > %s\n", ns)
 		} else {
-			line = fmt.Sprintf("   %s", ns)
+			view += fmt.Sprintf("    %s\n", ns)
 		}
-		padding := contentWidth - len(line)
-		if padding < 0 {
-			padding = 0
-		}
-		view += "│" + line + strings.Repeat(" ", padding) + "│\n"
 	}
 	
 	return view
@@ -125,59 +44,18 @@ func viewNamespaceList(m Model, width int) string {
 // viewPodList renders pod selection
 func viewPodList(m Model, width int) string {
 	var view string
-	contentWidth := width - 2
-	
-	// Title
-	title := fmt.Sprintf("Pods in %s", m.selectedNamespace)
-	titlePadding := contentWidth - len(title)
-	if titlePadding < 0 {
-		titlePadding = 0
-	}
-	view += "│ " + title + strings.Repeat(" ", titlePadding) + "│\n"
-	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
-	
-	// Command preview
-	preview := m.commandBuilder.Preview()
-	if len(preview) > contentWidth {
-		preview = preview[:contentWidth-3] + "..."
-	}
-	previewPadding := contentWidth - len(preview)
-	if previewPadding < 0 {
-		previewPadding = 0
-	}
-	view += "│" + preview + strings.Repeat(" ", previewPadding) + "│\n"
-	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
+	view += fmt.Sprintf("Pods in %s:\n", m.selectedNamespace)
 	
 	// Pod list
 	for i, pod := range m.pods {
-		// Format pod info to fit width
-		nameLen := contentWidth / 3
-		if nameLen > len(pod.Name) {
-			nameLen = len(pod.Name)
-		}
-		name := pod.Name
-		if len(name) > nameLen {
-			name = name[:nameLen-3] + "..."
-		}
+		// Simple pod display
+		display := fmt.Sprintf("%-30s %s %s", pod.Name, pod.Status, pod.Ready)
 		
-		display := fmt.Sprintf("%-*s %s %s", nameLen, name, pod.Status, pod.Ready)
-		
-		var line string
 		if i == m.selected {
-			line = fmt.Sprintf(" > %s", display)
+			view += fmt.Sprintf("  > %s\n", display)
 		} else {
-			line = fmt.Sprintf("   %s", display)
+			view += fmt.Sprintf("    %s\n", display)
 		}
-		
-		if len(line) > contentWidth {
-			line = line[:contentWidth-3] + "..."
-		}
-		
-		padding := contentWidth - len(line)
-		if padding < 0 {
-			padding = 0
-		}
-		view += "│" + line + strings.Repeat(" ", padding) + "│\n"
 	}
 	
 	return view
@@ -185,103 +63,26 @@ func viewPodList(m Model, width int) string {
 
 // viewDirectoryBrowser renders directory browsing screen
 func viewDirectoryBrowser(m Model, width int) string {
-	contentWidth := width - 2
 	var view string
+	view += fmt.Sprintf("Browse: %s\n", m.currentPath)
 	
-	view += renderDirectoryTitle(m.currentPath, contentWidth)
-	view += renderCommandPreview(m, contentWidth)
-	view += renderDirectoryEntries(m, contentWidth)
-	view += renderDirectoryInstructions(contentWidth)
-	
-	return view
-}
-
-func renderDirectoryTitle(currentPath string, contentWidth int) string {
-	title := fmt.Sprintf("Browse: %s", currentPath)
-	titlePadding := contentWidth - len(title)
-	if titlePadding < 0 {
-		titlePadding = 0
-		title = title[:contentWidth-3] + "..."
-	}
-	view := "│ " + title + strings.Repeat(" ", titlePadding) + "│\n"
-	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
-	return view
-}
-
-func renderCommandPreview(m Model, contentWidth int) string {
-	preview := m.commandBuilder.Preview()
-	if len(preview) > contentWidth {
-		preview = preview[:contentWidth-3] + "..."
-	}
-	previewPadding := contentWidth - len(preview)
-	if previewPadding < 0 {
-		previewPadding = 0
-	}
-	view := "│" + preview + strings.Repeat(" ", previewPadding) + "│\n"
-	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
-	return view
-}
-
-func renderDirectoryEntries(m Model, contentWidth int) string {
-	var view string
+	// Directory entries
 	for i, entry := range m.directories {
-		view += renderDirectoryEntry(entry, i, m.selected, contentWidth)
-	}
-	return view
-}
-
-func renderDirectoryEntry(entry kubernetes.DirectoryEntry, index, selected, contentWidth int) string {
-	prefix := "   "
-	if index == selected {
-		prefix = " > "
-	}
-	
-	icon := getEntryIcon(entry.Type)
-	entryName := formatEntryName(prefix, icon, entry.Name, contentWidth)
-	typeInfo := getEntryTypeInfo(entry)
-	
-	line := fmt.Sprintf("%-*s %s", contentWidth-12, entryName, typeInfo)
-	if len(line) > contentWidth {
-		line = line[:contentWidth]
+		icon := "📄"
+		if entry.Type == "dir" {
+			icon = "📁"
+		}
+		
+		// Simple entry display
+		display := fmt.Sprintf("%s %-30s %s", icon, entry.Name, entry.Size)
+		
+		if i == m.selected {
+			view += fmt.Sprintf("  > %s\n", display)
+		} else {
+			view += fmt.Sprintf("    %s\n", display)
+		}
 	}
 	
-	padding := contentWidth - len(line)
-	if padding < 0 {
-		padding = 0
-	}
-	return "│" + line + strings.Repeat(" ", padding) + "│\n"
-}
-
-func getEntryIcon(entryType string) string {
-	if entryType == "dir" {
-		return "📁"
-	}
-	return "📄"
-}
-
-func formatEntryName(prefix, icon, name string, contentWidth int) string {
-	entryName := fmt.Sprintf("%s%s %s", prefix, icon, name)
-	if len(entryName) > contentWidth-15 {
-		entryName = entryName[:contentWidth-18] + "..."
-	}
-	return entryName
-}
-
-func getEntryTypeInfo(entry kubernetes.DirectoryEntry) string {
-	if entry.Type == "file" {
-		return entry.Size
-	}
-	return entry.Type
-}
-
-func renderDirectoryInstructions(contentWidth int) string {
-	view := "├" + strings.Repeat("─", contentWidth) + "┤\n"
-	instructions := " Enter: Open dir  Space: Select current path  b: Back"
-	if len(instructions) > contentWidth {
-		instructions = instructions[:contentWidth-3] + "..."
-	}
-	instrPadding := contentWidth - len(instructions)
-	view += "│" + instructions + strings.Repeat(" ", instrPadding) + "│\n"
 	return view
 }
 
@@ -297,33 +98,15 @@ func viewBackupType(m Model, width int) string {
 	}
 	
 	var view string
-	contentWidth := width - 2
-	
-	// Title
-	title := "Select Backup Type"
-	titlePadding := contentWidth - len(title)
-	view += "│ " + title + strings.Repeat(" ", titlePadding) + "│\n"
-	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
+	view += "Select Backup Type:\n"
 	
 	// Backup type options
 	for i, bt := range backupTypes {
-		var line string
 		if i == m.selected {
-			line = fmt.Sprintf(" > %-12s - %s", bt.name, bt.description)
+			view += fmt.Sprintf("  > %-12s - %s\n", bt.name, bt.description)
 		} else {
-			line = fmt.Sprintf("   %-12s - %s", bt.name, bt.description)
+			view += fmt.Sprintf("    %-12s - %s\n", bt.name, bt.description)
 		}
-		
-		// Truncate if too long
-		if len(line) > contentWidth {
-			line = line[:contentWidth-3] + "..."
-		}
-		
-		padding := contentWidth - len(line)
-		if padding < 0 {
-			padding = 0
-		}
-		view += "│" + line + strings.Repeat(" ", padding) + "│\n"
 	}
 	
 	return view
