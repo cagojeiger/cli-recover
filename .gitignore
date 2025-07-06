@@ -35,9 +35,13 @@ go.work.sum
 .claude/
 
 # Built binaries
-cli-restore
-cli-restore-darwin-*
-cli-restore-linux-*
+/cli-recover
+cli-recover-darwin-*
+cli-recover-linux-*
 
 # Checksums
 checksums.txt
+
+# Test backup files
+backup-*
+*.tar.gz

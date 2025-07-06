@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/cagojeiger/cli-restore/internal/kubectl"
+	"github.com/cagojeiger/cli-recover/internal/kubectl"
 )
 
 // BackupOptions represents user-selected backup options

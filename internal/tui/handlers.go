@@ -2,12 +2,10 @@ package tui
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/cagojeiger/cli-restore/internal/kubernetes"
-	"github.com/cagojeiger/cli-restore/internal/runner"
+	"github.com/cagojeiger/cli-recover/internal/kubernetes"
 )
 
 // HandleKey processes keyboard input
@@ -80,6 +78,10 @@ func handleUpNavigation(m Model) Model {
 func handleSpace(m Model) Model {
 	if m.screen == ScreenDirectoryBrowser {
 		m.selectedPath = m.currentPath
+		
+		// Update command builder with selected path
+		m.commandBuilder.SetPath(m.selectedPath)
+		
 		m.screen = ScreenBackupOptions
 		m.optionCategory = 0
 		m.optionSelected = 0
@@ -146,6 +148,9 @@ func handleOptionToggle(m Model) Model {
 		}
 	}
 	
+	// Update command builder with new options
+	m.commandBuilder.SetOptions(m.backupOptions)
+	
 	return m
 }
 
@@ -154,6 +159,8 @@ func getMaxItems(m Model) int {
 	switch m.screen {
 	case ScreenMain:
 		return 3 // Backup, Restore, Exit
+	case ScreenBackupType:
+		return 3 // filesystem, minio, mongodb
 	case ScreenNamespaceList:
 		return len(m.namespaces)
 	case ScreenPodList:
@@ -180,6 +187,8 @@ func handleEnter(m Model) Model {
 	switch m.screen {
 	case ScreenMain:
 		return handleMainMenuEnter(m)
+	case ScreenBackupType:
+		return handleBackupTypeEnter(m)
 	case ScreenNamespaceList:
 		return handleNamespaceEnter(m)
 	case ScreenPodList:
@@ -200,16 +209,8 @@ func handleMainMenuEnter(m Model) Model {
 	
 	switch m.selected {
 	case 0: // Backup
-		debugLog("Starting backup flow - loading namespaces")
-		namespaces, err := kubernetes.GetNamespaces(m.runner)
-		if err != nil {
-			debugLog("Error loading namespaces: %v", err)
-			m.err = err
-			return m
-		}
-		debugLog("Loaded %d namespaces", len(namespaces))
-		m.namespaces = namespaces
-		m.screen = ScreenNamespaceList
+		debugLog("Starting backup flow - selecting backup type")
+		m.screen = ScreenBackupType
 		m.selected = 0
 		
 	case 1: // Restore
@@ -225,6 +226,10 @@ func handleMainMenuEnter(m Model) Model {
 
 func handleNamespaceEnter(m Model) Model {
 	m.selectedNamespace = m.namespaces[m.selected]
+	
+	// Update command builder
+	m.commandBuilder.SetNamespace(m.selectedNamespace)
+	
 	pods, err := kubernetes.GetPods(m.runner, m.selectedNamespace)
 	if err != nil {
 		m.err = err
@@ -238,6 +243,10 @@ func handleNamespaceEnter(m Model) Model {
 
 func handlePodEnter(m Model) Model {
 	m.selectedPod = m.pods[m.selected].Name
+	
+	// Update command builder
+	m.commandBuilder.SetPod(m.selectedPod)
+	
 	m.currentPath = "/"
 	directories, err := kubernetes.GetDirectoryContents(m.runner, m.selectedPod, m.selectedNamespace, "/")
 	if err != nil {
@@ -268,6 +277,31 @@ func handleDirectoryEnter(m Model) Model {
 	return m
 }
 
+func handleBackupTypeEnter(m Model) Model {
+	debugLog("handleBackupTypeEnter: selected=%d", m.selected)
+	
+	backupTypes := []string{"filesystem", "minio", "mongodb"}
+	if m.selected < len(backupTypes) {
+		m.selectedBackupType = backupTypes[m.selected]
+		debugLog("Selected backup type: %s", m.selectedBackupType)
+		
+		// Update command builder with backup type
+		m.commandBuilder.SetBackupType(m.selectedBackupType)
+		
+		// Get namespaces and move to namespace selection
+		namespaces, err := kubernetes.GetNamespaces(m.runner)
+		if err != nil {
+			m.err = err
+			return m
+		}
+		m.namespaces = namespaces
+		m.screen = ScreenNamespaceList
+		m.selected = 0
+	}
+	
+	return m
+}
+
 func handleBackupOptionsEnter(m Model) Model {
 	m.screen = ScreenPathInput
 	m.selected = 0
@@ -279,25 +313,34 @@ func handlePathInputEnter(m Model) Model {
 	debugLog("  namespace: %s, pod: %s, path: %s", m.selectedNamespace, m.selectedPod, m.selectedPath)
 	debugLog("  options: %+v", m.backupOptions)
 	
-	// Generate backup command
-	command := kubernetes.GenerateBackupCommand(m.selectedPod, m.selectedNamespace, m.selectedPath, m.backupOptions)
-	debugLog("Generated command: %s", command)
+	// Get command from CommandBuilder
+	args := m.commandBuilder.Build()
+	debugLog("Generated command args: %v", args)
 	
-	// Generate output filename
-	pathSuffix := generatePathSuffix(m.selectedPath)
-	extension := getFileExtension(m.backupOptions.CompressionType)
-	outputFile := fmt.Sprintf("backup-%s-%s-%s%s", m.selectedNamespace, m.selectedPod, pathSuffix, extension)
+	// Execute using our own CLI
+	var output strings.Builder
+	err := m.executor.Execute(args, &output)
 	
-	debugLog("Output file: %s", outputFile)
-	
-	// Execute backup (simplified for TUI)
-	err := executeBackupTUI(m.runner, command, outputFile)
 	if err != nil {
 		debugLog("Backup failed: %v", err)
-		m.err = fmt.Errorf("backup failed: %w", err)
+		// Provide more user-friendly error messages
+		if strings.Contains(err.Error(), "executable file not found") {
+			m.err = fmt.Errorf("internal error: cannot execute self - please report this issue")
+		} else {
+			m.err = fmt.Errorf("backup failed: %w", err)
+		}
 	} else {
 		debugLog("Backup completed successfully")
-		m.err = fmt.Errorf("backup completed successfully: %s", outputFile)
+		// Try to extract output filename from the output
+		outputLines := strings.Split(output.String(), "\n")
+		lastLine := ""
+		for i := len(outputLines) - 1; i >= 0; i-- {
+			if strings.TrimSpace(outputLines[i]) != "" {
+				lastLine = outputLines[i]
+				break
+			}
+		}
+		m.err = fmt.Errorf("backup completed successfully: %s", lastLine)
 	}
 	
 	return m
@@ -306,8 +349,12 @@ func handlePathInputEnter(m Model) Model {
 // handleBack processes back navigation
 func handleBack(m Model) Model {
 	switch m.screen {
-	case ScreenNamespaceList:
+	case ScreenBackupType:
 		m.screen = ScreenMain
+		m.selected = 0
+		
+	case ScreenNamespaceList:
+		m.screen = ScreenBackupType
 		m.selected = 0
 		
 	case ScreenPodList:
@@ -344,66 +391,7 @@ func handleBack(m Model) Model {
 	return m
 }
 
-// generatePathSuffix creates a safe filename suffix from a path
-func generatePathSuffix(path string) string {
-	if path == "/" {
-		return "root"
-	}
-	// Remove leading slash and replace slashes with dashes
-	suffix := strings.TrimPrefix(path, "/")
-	suffix = strings.ReplaceAll(suffix, "/", "-")
-	suffix = strings.ReplaceAll(suffix, " ", "-")
-	suffix = strings.ReplaceAll(suffix, ".", "-")
-	return suffix
-}
-
-// getFileExtension returns file extension based on compression type
-func getFileExtension(compression string) string {
-	switch compression {
-	case "gzip":
-		return ".tar.gz"
-	case "bzip2":
-		return ".tar.bz2"
-	case "xz":
-		return ".tar.xz"
-	case "none":
-		return ".tar"
-	default:
-		return ".tar.gz"
-	}
-}
-
-// executeBackupTUI performs backup for TUI mode
-func executeBackupTUI(runner runner.Runner, command, outputFile string) error {
-	debugLog("executeBackupTUI: creating output file %s", outputFile)
-	
-	// Create output file
-	outFile, err := os.Create(outputFile)
-	if err != nil {
-		return fmt.Errorf("failed to create output file %s: %w", outputFile, err)
-	}
-	defer outFile.Close()
-	
-	// Execute kubectl command
-	parts := strings.Fields(command)
-	if len(parts) == 0 {
-		return fmt.Errorf("empty command")
-	}
-	
-	debugLog("executeBackupTUI: executing command with %d parts", len(parts))
-	
-	// Execute the command and get output
-	output, err := runner.Run(parts[0], parts[1:]...)
-	if err != nil {
-		return fmt.Errorf("backup command failed: %w", err)
-	}
-	
-	// Write output to file
-	_, err = outFile.Write(output)
-	if err != nil {
-		return fmt.Errorf("failed to write backup data: %w", err)
-	}
-	
-	debugLog("executeBackupTUI: backup completed, %d bytes written", len(output))
-	return nil
-}
+// Note: kubectl-based backup functions have been removed.
+// The TUI now uses the CommandBuilder and Executor pattern
+// to call cli-recover directly, ensuring consistency between
+// TUI and CLI modes.

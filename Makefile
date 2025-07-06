@@ -1,5 +1,5 @@
 # Variables
-BINARY_NAME := cli-restore
+BINARY_NAME := cli-recover
 # Git 태그 기반 자동 버전 감지 (태그가 없으면 dev)
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -19,7 +19,7 @@ GOMOD := $(GOCMD) mod
 
 # Default target - show help
 help:
-	@echo "CLI-Restore Makefile Commands:"
+	@echo "CLI-Recover Makefile Commands:"
 	@echo ""
 	@echo "  make build         - Build for current platform"
 	@echo "  make build-all     - Build for all platforms"
@@ -43,21 +43,21 @@ deps:
 	$(GOMOD) tidy
 
 build:
-	$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) ./cmd/cli-restore
+	$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) ./cmd/cli-recover
 
 build-all: build-darwin-amd64 build-darwin-arm64 build-linux-amd64 build-linux-arm64
 
 build-darwin-amd64:
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-darwin-amd64 ./cmd/cli-restore
+	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-darwin-amd64 ./cmd/cli-recover
 
 build-darwin-arm64:
-	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-darwin-arm64 ./cmd/cli-restore
+	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-darwin-arm64 ./cmd/cli-recover
 
 build-linux-amd64:
-	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux-amd64 ./cmd/cli-restore
+	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux-amd64 ./cmd/cli-recover
 
 build-linux-arm64:
-	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux-arm64 ./cmd/cli-restore
+	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux-arm64 ./cmd/cli-recover
 
 test:
 	$(GOTEST) -v ./...

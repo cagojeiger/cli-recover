@@ -3,8 +3,6 @@ package tui
 import (
 	"fmt"
 	"strings"
-
-	"github.com/cagojeiger/cli-restore/internal/kubernetes"
 )
 
 // viewBackupOptions renders backup options configuration screen
@@ -19,6 +17,18 @@ func viewBackupOptions(m Model, width int) string {
 		titlePadding = 0
 	}
 	view += "│ " + title + strings.Repeat(" ", titlePadding) + "│\n"
+	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
+	
+	// Command preview
+	preview := m.commandBuilder.Preview()
+	if len(preview) > contentWidth {
+		preview = preview[:contentWidth-3] + "..."
+	}
+	previewPadding := contentWidth - len(preview)
+	if previewPadding < 0 {
+		previewPadding = 0
+	}
+	view += "│" + preview + strings.Repeat(" ", previewPadding) + "│\n"
 	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
 	
 	// Category tabs
@@ -212,40 +222,24 @@ func renderConfigDetails(m Model, contentWidth int) string {
 func renderCommandComparison(m Model, contentWidth int) string {
 	var view string
 	
-	// Command comparison header
-	cmdTitle := " Command Comparison:"
+	// Command header
+	cmdTitle := " Command to execute:"
 	view += "│" + cmdTitle + strings.Repeat(" ", contentWidth-len(cmdTitle)) + "│\n"
 	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
 	
-	// kubectl command section
-	view += renderKubectlCommand(m, contentWidth)
-	view += "│" + strings.Repeat(" ", contentWidth) + "│\n"
+	// cli-restore command section
 	view += renderCliRestoreCommand(m, contentWidth)
 	
 	return view
 }
 
-func renderKubectlCommand(m Model, contentWidth int) string {
-	var view string
-	originalTitle := " Original kubectl command:"
-	view += "│" + originalTitle + strings.Repeat(" ", contentWidth-len(originalTitle)) + "│\n"
-	
-	kubectlCmd := kubernetes.GenerateBackupCommand(m.selectedPod, m.selectedNamespace, m.selectedPath, m.backupOptions)
-	kubectlLine := " $ " + kubectlCmd + " > backup.tar.gz"
-	
-	view += wrapCommand(kubectlLine, contentWidth)
-	return view
-}
+// renderKubectlCommand removed - we now use cli-restore directly
 
 func renderCliRestoreCommand(m Model, contentWidth int) string {
 	var view string
-	cliTitle := " Using cli-restore:"
-	view += "│" + cliTitle + strings.Repeat(" ", contentWidth-len(cliTitle)) + "│\n"
 	
-	cliCmd := fmt.Sprintf("cli-restore backup %s %s", m.selectedPod, m.selectedPath)
-	if m.selectedNamespace != "default" {
-		cliCmd += fmt.Sprintf(" --namespace %s", m.selectedNamespace)
-	}
+	// Use the actual command from CommandBuilder
+	cliCmd := m.commandBuilder.Preview()
 	cliLine := " $ " + cliCmd
 	
 	view += wrapCommand(cliLine, contentWidth)

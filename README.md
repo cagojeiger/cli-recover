@@ -1,4 +1,4 @@
-# cli-restore
+# cli-recover
 
 Kubernetes 환경을 위한 통합 백업/복원 도구. Pod 파일시스템, 데이터베이스, 오브젝트 스토리지를 지원합니다.
 
@@ -10,12 +10,12 @@ Kubernetes 환경을 위한 통합 백업/복원 도구. Pod 파일시스템, �
 
 ```bash
 # 표준 버전 (온라인 환경)
-wget https://github.com/cagojeiger/cli-recover/releases/latest/download/cli-restore-$(uname -s)-$(uname -m)
-chmod +x cli-restore-*
-sudo mv cli-restore-* /usr/local/bin/cli-restore
+wget https://github.com/cagojeiger/cli-recover/releases/latest/download/cli-recover-$(uname -s)-$(uname -m)
+chmod +x cli-recover-*
+sudo mv cli-recover-* /usr/local/bin/cli-recover
 
 # 오프라인 버전 (mc 포함)
-wget https://github.com/cagojeiger/cli-recover/releases/latest/download/cli-restore-offline-$(uname -s)-$(uname -m)
+wget https://github.com/cagojeiger/cli-recover/releases/latest/download/cli-recover-offline-$(uname -s)-$(uname -m)
 ```
 
 ### 소스에서 빌드
@@ -30,46 +30,46 @@ make build
 
 ### 기본 명령어
 ```bash
-cli-restore --version    # 버전 확인
-cli-restore --help       # 도움말
+cli-recover --version    # 버전 확인
+cli-recover --help       # 도움말
 ```
 
 ### 대화형 모드 (TUI) - 권장
 ```bash
-cli-restore              # k9s 스타일 풀스크린 TUI 실행
+cli-recover              # k9s 스타일 풀스크린 TUI 실행
 ```
 
 ### 명령어 패턴
 ```bash
-cli-restore [action] [target] [resource] [options]
+cli-recover [action] [target] [resource] [options]
 ```
 
 ### 백업 예시
 
 #### Pod 파일시스템
 ```bash
-cli-restore backup pod nginx-app /data --namespace prod --split-size 1G
+cli-recover backup pod nginx-app /data --namespace prod --split-size 1G
 ```
 
 #### MongoDB
 ```bash
 # 자동 스트리밍 (대용량 안전)
-cli-restore backup mongodb mongo-primary --all-databases
+cli-recover backup mongodb mongo-primary --all-databases
 
 # 특정 데이터베이스
-cli-restore backup mongodb mongo-primary --database myapp,sessions
+cli-recover backup mongodb mongo-primary --database myapp,sessions
 ```
 
 #### MinIO
 ```bash
 # mc가 없어도 자동 처리
-cli-restore backup minio minio-server my-bucket --recursive
+cli-recover backup minio minio-server my-bucket --recursive
 ```
 
 ### 복원 예시
 ```bash
-cli-restore restore pod ./backup-20240107.tar nginx-app
-cli-restore restore mongodb ./dump.gz mongo-primary --drop
+cli-recover restore pod ./backup-20240107.tar nginx-app
+cli-recover restore mongodb ./dump.gz mongo-primary --drop
 ```
 
 ### 주요 기능

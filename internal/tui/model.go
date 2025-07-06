@@ -6,8 +6,8 @@ import (
 	
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/cagojeiger/cli-restore/internal/kubernetes"
-	"github.com/cagojeiger/cli-restore/internal/runner"
+	"github.com/cagojeiger/cli-recover/internal/kubernetes"
+	"github.com/cagojeiger/cli-recover/internal/runner"
 )
 
 // Global debug flag
@@ -18,7 +18,7 @@ func SetDebug(debug bool) {
 	debugMode = debug
 	if debug {
 		// Create or append to debug log file
-		logFile, err := os.OpenFile("cli-restore-debug.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		logFile, err := os.OpenFile("cli-recover-debug.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err == nil {
 			fmt.Fprintf(logFile, "=== Debug session started ===\n")
 			logFile.Close()
@@ -35,7 +35,7 @@ func debugLog(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	
 	// Write to log file
-	logFile, err := os.OpenFile("cli-restore-debug.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err := os.OpenFile("cli-recover-debug.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err == nil {
 		fmt.Fprintf(logFile, "TUI: %s\n", message)
 		logFile.Close()
@@ -47,6 +47,7 @@ type Screen int
 
 const (
 	ScreenMain Screen = iota
+	ScreenBackupType
 	ScreenNamespaceList
 	ScreenPodList
 	ScreenDirectoryBrowser
@@ -68,14 +69,19 @@ type Model struct {
 	directories []kubernetes.DirectoryEntry
 	
 	// Backup configuration
-	selectedNamespace string
-	selectedPod       string
-	selectedPath      string
-	backupOptions     kubernetes.BackupOptions
+	selectedBackupType string
+	selectedNamespace  string
+	selectedPod        string
+	selectedPath       string
+	backupOptions      kubernetes.BackupOptions
 	
 	// Backup options UI state
 	optionCategory int // 0: compression, 1: excludes, 2: advanced
 	optionSelected int // selected item within category
+	
+	// Command building
+	commandBuilder *CommandBuilder
+	executor       Executor
 	
 	// UI state
 	err    error
@@ -86,10 +92,36 @@ type Model struct {
 
 // InitialModel creates the initial TUI model
 func InitialModel(runner runner.Runner) Model {
+	cb := NewCommandBuilder()
+	cb.SetAction("backup") // Default to backup action
+	
+	// Create executor
+	executor, err := NewRealExecutor()
+	if err != nil {
+		// Create a model with error state
+		return Model{
+			runner:         runner,
+			screen:         ScreenMain,
+			selected:       0,
+			commandBuilder: cb,
+			err:            fmt.Errorf("failed to initialize: %w", err),
+			backupOptions: kubernetes.BackupOptions{
+				CompressionType: "gzip",
+				ExcludePatterns: []string{"*.log", "tmp/*", ".git"},
+				ExcludeVCS:      true,
+				Verbose:         true,
+				ShowTotals:      false,
+				PreservePerms:   true,
+			},
+		}
+	}
+	
 	return Model{
-		runner:   runner,
-		screen:   ScreenMain,
-		selected: 0,
+		runner:         runner,
+		screen:         ScreenMain,
+		selected:       0,
+		commandBuilder: cb,
+		executor:       executor,
 		backupOptions: kubernetes.BackupOptions{
 			CompressionType: "gzip",
 			ExcludePatterns: []string{"*.log", "tmp/*", ".git"},

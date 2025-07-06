@@ -32,14 +32,14 @@ jobs:
           echo "Building version $VERSION"
           
           # Build for multiple platforms
-          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$VERSION -s -w" -o cli-restore-darwin-amd64 ./cmd/cli-restore
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=$VERSION -s -w" -o cli-restore-darwin-arm64 ./cmd/cli-restore
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$VERSION -s -w" -o cli-restore-linux-amd64 ./cmd/cli-restore
-          GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=$VERSION -s -w" -o cli-restore-linux-arm64 ./cmd/cli-restore
+          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$VERSION -s -w" -o cli-recover-darwin-amd64 ./cmd/cli-recover
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=$VERSION -s -w" -o cli-recover-darwin-arm64 ./cmd/cli-recover
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$VERSION -s -w" -o cli-recover-linux-amd64 ./cmd/cli-recover
+          GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=$VERSION -s -w" -o cli-recover-linux-arm64 ./cmd/cli-recover
 
       - name: Generate checksums
         run: |
-          sha256sum cli-restore-* > checksums.txt
+          sha256sum cli-recover-* > checksums.txt
           cat checksums.txt
 
       - name: Create Release
@@ -51,19 +51,19 @@ jobs:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
           body: |
-            ## CLI-Restore ${{ github.ref }}
+            ## CLI-Recover ${{ github.ref }}
             
             ### Installation
             
             1. Download the binary for your platform
-            2. Make it executable: `chmod +x cli-restore-*`
-            3. Move to your PATH: `sudo mv cli-restore-* /usr/local/bin/cli-restore`
+            2. Make it executable: `chmod +x cli-recover-*`
+            3. Move to your PATH: `sudo mv cli-recover-* /usr/local/bin/cli-recover`
             
             ### Supported Platforms
-            - macOS (Intel): `cli-restore-darwin-amd64`
-            - macOS (Apple Silicon): `cli-restore-darwin-arm64`
-            - Linux (x64): `cli-restore-linux-amd64`
-            - Linux (ARM64): `cli-restore-linux-arm64`
+            - macOS (Intel): `cli-recover-darwin-amd64`
+            - macOS (Apple Silicon): `cli-recover-darwin-arm64`
+            - Linux (x64): `cli-recover-linux-amd64`
+            - Linux (ARM64): `cli-recover-linux-arm64`
           draft: false
           prerelease: false
 
@@ -73,8 +73,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./cli-restore-darwin-amd64
-          asset_name: cli-restore-darwin-amd64
+          asset_path: ./cli-recover-darwin-amd64
+          asset_name: cli-recover-darwin-amd64
           asset_content_type: application/octet-stream
 
       - name: Upload macOS ARM binary
@@ -83,8 +83,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./cli-restore-darwin-arm64
-          asset_name: cli-restore-darwin-arm64
+          asset_path: ./cli-recover-darwin-arm64
+          asset_name: cli-recover-darwin-arm64
           asset_content_type: application/octet-stream
 
       - name: Upload Linux x64 binary
@@ -93,8 +93,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./cli-restore-linux-amd64
-          asset_name: cli-restore-linux-amd64
+          asset_path: ./cli-recover-linux-amd64
+          asset_name: cli-recover-linux-amd64
           asset_content_type: application/octet-stream
 
       - name: Upload Linux ARM64 binary
@@ -103,8 +103,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./cli-restore-linux-arm64
-          asset_name: cli-restore-linux-arm64
+          asset_path: ./cli-recover-linux-arm64
+          asset_name: cli-recover-linux-arm64
           asset_content_type: application/octet-stream
 
       - name: Upload checksums

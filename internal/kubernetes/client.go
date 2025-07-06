@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cagojeiger/cli-restore/internal/runner"
+	"github.com/cagojeiger/cli-recover/internal/runner"
 )
 
 // GetNamespaces returns list of available namespaces

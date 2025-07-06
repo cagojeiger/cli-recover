@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cagojeiger/cli-restore/internal/runner"
+	"github.com/cagojeiger/cli-recover/internal/runner"
 )
 
 func TestGetNamespaces(t *testing.T) {

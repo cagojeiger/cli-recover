@@ -43,7 +43,7 @@ func getViewDimensions(m Model) (int, int) {
 }
 
 func renderHeader(width int) string {
-	header := fmt.Sprintf("CLI Restore v%s", version)
+	header := fmt.Sprintf("CLI Recover v%s", version)
 	headerPadding := width - len(header) - 4
 	if headerPadding < 0 {
 		headerPadding = 0
@@ -55,6 +55,8 @@ func renderContent(m Model, width int) string {
 	switch m.screen {
 	case ScreenMain:
 		return viewMainMenu(m, width)
+	case ScreenBackupType:
+		return viewBackupType(m, width)
 	case ScreenNamespaceList:
 		return viewNamespaceList(m, width)
 	case ScreenPodList:

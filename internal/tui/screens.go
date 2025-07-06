@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 	
-	"github.com/cagojeiger/cli-restore/internal/kubernetes"
+	"github.com/cagojeiger/cli-recover/internal/kubernetes"
 )
 
 // viewMainMenu renders the main menu
@@ -49,6 +49,18 @@ func viewNamespaceList(m Model, width int) string {
 	view += "│ " + title + strings.Repeat(" ", titlePadding) + "│\n"
 	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
 	
+	// Command preview
+	preview := m.commandBuilder.Preview()
+	if len(preview) > contentWidth {
+		preview = preview[:contentWidth-3] + "..."
+	}
+	previewPadding := contentWidth - len(preview)
+	if previewPadding < 0 {
+		previewPadding = 0
+	}
+	view += "│" + preview + strings.Repeat(" ", previewPadding) + "│\n"
+	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
+	
 	// Namespace list
 	for i, ns := range m.namespaces {
 		var line string
@@ -79,6 +91,18 @@ func viewPodList(m Model, width int) string {
 		titlePadding = 0
 	}
 	view += "│ " + title + strings.Repeat(" ", titlePadding) + "│\n"
+	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
+	
+	// Command preview
+	preview := m.commandBuilder.Preview()
+	if len(preview) > contentWidth {
+		preview = preview[:contentWidth-3] + "..."
+	}
+	previewPadding := contentWidth - len(preview)
+	if previewPadding < 0 {
+		previewPadding = 0
+	}
+	view += "│" + preview + strings.Repeat(" ", previewPadding) + "│\n"
 	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
 	
 	// Pod list
@@ -122,6 +146,7 @@ func viewDirectoryBrowser(m Model, width int) string {
 	var view string
 	
 	view += renderDirectoryTitle(m.currentPath, contentWidth)
+	view += renderCommandPreview(m, contentWidth)
 	view += renderDirectoryEntries(m, contentWidth)
 	view += renderDirectoryInstructions(contentWidth)
 	
@@ -136,6 +161,20 @@ func renderDirectoryTitle(currentPath string, contentWidth int) string {
 		title = title[:contentWidth-3] + "..."
 	}
 	view := "│ " + title + strings.Repeat(" ", titlePadding) + "│\n"
+	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
+	return view
+}
+
+func renderCommandPreview(m Model, contentWidth int) string {
+	preview := m.commandBuilder.Preview()
+	if len(preview) > contentWidth {
+		preview = preview[:contentWidth-3] + "..."
+	}
+	previewPadding := contentWidth - len(preview)
+	if previewPadding < 0 {
+		previewPadding = 0
+	}
+	view := "│" + preview + strings.Repeat(" ", previewPadding) + "│\n"
 	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
 	return view
 }
@@ -200,5 +239,49 @@ func renderDirectoryInstructions(contentWidth int) string {
 	}
 	instrPadding := contentWidth - len(instructions)
 	view += "│" + instructions + strings.Repeat(" ", instrPadding) + "│\n"
+	return view
+}
+
+// viewBackupType renders the backup type selection screen
+func viewBackupType(m Model, width int) string {
+	backupTypes := []struct {
+		name        string
+		description string
+	}{
+		{"filesystem", "Backup files and directories from pod filesystem"},
+		{"minio", "Backup objects from MinIO object storage"},
+		{"mongodb", "Backup collections from MongoDB database"},
+	}
+	
+	var view string
+	contentWidth := width - 2
+	
+	// Title
+	title := "Select Backup Type"
+	titlePadding := contentWidth - len(title)
+	view += "│ " + title + strings.Repeat(" ", titlePadding) + "│\n"
+	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
+	
+	// Backup type options
+	for i, bt := range backupTypes {
+		var line string
+		if i == m.selected {
+			line = fmt.Sprintf(" > %-12s - %s", bt.name, bt.description)
+		} else {
+			line = fmt.Sprintf("   %-12s - %s", bt.name, bt.description)
+		}
+		
+		// Truncate if too long
+		if len(line) > contentWidth {
+			line = line[:contentWidth-3] + "..."
+		}
+		
+		padding := contentWidth - len(line)
+		if padding < 0 {
+			padding = 0
+		}
+		view += "│" + line + strings.Repeat(" ", padding) + "│\n"
+	}
+	
 	return view
 }

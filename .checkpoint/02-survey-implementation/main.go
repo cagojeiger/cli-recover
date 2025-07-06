@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/cagojeiger/cli-restore/internal/backup"
-	"github.com/cagojeiger/cli-restore/internal/tui"
+	"github.com/cagojeiger/cli-recover/internal/backup"
+	"github.com/cagojeiger/cli-recover/internal/tui"
 )
 
 // version will be set by ldflags during build
