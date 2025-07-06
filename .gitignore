@@ -36,7 +36,8 @@ go.work.sum
 
 # Built binaries
 cli-restore
-cli-restore-*
+cli-restore-darwin-*
+cli-restore-linux-*
 
 # Checksums
 checksums.txt
