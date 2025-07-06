@@ -224,7 +224,6 @@ func viewExecuting(m Model, width int) string {
 // viewJobManager renders the job manager screen
 func viewJobManager(m Model, width int) string {
 	var view string
-	view += "=== Backup Job Manager ===\n\n"
 	
 	// Check if showing job detail
 	if m.jobDetailView && m.activeJobID != "" {
@@ -277,21 +276,36 @@ func viewJobManager(m Model, width int) string {
 			progress := job.GetProgress()
 			duration := job.Duration()
 			
-			// Build progress bar
-			barWidth := 20
-			if width >= 100 {
-				barWidth = 30
-			}
-			progressBar := makeProgressBar(progress, barWidth)
-			
 			if width < 80 {
 				// Compact display
-				view += fmt.Sprintf("%s%s %d%% %s\n", 
-					marker, job.ID[:8], progress, duration.Round(time.Second))
+				if progress >= 0 {
+					view += fmt.Sprintf("%s%s %d%% %s\n", 
+						marker, job.ID[:8], progress, duration.Round(time.Second))
+				} else {
+					view += fmt.Sprintf("%s%s Running %s\n", 
+						marker, job.ID[:8], duration.Round(time.Second))
+				}
 			} else {
 				// Extended display
-				view += fmt.Sprintf("%s🔄 [%s] %s %d%% - %s\n", 
-					marker, job.ID[:16], progressBar, progress, duration.Round(time.Second))
+				idStr := job.ID[:16]
+				if len(job.ID) > 16 {
+					idStr = job.ID[:16]
+				}
+				
+				if progress >= 0 {
+					// Build progress bar only if we have a valid percentage
+					barWidth := 20
+					if width >= 100 {
+						barWidth = 30
+					}
+					progressBar := makeProgressBar(progress, barWidth)
+					view += fmt.Sprintf("%s🔄 [%s] %s %d%% - %s\n", 
+						marker, idStr, progressBar, progress, duration.Round(time.Second))
+				} else {
+					// No progress percentage, just show status
+					view += fmt.Sprintf("%s🔄 [%s] Running - %s\n", 
+						marker, idStr, duration.Round(time.Second))
+				}
 				
 				// Show last output line if selected
 				if selected && len(job.GetOutput()) > 0 {
@@ -409,15 +423,6 @@ func viewJobManager(m Model, width int) string {
 		}
 		view += "\n"
 	}
-	
-	// Controls - make more compact for small screens
-	view += "\nControls: "
-	if width < 80 {
-		view += "[↑/↓] Nav [Enter] Details [c] Cancel [b] Back"
-	} else {
-		view += "[↑/↓] Navigate [Enter] Details [c] Cancel Job [K] Cancel All [r] Refresh [b] Back"
-	}
-	view += "\n"
 	
 	return view
 }

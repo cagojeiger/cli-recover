@@ -37,13 +37,18 @@ func executeBackupCmd(job *BackupJob, program *tea.Program) tea.Cmd {
 			}
 		}
 
-		// Parse command arguments (job.Command contains the arguments without "cli-recover")
+		// Parse command arguments (job.Command contains the full command including "cli-recover")
 		args := strings.Fields(job.Command)
 		if len(args) == 0 {
 			return BackupErrorMsg{
 				JobID: job.ID,
 				Error: fmt.Errorf("invalid command: empty"),
 			}
+		}
+
+		// Remove "cli-recover" from the beginning if present
+		if len(args) > 0 && args[0] == "cli-recover" {
+			args = args[1:]
 		}
 
 		debugLog("executeBackupCmd: starting %s with args: %v", selfPath, args)
@@ -123,10 +128,19 @@ func executeBackupCmd(job *BackupJob, program *tea.Program) tea.Cmd {
 					}()
 					
 					if program != nil {
+						// Send raw output without complex progress parsing
+						// Let each backup type's output format be shown as-is
+						progress := -1  // -1 means no progress bar
+						
+						// Only try to parse explicit percentage if present
+						if strings.Contains(line, "% complete") {
+							progress = parseProgress(line)
+						}
+						
 						program.Send(BackupProgressMsg{
 							JobID:     job.ID,
 							Output:    line,
-							Progress:  parseProgress(line),
+							Progress:  progress,
 							Timestamp: time.Now(),
 						})
 					}
