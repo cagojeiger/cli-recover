@@ -74,6 +74,8 @@ type Model struct {
 	selectedPod        string
 	selectedPath       string
 	backupOptions      kubernetes.BackupOptions
+	minioOptions       kubernetes.MinioBackupOptions
+	mongoOptions       kubernetes.MongoBackupOptions
 	
 	// Backup options UI state
 	optionCategory int // 0: compression, 1: excludes, 2: advanced
@@ -113,6 +115,16 @@ func InitialModel(runner runner.Runner) Model {
 				ShowTotals:      false,
 				PreservePerms:   true,
 			},
+			minioOptions: kubernetes.MinioBackupOptions{
+				Endpoint:  "http://localhost:9000",
+				Recursive: true,
+				Format:    "tar",
+			},
+			mongoOptions: kubernetes.MongoBackupOptions{
+				Host:   "localhost:27017",
+				AuthDB: "admin",
+				Gzip:   true,
+			},
 		}
 	}
 	
@@ -129,6 +141,16 @@ func InitialModel(runner runner.Runner) Model {
 			Verbose:         true,
 			ShowTotals:      false,
 			PreservePerms:   true,
+		},
+		minioOptions: kubernetes.MinioBackupOptions{
+			Endpoint:  "http://localhost:9000",
+			Recursive: true,
+			Format:    "tar",
+		},
+		mongoOptions: kubernetes.MongoBackupOptions{
+			Host:   "localhost:27017",
+			AuthDB: "admin",
+			Gzip:   true,
 		},
 	}
 }

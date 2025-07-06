@@ -36,3 +36,37 @@ type BackupOptions struct {
 	// File settings
 	OutputFile string // Output filename (auto-generated if empty)
 }
+
+// MinioBackupOptions represents MinIO-specific backup options
+type MinioBackupOptions struct {
+	// Connection settings
+	Endpoint   string // MinIO endpoint URL
+	AccessKey  string // MinIO access key
+	SecretKey  string // MinIO secret key
+	
+	// Backup settings
+	Recursive bool   // Recursive backup
+	Format    string // Output format (tar, zip)
+	
+	// Common settings
+	Container  string // For multi-container pods
+	OutputFile string // Output filename
+}
+
+// MongoBackupOptions represents MongoDB-specific backup options
+type MongoBackupOptions struct {
+	// Connection settings
+	Host     string // MongoDB host:port
+	Username string // MongoDB username
+	Password string // MongoDB password
+	AuthDB   string // Authentication database
+	
+	// Backup settings
+	Collections []string // Specific collections to backup
+	Oplog       bool     // Include oplog for point-in-time restore
+	Gzip        bool     // Compress with gzip
+	
+	// Common settings
+	Container  string // For multi-container pods
+	OutputFile string // Output filename
+}

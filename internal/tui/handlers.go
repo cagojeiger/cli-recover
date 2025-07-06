@@ -96,7 +96,16 @@ func handleSpace(m Model) Model {
 
 func handleTab(m Model) Model {
 	if m.screen == ScreenBackupOptions {
-		m.optionCategory = (m.optionCategory + 1) % 3 // 0: compression, 1: excludes, 2: advanced
+		// Different number of tabs based on backup type
+		maxTabs := 3 // default for filesystem
+		switch m.selectedBackupType {
+		case "minio":
+			maxTabs = 2 // Connection, Backup Settings
+		case "mongodb":
+			maxTabs = 3 // Connection, Auth, Backup Settings
+		}
+		
+		m.optionCategory = (m.optionCategory + 1) % maxTabs
 		m.optionSelected = 0
 	}
 	return m
@@ -104,6 +113,18 @@ func handleTab(m Model) Model {
 
 // handleOptionToggle toggles backup options
 func handleOptionToggle(m Model) Model {
+	switch m.selectedBackupType {
+	case "minio":
+		return handleMinioOptionToggle(m)
+	case "mongodb":
+		return handleMongoOptionToggle(m)
+	default: // filesystem
+		return handleFilesystemOptionToggle(m)
+	}
+}
+
+// handleFilesystemOptionToggle handles filesystem backup option toggles
+func handleFilesystemOptionToggle(m Model) Model {
 	switch m.optionCategory {
 	case 0: // Compression
 		compressionTypes := []string{"gzip", "bzip2", "xz", "none"}
@@ -154,6 +175,53 @@ func handleOptionToggle(m Model) Model {
 	return m
 }
 
+// handleMinioOptionToggle handles MinIO backup option toggles
+func handleMinioOptionToggle(m Model) Model {
+	switch m.optionCategory {
+	case 0: // Connection
+		// Connection settings are handled differently (text input)
+		// For now, just return as-is
+		
+	case 1: // Backup Settings
+		formats := []string{"tar", "zip"}
+		if m.optionSelected < len(formats) {
+			m.minioOptions.Format = formats[m.optionSelected]
+		} else if m.optionSelected == len(formats) {
+			// Toggle recursive
+			m.minioOptions.Recursive = !m.minioOptions.Recursive
+		}
+	}
+	
+	// TODO: Update command builder with MinIO options
+	
+	return m
+}
+
+// handleMongoOptionToggle handles MongoDB backup option toggles
+func handleMongoOptionToggle(m Model) Model {
+	switch m.optionCategory {
+	case 0: // Connection
+		// Connection settings are handled differently (text input)
+		
+	case 1: // Auth
+		// Auth settings are handled differently (text input)
+		
+	case 2: // Backup Settings
+		switch m.optionSelected {
+		case 0:
+			m.mongoOptions.Gzip = !m.mongoOptions.Gzip
+		case 1:
+			m.mongoOptions.Oplog = !m.mongoOptions.Oplog
+		case 2:
+			// Collections are handled differently (text input)
+		}
+	}
+	
+	// TODO: Update command builder with MongoDB options
+	
+	return m
+}
+
 // getMaxItems returns the number of items in current screen
 func getMaxItems(m Model) int {
 	switch m.screen {
@@ -168,13 +236,32 @@ func getMaxItems(m Model) int {
 	case ScreenDirectoryBrowser:
 		return len(m.directories)
 	case ScreenBackupOptions:
-		switch m.optionCategory {
-		case 0: // Compression
-			return 4 // gzip, bzip2, xz, none
-		case 1: // Excludes
-			return 6 // 5 patterns + VCS toggle
-		case 2: // Advanced
-			return 3 // verbose, totals, preserve
+		switch m.selectedBackupType {
+		case "minio":
+			switch m.optionCategory {
+			case 0: // Connection
+				return 3 // endpoint, access key, secret key
+			case 1: // Backup Settings
+				return 3 // tar, zip, recursive
+			}
+		case "mongodb":
+			switch m.optionCategory {
+			case 0: // Connection
+				return 1 // host
+			case 1: // Auth
+				return 3 // username, password, auth db
+			case 2: // Backup Settings
+				return 3 // gzip, oplog, collections
+			}
+		default: // filesystem
+			switch m.optionCategory {
+			case 0: // Compression
+				return 4 // gzip, bzip2, xz, none
+			case 1: // Excludes
+				return 6 // 5 patterns + VCS toggle
+			case 2: // Advanced
+				return 3 // verbose, totals, preserve
+			}
 		}
 		return 1
 	default:
@@ -247,16 +334,38 @@ func handlePodEnter(m Model) Model {
 	// Update command builder
 	m.commandBuilder.SetPod(m.selectedPod)
 	
-	m.currentPath = "/"
-	directories, err := kubernetes.GetDirectoryContents(m.runner, m.selectedPod, m.selectedNamespace, "/")
-	if err != nil {
-		m.err = err
+	// For MinIO and MongoDB, skip directory browsing
+	switch m.selectedBackupType {
+	case "minio":
+		// For MinIO, path will be bucket/path specified in options
+		m.selectedPath = "" // Will be set via options
+		m.screen = ScreenBackupOptions
+		m.optionCategory = 0
+		m.optionSelected = 0
+		m.selected = 0
+		return m
+		
+	case "mongodb":
+		// For MongoDB, path will be database name specified in options
+		m.selectedPath = "" // Will be set via options
+		m.screen = ScreenBackupOptions
+		m.optionCategory = 0
+		m.optionSelected = 0
+		m.selected = 0
+		return m
+		
+	default: // filesystem
+		m.currentPath = "/"
+		directories, err := kubernetes.GetDirectoryContents(m.runner, m.selectedPod, m.selectedNamespace, "/")
+		if err != nil {
+			m.err = err
+			return m
+		}
+		m.directories = directories
+		m.screen = ScreenDirectoryBrowser
+		m.selected = 0
 		return m
 	}
-	m.directories = directories
-	m.screen = ScreenDirectoryBrowser
-	m.selected = 0
-	return m
 }
 
 func handleDirectoryEnter(m Model) Model {
