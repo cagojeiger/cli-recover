@@ -192,7 +192,8 @@ func handleMinioOptionToggle(m Model) Model {
 		}
 	}
 	
-	// TODO: Update command builder with MinIO options
+	// Update command builder with MinIO options
+	m.commandBuilder.SetMinioOptions(m.minioOptions)
 	
 	return m
 }
@@ -217,7 +218,8 @@ func handleMongoOptionToggle(m Model) Model {
 		}
 	}
 	
-	// TODO: Update command builder with MongoDB options
+	// Update command builder with MongoDB options
+	m.commandBuilder.SetMongoOptions(m.mongoOptions)
 	
 	return m
 }
@@ -412,6 +414,21 @@ func handleBackupTypeEnter(m Model) Model {
 }
 
 func handleBackupOptionsEnter(m Model) Model {
+	// For MinIO and MongoDB, set default paths if not already set
+	switch m.selectedBackupType {
+	case "minio":
+		if m.selectedPath == "" {
+			m.selectedPath = "mybucket" // Default bucket name
+		}
+		m.commandBuilder.SetPath(m.selectedPath)
+		
+	case "mongodb":
+		if m.selectedPath == "" {
+			m.selectedPath = "mydb" // Default database name
+		}
+		m.commandBuilder.SetPath(m.selectedPath)
+	}
+	
 	m.screen = ScreenPathInput
 	m.selected = 0
 	return m

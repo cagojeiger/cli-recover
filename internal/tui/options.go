@@ -210,13 +210,24 @@ func renderConfigHeader(contentWidth int) string {
 
 func renderConfigDetails(m Model, contentWidth int) string {
 	var view string
+	
+	// Different labels based on backup type
+	pathLabel := "Path: "
+	pathValue := m.selectedPath
+	
+	switch m.selectedBackupType {
+	case "minio":
+		pathLabel = "Bucket/Path: "
+	case "mongodb":
+		pathLabel = "Database: "
+	}
 	configs := []struct {
 		label string
 		value string
 	}{
 		{"Namespace", m.selectedNamespace},
 		{"Pod", m.selectedPod},
-		{"Path", m.selectedPath},
+		{pathLabel[:len(pathLabel)-2], pathValue},
 	}
 	
 	for _, config := range configs {
