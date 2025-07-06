@@ -1,65 +1,84 @@
-# CLI-Restore Roadmap
+# Project Roadmap
 
-## Phase 1: Foundation (v0.1.0) ✅
-- [x] Context Engineering 구조 설정
-- [x] 기본 프로젝트 구조
-- [x] `--version` 명령어 구현
-- [x] 빌드 시스템 (Makefile)
-- [x] GitHub Actions 자동 릴리즈
+## Overall Vision
+Create a user-friendly Kubernetes backup tool that simplifies pod filesystem operations through an interactive TUI while maintaining educational value by showing equivalent kubectl commands.
 
-## Phase 2: TUI Framework (v0.2.0) - Current
-- [x] Bubble Tea 프레임워크 선택
-- [x] 표준 레이아웃 설계 (Header/Main/Preview/Footer)
-- [x] 명령어 패턴 확립 (`[action] [target] [options]`)
-- [ ] 기본 TUI 구현
-- [ ] 네비게이션 시스템
-- [ ] Pod 파일시스템 백업
+## Development Phases
 
-## Phase 3: Core Backup Features (v0.3.0)
-- [ ] MongoDB 백업 지원 (Bitnami)
-- [ ] MinIO 백업 지원 (mc 자동 처리)
-- [ ] PostgreSQL 백업 지원
-- [ ] 크기 기반 백업 전략 자동 선택
-- [ ] Port forward 자동 관리
-- [ ] 진행률 실시간 표시
+### Phase 1: Foundation ✅ COMPLETED
+**Goal**: Basic TUI with namespace/pod selection
+**Duration**: Initial development
+**Deliverables**:
+- ✅ Bubble Tea TUI framework setup
+- ✅ Basic navigation (namespace → pod selection)
+- ✅ kubectl integration for data fetching
+- ✅ Golden file testing infrastructure
 
-## Phase 4: Offline Support (v0.4.0)
-- [ ] Go embed 기반 바이너리 임베딩
-- [ ] mc 바이너리 자동 주입
-- [ ] 오프라인 빌드 변형 (minimal/standard/full)
-- [ ] 바이너리 보안 검증
-- [ ] 자동 정리 보장
+### Phase 2: Directory Navigation ✅ COMPLETED  
+**Goal**: Interactive filesystem browsing
+**Duration**: Mid development
+**Deliverables**:
+- ✅ Directory browser with file/folder icons
+- ✅ Path navigation (enter directories, go back)
+- ✅ Current directory selection for backup
+- ✅ Visual indicators for file types and sizes
 
-## Phase 5: Advanced Features (v0.5.0)
-- [ ] 복원 기능 완성
-- [ ] 백업 검증 (verify)
-- [ ] 백업 히스토리 관리
-- [ ] 기본 스케줄링 지원
-- [ ] 에러 복구 메커니즘
+### Phase 3: Backup Configuration ✅ COMPLETED
+**Goal**: Comprehensive backup options
+**Duration**: Feature completion
+**Deliverables**:
+- ✅ Backup options screen with tab navigation
+- ✅ Compression settings (gzip, bzip2, xz, none)
+- ✅ Exclude patterns and VCS exclusion
+- ✅ Advanced options (verbose, totals, permissions)
+- ✅ Complex tar command generation
 
-## Phase 6: Enterprise Ready (v1.0.0)
-- [ ] Multi-cluster 지원
-- [ ] Cloud storage 통합 (S3, GCS, Azure)
-- [ ] 암호화 지원
-- [ ] RBAC 통합
-- [ ] Prometheus 메트릭
-- [ ] Webhook 알림
+### Phase 4: Architecture Refactoring ✅ COMPLETED
+**Goal**: Clean, maintainable codebase
+**Duration**: 2025-01-06
+**Deliverables**:
+- ✅ Split 922-line tui.go into focused modules
+- ✅ Internal package structure (kubernetes/runner/tui)
+- ✅ CLAUDE.md compliance (files <500 lines)
+- ✅ Improved test coverage and organization
 
-## Phase 7: Extended Services (v1.1.0)
-- [ ] Redis 백업 지원
-- [ ] MySQL/MariaDB 지원
-- [ ] Elasticsearch 지원
-- [ ] 증분 백업
-- [ ] 병렬 백업 최적화
+### Phase 5: Quality & Compliance 🔄 IN PROGRESS
+**Goal**: 100% CLAUDE.md compliance and production readiness
+**Duration**: Current (2025-01-06)
+**Deliverables**:
+- ✅ Context engineering management structure
+- 🔄 Test coverage improvement (target: 90%+)
+- 📋 Function size optimization (<50 lines)
+- 📋 CLI mode enhancements
+- 📋 Debug mode implementation
 
-## Phase 8: Platform Features (v1.2.0)
-- [ ] Web Dashboard
-- [ ] Helm Chart
-- [ ] Kubernetes Operator
-- [ ] Plugin 시스템
-- [ ] Community templates
+### Phase 6: Production Features 📋 PLANNED
+**Goal**: Complete feature set for production use
+**Deliverables**:
+- 📋 Actual backup execution (not just command generation)
+- 📋 Progress indicators for long operations
+- 📋 Error recovery and retry mechanisms
+- 📋 Configuration file support
+- 📋 Multiple output formats
 
-## Current Status
-- **Released**: v0.1.0 (Foundation complete)
-- **In Progress**: v0.2.0 (TUI Framework)
-- **Next Focus**: Bubble Tea 기반 TUI 구현
+## Success Metrics
+
+### Technical Quality
+- ✅ All files < 500 lines (CLAUDE.md Rule 04)
+- 🎯 All functions < 50 lines (target for Phase 5)
+- 🎯 Test coverage > 90% (target for Phase 5)
+- ✅ Zero circular dependencies
+- ✅ Clean package boundaries
+
+### User Experience
+- ✅ Intuitive keyboard navigation
+- ✅ Visual file system representation
+- ✅ Educational command comparison
+- ✅ Responsive design across terminal sizes
+- 📋 Error messages with clear guidance
+
+### Maintainability
+- ✅ Clear separation of concerns
+- ✅ Comprehensive documentation
+- ✅ Reliable test suite
+- ✅ Consistent coding patterns

@@ -1,0 +1,112 @@
+{
+  "apiVersion": "v1",
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "creationTimestamp": "2024-01-07T10:00:00Z",
+        "labels": {
+          "app": "nginx"
+        },
+        "name": "nginx-7b9899ff5f-abc123",
+        "namespace": "default",
+        "resourceVersion": "12345",
+        "uid": "pod-uid-1"
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "nginx:latest",
+            "name": "nginx"
+          }
+        ],
+        "nodeName": "node-1",
+        "volumes": [
+          {
+            "name": "data",
+            "emptyDir": {}
+          }
+        ]
+      },
+      "status": {
+        "conditions": [],
+        "containerStatuses": [
+          {
+            "containerID": "docker://abcd1234",
+            "image": "nginx:latest",
+            "name": "nginx",
+            "ready": true,
+            "restartCount": 0,
+            "started": true,
+            "state": {
+              "running": {
+                "startedAt": "2024-01-07T10:01:00Z"
+              }
+            }
+          }
+        ],
+        "phase": "Running",
+        "podIP": "10.1.1.1",
+        "startTime": "2024-01-07T10:00:30Z"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "creationTimestamp": "2024-01-07T11:00:00Z",
+        "labels": {
+          "app": "mongodb",
+          "helm.sh/chart": "mongodb-13.6.2"
+        },
+        "name": "mongo-0",
+        "namespace": "default",
+        "resourceVersion": "12400",
+        "uid": "pod-uid-2"
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "bitnami/mongodb:6.0",
+            "name": "mongodb"
+          }
+        ],
+        "nodeName": "node-2",
+        "volumes": [
+          {
+            "name": "datadir",
+            "persistentVolumeClaim": {
+              "claimName": "datadir-mongo-0"
+            }
+          }
+        ]
+      },
+      "status": {
+        "conditions": [],
+        "containerStatuses": [
+          {
+            "containerID": "docker://efgh5678",
+            "image": "bitnami/mongodb:6.0",
+            "name": "mongodb",
+            "ready": true,
+            "restartCount": 0,
+            "started": true,
+            "state": {
+              "running": {
+                "startedAt": "2024-01-07T11:02:00Z"
+              }
+            }
+          }
+        ],
+        "phase": "Running",
+        "podIP": "10.1.1.2",
+        "startTime": "2024-01-07T11:00:30Z"
+      }
+    }
+  ],
+  "kind": "PodList",
+  "metadata": {
+    "resourceVersion": "15000"
+  }
+}

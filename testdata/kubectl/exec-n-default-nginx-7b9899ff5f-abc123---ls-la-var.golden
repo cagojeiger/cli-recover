@@ -1,0 +1,13 @@
+total 44
+drwxr-xr-x 1 root root 4096 Jan  1 12:00 backups
+drwxr-xr-x 1 root root 4096 Jan  1 12:00 cache
+drwxr-xr-x 1 root root 4096 Jan  1 12:00 lib
+drwxr-xr-x 1 root root 4096 Jan  1 12:00 local
+drwxrwxrwt 1 root root 4096 Jan  1 12:00 lock
+drwxr-xr-x 1 root root 4096 Jan  1 12:00 log
+drwxr-xr-x 1 root root 4096 Jan  1 12:00 mail
+drwxr-xr-x 1 root root 4096 Jan  1 12:00 opt
+drwxr-xr-x 1 root root 4096 Jan  1 12:00 run
+drwxr-xr-x 1 root root 4096 Jan  1 12:00 spool
+drwxr-xr-x 1 root root 4096 Jan  1 12:00 tmp
+drwxr-xr-x 1 root root 4096 Jan  1 12:00 www

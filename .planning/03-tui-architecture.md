@@ -1,9 +1,38 @@
 # TUI Architecture Design
 
 ## Overview
-k9s 스타일의 전문적인 TUI 시스템 아키텍처
+k9s 스타일의 전문적인 TUI - 단순화된 접근 (v0.2.0)
 
-## Core Architecture
+## Simplified Architecture (복잡도: 20)
+
+### 1. Single File Start
+- main.go에 모든 TUI 로직 포함
+- 500줄 초과 시 분리
+- Golden File 기반 개발
+
+### 2. Core Components (main.go 내부)
+```go
+// Bubble Tea Model
+type Model struct {
+    screen     Screen      // current screen
+    namespaces []string    // kubectl data
+    pods       []Pod
+    selected   int
+    runner     Runner      // golden or shell
+}
+
+// Minimal screens
+type Screen int
+const (
+    MainMenu Screen = iota
+    NamespaceList
+    PodList
+    Executing
+)
+```
+
+## Future Architecture (v0.3.0+)
+*아래는 향후 확장 시 고려사항입니다*
 
 ### 1. Layout System
 ```
@@ -19,49 +48,19 @@ k9s 스타일의 전문적인 TUI 시스템 아키텍처
 └─────────────────────────────┘
 ```
 
-### 2. Directory Structure
+### 2. Directory Structure (향후 고려)
 ```
+# v0.3.0 이후 필요시 분리
 internal/
-├── tui/
-│   ├── core/
-│   │   ├── app.go           # Bubble Tea application
-│   │   ├── layout.go        # Layout system
-│   │   ├── navigation.go    # Screen navigation
-│   │   ├── state.go         # State management
-│   │   └── types.go         # Common types
-│   ├── views/
-│   │   ├── action/          # Action selection view
-│   │   ├── target/          # Target selection view
-│   │   ├── pod/             # Pod backup views
-│   │   │   ├── list.go      # Pod list
-│   │   │   ├── paths.go     # Path selection
-│   │   │   └── options.go   # Backup options
-│   │   ├── mongodb/         # MongoDB backup views
-│   │   ├── execution/       # Execution & progress
-│   │   └── common/          # Shared components
-│   ├── components/
-│   │   ├── list.go          # List component
-│   │   ├── table.go         # Table component
-│   │   ├── input.go         # Input component
-│   │   └── progress.go      # Progress bar
-│   ├── cmd/
-│   │   ├── builder.go       # Command builder
-│   │   └── executor.go      # Command executor
-│   ├── binary/
-│   │   ├── manager.go       # Binary management
-│   │   ├── embedded.go      # Embedded binaries
-│   │   └── injection.go     # Pod injection logic
-│   └── styles/
-│       └── theme.go         # Color scheme & styles
-├── backup/
-│   ├── strategy/
-│   │   ├── analyzer.go      # Capacity analysis
-│   │   ├── selector.go      # Strategy selection
-│   │   └── executor.go      # Execution logic
-│   └── services/
-│       ├── mongodb.go       # MongoDB specific
-│       ├── minio.go         # MinIO specific
-│       └── postgres.go      # PostgreSQL specific
+├── tui/          # UI 관련
+├── k8s/          # Kubectl 통합
+└── backup/       # 백업 로직
+
+# 현재 v0.2.0
+cli-restore/
+├── main.go       # 모든 코드
+├── main_test.go  # TDD
+└── testdata/     # Golden files
 ```
 
 ### 3. State Management (Functional)
