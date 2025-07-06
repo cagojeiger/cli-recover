@@ -2,53 +2,59 @@
 
 ## 사용자 플로우
 
-### 1. TUI 모드 (`cli-restore tui`)
+### 1. TUI 모드 (`cli-restore`)
 ```
-CLI Restore - Interactive Mode
-==============================
-
-? Select namespace: 
-  > default
-    kube-system  
-    production
-    
-? Select pod: 
-  > my-app-pod        (Running, 2/2)
-    nginx-pod         (Running, 1/1)
-    mongo-pod         (Running, 1/1)
-    
-? Select path to backup: 
-  > /data
-    /logs
-    /config
-    Custom path...
-    
-? Split size: 
-  > 1G
-    2G
-    5G
-    Custom...
-    
-? Confirm backup settings:
-  Pod: my-app-pod
-  Namespace: default
-  Path: /data
-  Split: 1G
-  
-  > Execute backup
-    Show CLI command
-    Cancel
-    
-Generated CLI command:
-cli-restore backup my-app-pod /data --namespace default --split-size 1G
-
-Executing backup...
+┌─ CLI Restore v0.2.0 ────────────────────────── cluster: prod-k8s ─┐
+│ Main Menu                                                          │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│   > Backup                                                         │
+│     Restore                                                        │
+│     Verify                                                         │
+│     History                                                        │
+│                                                                    │
+├─ Command Preview ──────────────────────────────────────────────────┤
+│ $ cli-restore backup                                               │
+├────────────────────────────────────────────────────────────────────┤
+│ ↑/↓ Navigate  Enter Select  q Quit  ? Help                        │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. CLI 모드 (`cli-restore backup`)
+백업 타겟 선택:
+```
+┌─ CLI Restore v0.2.0 ────────────────────────── cluster: prod-k8s ─┐
+│ Main Menu > Backup > Select Target                                 │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│   Containers                                                       │
+│   > Pod (Files/Directories)                                        │
+│                                                                    │
+│   Databases                                                        │
+│     MongoDB (Bitnami)                                              │
+│     PostgreSQL                                                     │
+│     MySQL                                                          │
+│                                                                    │
+│   Object Storage                                                   │
+│     MinIO (Bitnami)                                                │
+│     S3 Compatible                                                  │
+│                                                                    │
+├─ Command Preview ──────────────────────────────────────────────────┤
+│ $ cli-restore backup pod                                           │
+├────────────────────────────────────────────────────────────────────┤
+│ ↑/↓ Navigate  Enter Select  b Back  q Quit                        │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### 2. CLI 모드 (`cli-restore [action] [target]`)
 ```bash
-# 직접 실행 (스크립트용)
-cli-restore backup my-app-pod /data --namespace default --split-size 1G
+# Pod 파일시스템 백업
+cli-restore backup pod nginx-app /data --namespace prod --split-size 1G
+
+# MongoDB 백업
+cli-restore backup mongodb mongo-primary --all-databases
+
+# MinIO 백업
+cli-restore backup minio minio-server my-bucket --recursive
 
 # 도움말
 cli-restore backup --help
@@ -56,35 +62,42 @@ cli-restore backup --help
 
 ## 기술 스택
 
-### TUI 라이브러리
-- **Survey**: 가장 가벼운 프롬프트 라이브러리
-- **의존성**: 단일 패키지만 추가
-- **기능**: Select, Input, Confirm 프롬프트
+### TUI 프레임워크
+- **Bubble Tea**: Elm-inspired functional TUI framework
+- **특징**: 
+  * 풀스크린 모드
+  * 실시간 업데이트
+  * 복잡한 상태 관리
+  * k9s 스타일 구현 가능
 
 ### kubectl 통합
 - `kubectl get namespaces`: 네임스페이스 목록
 - `kubectl get pods`: Pod 목록 (상태 포함)
-- `kubectl exec`: 실제 백업 실행
+- `kubectl exec`: 백업/복원 실행
+- `kubectl port-forward`: 서비스 접근
 
 ## 구현 우선순위
 
-### Phase 1: 기본 TUI
-1. Survey 의존성 추가
-2. 네임스페이스 선택 프롬프트
-3. Pod 선택 프롬프트
-4. 경로 입력 프롬프트
-5. 확인 및 CLI 명령어 생성
+### Phase 1: 기본 TUI 프레임워크
+1. Bubble Tea 기반 구조 설계
+2. 표준 레이아웃 시스템 구현
+3. 네비게이션 스택 관리
+4. 명령어 프리뷰 시스템
+5. 단축키 바인딩
 
-### Phase 2: 백업 실행
-1. kubectl exec + tar 파이프라인
-2. 분할 압축 (1G 단위)
-3. 진행률 표시
-4. 에러 처리
+### Phase 2: 백업 기능 구현
+1. Pod 파일시스템 백업
+   - kubectl exec + tar 스트리밍
+   - 분할 압축 (크기 기반)
+   - 진행률 실시간 표시
+2. MongoDB 백업 (mongodump)
+3. MinIO 백업 (mc 자동 처리)
 
 ### Phase 3: 고급 기능
-1. 일반적인 경로 자동 감지
-2. Pod 상태 표시
-3. 커스텀 옵션 지원
+1. 용량 기반 백업 전략 자동 선택
+2. 오프라인 모드 (임베디드 바이너리)
+3. 백업 히스토리 관리
+4. 스케줄링 지원
 
 ## 에러 처리
 
@@ -102,10 +115,28 @@ cli-restore backup --help
 
 ```
 cli-restore
-├── --version          # 기존 기능
-├── tui                # 새로운 TUI 모드
-└── backup <pod> <path> # 새로운 CLI 모드
-    ├── --namespace, -n
-    ├── --split-size, -s
-    └── --output, -o
+├── --version                    # 버전 확인
+├── (no args)                    # TUI 모드 실행
+└── [action] [target] [options]  # CLI 직접 실행
+    ├── backup
+    │   ├── pod <name> <path>
+    │   ├── mongodb <name>
+    │   └── minio <name> <bucket>
+    ├── restore
+    │   ├── pod <backup> <name>
+    │   ├── mongodb <dump> <name>
+    │   └── minio <backup> <name>
+    └── verify, history, schedule
 ```
+
+## 백업 전략
+
+### 크기 기반 자동 선택
+- **< 10GB**: Pod 내부 백업 (공간이 2배 이상일 때)
+- **10-100GB**: 항상 스트리밍
+- **> 100GB**: 병렬/증분 백업
+
+### Bitnami 차트 대응
+- **MongoDB**: mongodump 포함 ✓
+- **MinIO**: mc 미포함 → 자동 주입
+- **PostgreSQL**: pg_dump 포함 ✓

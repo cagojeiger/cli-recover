@@ -1,48 +1,162 @@
 # Future Features Planning
 
-## Backup Command Design
+## Extended Backup Support
 
-### Command Structure
+### Additional Services
+1. **Redis**
+   - redis-cli BGSAVE
+   - AOF backup support
+   - Cluster-aware backup
+
+2. **MySQL/MariaDB**
+   - mysqldump integration
+   - Binary log backup
+   - Consistent snapshots
+
+3. **Elasticsearch**
+   - Snapshot API integration
+   - Index-level backups
+   - Cross-cluster replication
+
+4. **Cassandra**
+   - nodetool snapshot
+   - Incremental backups
+   - Multi-node coordination
+
+### Advanced Features
+
+#### 1. Incremental/Differential Backups
+- Track changes since last backup
+- Reduce storage requirements
+- Faster backup windows
+
+#### 2. Backup Scheduling
 ```bash
-cli-restore backup <pod-name> <source-path> [flags]
+cli-restore schedule create "daily-mongo" \
+  --cron "0 2 * * *" \
+  --target mongodb \
+  --resource mongo-primary
 ```
 
-### Flags
-- `--namespace, -n`: Kubernetes namespace (default: default)
-- `--split-size, -s`: 분할 크기 (예: 100M, 1G)
-- `--output, -o`: 출력 디렉토리 (default: ./backup)
-- `--compress-level`: 압축 레벨 (1-9)
-- `--exclude`: 제외할 파일/폴더 패턴
-
-### Implementation Architecture
-
-#### Directory Structure (Phase 2)
-```
-internal/
-├── commands/
-│   ├── root.go
-│   ├── version.go
-│   └── backup.go
-├── k8s/
-│   ├── client.go      # kubeconfig 로드
-│   ├── pod.go         # Pod 작업
-│   └── exec.go        # kubectl exec 래퍼
-├── archive/
-│   ├── tar.go         # tar 생성
-│   ├── split.go       # 파일 분할
-│   └── compress.go    # gzip 압축
-└── transfer/
-    └── copy.go        # 파일 전송 로직
+#### 3. Backup Verification
+```bash
+cli-restore verify ./backup-20240107.tar
+# Checks integrity, size, checksums
 ```
 
-### Technical Approach
-1. kubectl exec로 Pod 내부에서 tar 실행
-2. stdout으로 tar 스트림 받기
-3. 로컬에서 분할 및 압축
-4. 진행 상황 실시간 표시
+#### 4. Cloud Storage Integration
+- S3/S3-compatible backends
+- Azure Blob Storage
+- Google Cloud Storage
+- Automatic upload after local backup
 
-### Error Handling
-- Pod 접근 권한 확인
-- 디스크 공간 체크
-- 네트워크 중단 시 재시도
-- 부분 백업 복구
+#### 5. Encryption Support
+- At-rest encryption
+- In-transit encryption
+- Key management integration
+
+#### 6. Retention Policies
+```bash
+cli-restore retention set \
+  --daily 7 \
+  --weekly 4 \
+  --monthly 12
+```
+
+#### 7. Multi-cluster Support
+- Cross-cluster backups
+- Disaster recovery scenarios
+- Cluster migration tools
+
+#### 8. Backup Catalog
+- Centralized backup inventory
+- Search and filter capabilities
+- Metadata tracking
+
+#### 9. Webhook/Notification Support
+- Slack notifications
+- Email alerts
+- Custom webhook endpoints
+- Success/failure reporting
+
+#### 10. Performance Optimizations
+- Parallel backup streams
+- Compression algorithm selection
+- Network bandwidth throttling
+- Resource limit controls
+
+### UI/UX Enhancements
+
+#### 1. Web Dashboard
+- Backup status overview
+- Schedule management
+- Restore operations
+- Metrics and analytics
+
+#### 2. TUI Improvements
+- Split pane views
+- Real-time log tailing
+- Multi-select operations
+- Theme customization
+
+#### 3. CLI Enhancements
+- Shell completion for resources
+- Dry-run mode
+- Batch operations
+- JSON/YAML output formats
+
+### Operational Features
+
+#### 1. RBAC Integration
+- Fine-grained permissions
+- Service account support
+- Audit logging
+
+#### 2. Monitoring Integration
+- Prometheus metrics
+- OpenTelemetry support
+- Custom dashboards
+
+#### 3. Backup Testing
+- Automated restore tests
+- Data validation
+- Performance benchmarks
+
+#### 4. Documentation Generation
+- Automatic runbook creation
+- Backup procedure docs
+- Recovery time objectives (RTO)
+
+### Enterprise Features
+
+#### 1. Compliance Support
+- GDPR data handling
+- Audit trail maintenance
+- Data residency controls
+
+#### 2. High Availability
+- Backup job failover
+- Distributed execution
+- State replication
+
+#### 3. Cost Management
+- Storage cost estimation
+- Backup optimization suggestions
+- Resource usage reporting
+
+### Community Features
+
+#### 1. Plugin System
+- Custom backup targets
+- Storage backends
+- Notification providers
+
+#### 2. Backup Templates
+- Shareable configurations
+- Best practice templates
+- Community contributions
+
+#### 3. Integration Ecosystem
+- Helm chart support
+- Operator pattern
+- GitOps workflows
