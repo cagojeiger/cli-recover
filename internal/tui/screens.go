@@ -228,11 +228,10 @@ func viewJobManager(m Model, width int) string {
 		view += "─────────────────────────────────────────\n"
 		
 		for _, job := range queuedJobs {
-			selected := m.selected == jobIndex
+			selected := m.selected == jobIndex && m.activeJobID == job.ID
 			marker := "  "
 			if selected {
 				marker = "> "
-				m.activeJobID = job.ID
 			}
 			cmdPreview := job.Command
 			if len(cmdPreview) > width-30 {
@@ -250,11 +249,10 @@ func viewJobManager(m Model, width int) string {
 		view += "─────────────────────────────────────────\n"
 		
 		for _, job := range recentJobs {
-			selected := m.selected == jobIndex
+			selected := m.selected == jobIndex && m.activeJobID == job.ID
 			marker := "  "
 			if selected {
 				marker = "> "
-				m.activeJobID = job.ID
 			}
 			
 			// Status icon

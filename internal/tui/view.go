@@ -15,6 +15,13 @@ func SetVersion(v string) {
 
 // View renders the TUI
 func (m Model) View() string {
+	// Add panic recovery to prevent view rendering crashes
+	defer func() {
+		if r := recover(); r != nil {
+			debugLog("PANIC in View: %v", r)
+		}
+	}()
+	
 	if m.err != nil {
 		return fmt.Sprintf("Error: %v\n\nPress 'q' to quit", m.err)
 	}

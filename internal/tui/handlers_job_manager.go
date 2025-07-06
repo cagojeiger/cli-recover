@@ -28,8 +28,21 @@ func handleJobManagerKey(m Model, key string) Model {
 		}
 		
 	case "enter":
-		// Toggle job detail view
-		m.jobDetailView = !m.jobDetailView
+		// Toggle job detail view, but only if we have a valid job selected
+		if m.activeJobID != "" {
+			// Verify the job still exists before toggling detail view
+			if job := m.jobManager.Get(m.activeJobID); job != nil {
+				m.jobDetailView = !m.jobDetailView
+			} else {
+				// Job no longer exists, clear the activeJobID
+				m.activeJobID = ""
+				// Try to set a new active job if possible
+				allJobs := m.jobManager.GetAll()
+				if m.selected < len(allJobs) {
+					m.activeJobID = allJobs[m.selected].ID
+				}
+			}
+		}
 		return m
 		
 	case "c":
@@ -72,7 +85,24 @@ func showJobManager(m Model) Model {
 	// Select first job if any
 	allJobs := m.jobManager.GetAll()
 	if len(allJobs) > 0 {
-		m.activeJobID = allJobs[0].ID
+		// If activeJobID exists in the list, find its index
+		found := false
+		for i, job := range allJobs {
+			if job.ID == m.activeJobID {
+				m.selected = i
+				found = true
+				break
+			}
+		}
+		
+		// If not found or no activeJobID, select the first job
+		if !found {
+			m.activeJobID = allJobs[0].ID
+			m.selected = 0
+		}
+	} else {
+		// No jobs, clear selection
+		m.activeJobID = ""
 		m.selected = 0
 	}
 	

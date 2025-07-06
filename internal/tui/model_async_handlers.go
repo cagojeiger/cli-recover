@@ -77,6 +77,22 @@ func (m Model) handleBackupComplete(msg BackupCompleteMsg) (Model, tea.Cmd) {
 	
 	debugLog("Backup %s completed: success=%v, error=%v", msg.JobID, msg.Success, msg.Error)
 	
+	// If the completed job was the active job, clear the selection
+	if m.activeJobID == msg.JobID {
+		m.activeJobID = ""
+		m.jobDetailView = false
+		
+		// Try to select another job
+		allJobs := m.jobManager.GetAll()
+		if m.selected < len(allJobs) {
+			m.activeJobID = allJobs[m.selected].ID
+		} else if len(allJobs) > 0 {
+			// Adjust selection if out of bounds
+			m.selected = len(allJobs) - 1
+			m.activeJobID = allJobs[m.selected].ID
+		}
+	}
+	
 	// Check if there are more jobs to run
 	return m, waitForNextJobCmd(m.jobManager, m.program)
 }
@@ -86,6 +102,22 @@ func (m Model) handleBackupCancel(msg BackupCancelMsg) (Model, tea.Cmd) {
 	err := m.jobManager.CancelJob(msg.JobID)
 	if err != nil {
 		m.err = err
+	}
+	
+	// If the cancelled job was the active job, clear the selection
+	if m.activeJobID == msg.JobID {
+		m.activeJobID = ""
+		m.jobDetailView = false
+		
+		// Try to select another job
+		allJobs := m.jobManager.GetAll()
+		if m.selected < len(allJobs) {
+			m.activeJobID = allJobs[m.selected].ID
+		} else if len(allJobs) > 0 {
+			// Adjust selection if out of bounds
+			m.selected = len(allJobs) - 1
+			m.activeJobID = allJobs[m.selected].ID
+		}
 	}
 	
 	return m, nil
@@ -106,6 +138,22 @@ func (m Model) handleBackupError(msg BackupErrorMsg) (Model, tea.Cmd) {
 	err := m.jobManager.MarkCompleted(msg.JobID, msg.Error)
 	if err != nil {
 		debugLog("Failed to mark job as failed: %v", err)
+	}
+	
+	// If the failed job was the active job, clear the selection
+	if m.activeJobID == msg.JobID {
+		m.activeJobID = ""
+		m.jobDetailView = false
+		
+		// Try to select another job
+		allJobs := m.jobManager.GetAll()
+		if m.selected < len(allJobs) {
+			m.activeJobID = allJobs[m.selected].ID
+		} else if len(allJobs) > 0 {
+			// Adjust selection if out of bounds
+			m.selected = len(allJobs) - 1
+			m.activeJobID = allJobs[m.selected].ID
+		}
 	}
 	
 	// Check if there are more jobs to run

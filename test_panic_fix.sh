@@ -1,0 +1,20 @@
+#!/bin/bash
+# Test script to verify panic fix in TUI
+
+echo "Testing TUI panic fix..."
+echo "This test will:"
+echo "1. Start the TUI with debug mode"
+echo "2. Navigate to job manager after job completion"
+echo "3. Press Enter to toggle detail view"
+echo ""
+echo "The TUI should NOT panic when pressing Enter on a completed job."
+echo ""
+echo "To test:"
+echo "1. Run: ./cli-recover -d"
+echo "2. Select backup > filesystem > namespace > pod > container > path"
+echo "3. Start a backup job"
+echo "4. Press 'J' to go to Job Manager"
+echo "5. Wait for job to complete"
+echo "6. Press Enter to toggle detail view"
+echo ""
+echo "If the TUI crashes, check cli-recover-debug.log for panic details."

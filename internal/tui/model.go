@@ -227,6 +227,17 @@ func (m Model) getJobSummary() string {
 
 // Update handles messages and updates the model
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Add panic recovery to prevent crashes
+	defer func() {
+		if r := recover(); r != nil {
+			debugLog("PANIC in Update: %v", r)
+			m.err = fmt.Errorf("internal error: %v", r)
+			// Clear potentially problematic state
+			m.jobDetailView = false
+			m.activeJobID = ""
+		}
+	}()
+	
 	// Check if we have a pending backup job to execute
 	if m.pendingBackupJob != nil {
 		job := m.pendingBackupJob
@@ -295,8 +306,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJobExecute(msg)
 		
 	case ScreenJobManagerMsg:
-		m = m.pushScreen(ScreenJobManager)
-		m.selected = 0
+		m = showJobManager(m)
 		return m, nil
 		
 	case NavigateBackMsg:
