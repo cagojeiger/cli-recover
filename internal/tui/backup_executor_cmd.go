@@ -3,7 +3,9 @@ package tui
 import (
 	"bufio"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -15,8 +17,26 @@ import (
 // This follows the Bubble Tea pattern - no goroutines outside of tea.Cmd
 func executeBackupCmd(job *BackupJob, program *tea.Program) tea.Cmd {
 	return func() tea.Msg {
-		// Parse command
-		args := parseCommand(job.Command)
+		// Get the path of the currently running executable (cli-recover itself)
+		selfPath, err := os.Executable()
+		if err != nil {
+			return BackupErrorMsg{
+				JobID: job.ID,
+				Error: fmt.Errorf("cannot find self executable: %w", err),
+			}
+		}
+		
+		// Resolve any symlinks to get the real path
+		selfPath, err = filepath.EvalSymlinks(selfPath)
+		if err != nil {
+			return BackupErrorMsg{
+				JobID: job.ID,
+				Error: fmt.Errorf("cannot resolve executable path: %w", err),
+			}
+		}
+
+		// Parse command arguments (job.Command contains the arguments without "cli-recover")
+		args := strings.Fields(job.Command)
 		if len(args) == 0 {
 			return BackupErrorMsg{
 				JobID: job.ID,
@@ -24,10 +44,10 @@ func executeBackupCmd(job *BackupJob, program *tea.Program) tea.Cmd {
 			}
 		}
 
-		debugLog("executeBackupCmd: starting %s with args: %v", args[0], args[1:])
+		debugLog("executeBackupCmd: starting %s with args: %v", selfPath, args)
 
-		// Create command with context
-		cmd := exec.CommandContext(job.Context(), args[0], args[1:]...)
+		// Create command with context using self path
+		cmd := exec.CommandContext(job.Context(), selfPath, args...)
 		
 		// Set process group for proper cleanup
 		cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -164,49 +184,9 @@ func waitForNextJobCmd(manager *JobManager, program *tea.Program) tea.Cmd {
 	}
 }
 
-// parseCommand parses a command string into arguments
-// Handles basic quoted strings
-func parseCommand(command string) []string {
-	var args []string
-	var current strings.Builder
-	inQuote := false
-	escape := false
-
-	for i, r := range command {
-		if escape {
-			current.WriteRune(r)
-			escape = false
-			continue
-		}
-
-		switch r {
-		case '\\':
-			if inQuote {
-				escape = true
-			} else {
-				current.WriteRune(r)
-			}
-		case '"':
-			inQuote = !inQuote
-		case ' ', '\t':
-			if inQuote {
-				current.WriteRune(r)
-			} else if current.Len() > 0 {
-				args = append(args, current.String())
-				current.Reset()
-			}
-		default:
-			current.WriteRune(r)
-		}
-
-		// Handle end of string
-		if i == len(command)-1 && current.Len() > 0 {
-			args = append(args, current.String())
-		}
-	}
-
-	return args
-}
+// parseCommand is no longer used - keeping for reference
+// We now use strings.Fields() for simple argument splitting
+// and os.Executable() to get the cli-recover path
 
 // parseProgress extracts progress percentage from output line
 func parseProgress(line string) int {

@@ -4,22 +4,17 @@ import ()
 
 // handleJobManagerKey handles key presses in the job manager screen
 func handleJobManagerKey(m Model, key string) Model {
-	activeJobs := m.jobManager.GetActive()
-	queuedJobs := m.jobManager.GetQueued()
-	totalJobs := len(activeJobs) + len(queuedJobs)
+	// Get all jobs to count total
+	allJobs := m.jobManager.GetAll()
+	totalJobs := len(allJobs)
 	
 	switch key {
 	case "j", "down":
 		if m.selected < totalJobs-1 {
 			m.selected++
 			// Update active job ID
-			if m.selected < len(activeJobs) {
-				m.activeJobID = activeJobs[m.selected].ID
-			} else {
-				idx := m.selected - len(activeJobs)
-				if idx < len(queuedJobs) {
-					m.activeJobID = queuedJobs[idx].ID
-				}
+			if m.selected < len(allJobs) {
+				m.activeJobID = allJobs[m.selected].ID
 			}
 		}
 		
@@ -27,13 +22,8 @@ func handleJobManagerKey(m Model, key string) Model {
 		if m.selected > 0 {
 			m.selected--
 			// Update active job ID
-			if m.selected < len(activeJobs) {
-				m.activeJobID = activeJobs[m.selected].ID
-			} else {
-				idx := m.selected - len(activeJobs)
-				if idx < len(queuedJobs) {
-					m.activeJobID = queuedJobs[idx].ID
-				}
+			if m.selected < len(allJobs) {
+				m.activeJobID = allJobs[m.selected].ID
 			}
 		}
 		
@@ -63,7 +53,8 @@ func handleJobManagerKey(m Model, key string) Model {
 		
 	case "q":
 		// Quit with confirmation if jobs are active
-		if len(activeJobs) > 0 {
+		activeCount := len(m.jobManager.GetActive())
+		if activeCount > 0 {
 			// TODO: Add confirmation dialog
 			m.quit = true
 		} else {
@@ -78,10 +69,11 @@ func handleJobManagerKey(m Model, key string) Model {
 func showJobManager(m Model) Model {
 	m = m.pushScreen(ScreenJobManager)
 	
-	// Select first active job if any
-	activeJobs := m.jobManager.GetActive()
-	if len(activeJobs) > 0 {
-		m.activeJobID = activeJobs[0].ID
+	// Select first job if any
+	allJobs := m.jobManager.GetAll()
+	if len(allJobs) > 0 {
+		m.activeJobID = allJobs[0].ID
+		m.selected = 0
 	}
 	
 	return m

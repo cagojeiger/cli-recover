@@ -163,9 +163,29 @@ func viewJobManager(m Model, width int) string {
 		return viewJobDetail(m, width)
 	}
 	
-	// Get all jobs
-	activeJobs := m.jobManager.GetActive()
-	queuedJobs := m.jobManager.GetQueued()
+	// Get all jobs and categorize by status
+	allJobs := m.jobManager.GetAll()
+	var activeJobs, queuedJobs, recentJobs []*BackupJob
+	
+	for _, job := range allJobs {
+		switch job.Status {
+		case JobStatusRunning:
+			activeJobs = append(activeJobs, job)
+		case JobStatusQueued, JobStatusPending:
+			queuedJobs = append(queuedJobs, job)
+		case JobStatusCompleted, JobStatusFailed, JobStatusCancelled:
+			recentJobs = append(recentJobs, job)
+		}
+	}
+	
+	// Sort recent jobs by end time (newest first)
+	// Limit to last 10 recent jobs
+	if len(recentJobs) > 10 {
+		recentJobs = recentJobs[len(recentJobs)-10:]
+	}
+	
+	// Job index for navigation
+	jobIndex := 0
 	
 	// Active jobs section
 	view += fmt.Sprintf("Active Jobs (%d/%d):\n", len(activeJobs), m.jobManager.GetMaxJobs())
@@ -174,19 +194,18 @@ func viewJobManager(m Model, width int) string {
 	if len(activeJobs) == 0 {
 		view += "  No active jobs\n"
 	} else {
-		for i, job := range activeJobs {
-			selected := m.selected == i && m.activeJobID == job.ID
+		for _, job := range activeJobs {
+			selected := m.selected == jobIndex && m.activeJobID == job.ID
 			marker := "  "
 			if selected {
 				marker = "> "
 			}
 			
-			status := job.GetStatus()
 			progress := job.GetProgress()
 			duration := job.Duration()
 			
-			view += fmt.Sprintf("%s[%s] %s (%d%%) - %s\n", 
-				marker, job.ID, status, progress, duration.Round(time.Second))
+			view += fmt.Sprintf("%s🔄 [%s] Running (%d%%) - %s\n", 
+				marker, job.ID, progress, duration.Round(time.Second))
 			
 			// Show last output line if selected
 			if selected && len(job.GetOutput()) > 0 {
@@ -197,6 +216,7 @@ func viewJobManager(m Model, width int) string {
 				}
 				view += fmt.Sprintf("     └─ %s\n", lastLine)
 			}
+			jobIndex++
 		}
 	}
 	
@@ -207,12 +227,64 @@ func viewJobManager(m Model, width int) string {
 		view += fmt.Sprintf("Queued Jobs (%d):\n", len(queuedJobs))
 		view += "─────────────────────────────────────────\n"
 		
-		for i, job := range queuedJobs {
+		for _, job := range queuedJobs {
+			selected := m.selected == jobIndex
 			marker := "  "
-			if m.selected == len(activeJobs)+i {
+			if selected {
 				marker = "> "
+				m.activeJobID = job.ID
 			}
-			view += fmt.Sprintf("%s[%s] %s (waiting)\n", marker, job.ID, job.Command)
+			cmdPreview := job.Command
+			if len(cmdPreview) > width-30 {
+				cmdPreview = cmdPreview[:width-33] + "..."
+			}
+			view += fmt.Sprintf("%s⏳ [%s] Waiting - %s\n", marker, job.ID, cmdPreview)
+			jobIndex++
+		}
+		view += "\n"
+	}
+	
+	// Recent jobs section (completed/failed/cancelled)
+	if len(recentJobs) > 0 {
+		view += fmt.Sprintf("Recent Jobs (%d):\n", len(recentJobs))
+		view += "─────────────────────────────────────────\n"
+		
+		for _, job := range recentJobs {
+			selected := m.selected == jobIndex
+			marker := "  "
+			if selected {
+				marker = "> "
+				m.activeJobID = job.ID
+			}
+			
+			// Status icon
+			statusIcon := "❓"
+			statusText := string(job.Status)
+			switch job.Status {
+			case JobStatusCompleted:
+				statusIcon = "✅"
+				statusText = "Completed"
+			case JobStatusFailed:
+				statusIcon = "❌"
+				statusText = "Failed"
+			case JobStatusCancelled:
+				statusIcon = "🚫"
+				statusText = "Cancelled"
+			}
+			
+			duration := job.Duration()
+			view += fmt.Sprintf("%s%s [%s] %s - %s\n", 
+				marker, statusIcon, job.ID, statusText, duration.Round(time.Second))
+			
+			// Show error if failed and selected
+			if selected && job.Error != nil {
+				errMsg := job.Error.Error()
+				if len(errMsg) > width-10 {
+					errMsg = errMsg[:width-13] + "..."
+				}
+				view += fmt.Sprintf("     └─ Error: %s\n", errMsg)
+			}
+			jobIndex++
 		}
 		view += "\n"
 	}
