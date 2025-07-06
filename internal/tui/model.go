@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"context"
 	"fmt"
 	"os"
 	
@@ -92,8 +91,15 @@ type Model struct {
 	executeOutput []string
 	
 	// Multi-backup support
-	jobScheduler *JobScheduler
-	activeJobID  string // Currently selected job in job manager
+	program      *tea.Program  // Reference to tea.Program for sending messages
+	jobManager   *JobManager   // Replaces JobScheduler
+	activeJobID  string        // Currently selected job in job manager
+	screenStack  []Screen      // Screen history for navigation
+	
+	// Job Manager view state
+	jobDetailView bool         // Whether showing job detail
+	selectedJobIndex int       // Index in job list
+	pendingBackupJob *BackupJob // Job waiting to be executed
 	
 	// Text input state
 	editMode      bool
@@ -122,6 +128,8 @@ func InitialModel(runner runner.Runner) Model {
 			screen:         ScreenMain,
 			selected:       0,
 			commandBuilder: cb,
+			jobManager:     NewJobManager(3),
+			screenStack:    make([]Screen, 0),
 			err:            fmt.Errorf("failed to initialize: %w", err),
 			backupOptions: kubernetes.BackupOptions{
 				CompressionType: "gzip",
@@ -140,8 +148,8 @@ func InitialModel(runner runner.Runner) Model {
 	ti.CharLimit = 100
 	ti.Width = 50
 	
-	// Create job scheduler with max 3 concurrent jobs
-	scheduler := NewJobScheduler(3)
+	// Create job manager with max 3 concurrent jobs
+	jobManager := NewJobManager(3)
 	
 	return Model{
 		runner:         runner,
@@ -149,7 +157,8 @@ func InitialModel(runner runner.Runner) Model {
 		selected:       0,
 		commandBuilder: cb,
 		executor:       executor,
-		jobScheduler:   scheduler,
+		jobManager:     jobManager,
+		screenStack:    make([]Screen, 0),
 		textInput:      ti,
 		editMode:       false,
 		backupOptions: kubernetes.BackupOptions{
@@ -165,19 +174,73 @@ func InitialModel(runner runner.Runner) Model {
 
 // Init is the Bubble Tea initialization function
 func (m Model) Init() tea.Cmd {
-	// Start the job scheduler in the background
-	ctx := context.Background()
-	go m.jobScheduler.Start(ctx)
-	
-	// Set up the async executor with tea.Program reference
-	executor := NewAsyncBackupExecutor(nil) // Will be set later
-	m.jobScheduler.SetExecutor(executor)
-	
+	// No background goroutines! Following Bubble Tea patterns
+	// Job execution will be handled through tea.Cmd
 	return nil
+}
+
+// SetProgram sets the tea.Program reference
+// This should be called after creating the program but before running it
+func (m *Model) SetProgram(p *tea.Program) {
+	m.program = p
+}
+
+// pushScreen saves current screen and switches to new screen
+func (m Model) pushScreen(screen Screen) Model {
+	m.screenStack = append(m.screenStack, m.screen)
+	m.screen = screen
+	m.selected = 0 // Reset selection for new screen
+	return m
+}
+
+// popScreen returns to previous screen
+func (m Model) popScreen() Model {
+	if len(m.screenStack) > 0 {
+		m.screen = m.screenStack[len(m.screenStack)-1]
+		m.screenStack = m.screenStack[:len(m.screenStack)-1]
+		m.selected = 0 // Reset selection
+	}
+	return m
+}
+
+// hasActiveJobs checks if there are any active jobs
+func (m Model) hasActiveJobs() bool {
+	return len(m.jobManager.GetActive()) > 0
+}
+
+// getJobSummary returns a summary of job states
+func (m Model) getJobSummary() string {
+	active := len(m.jobManager.GetActive())
+	queued := len(m.jobManager.GetQueued())
+	
+	if active == 0 && queued == 0 {
+		return "No active jobs"
+	}
+	
+	summary := fmt.Sprintf("%d active", active)
+	if queued > 0 {
+		summary += fmt.Sprintf(", %d queued", queued)
+	}
+	
+	return summary
 }
 
 // Update handles messages and updates the model
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Check if we have a pending backup job to execute
+	if m.pendingBackupJob != nil {
+		job := m.pendingBackupJob
+		m.pendingBackupJob = nil
+		
+		// Execute the job if we can run more
+		if m.jobManager.CanRunMore() {
+			return m, func() tea.Msg {
+				return JobExecuteMsg{Job: job}
+			}
+		}
+		// Otherwise it's queued and will run later
+	}
+	
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		// Handle text input in edit mode
@@ -213,19 +276,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case BackupSubmitMsg:
 		return m.handleBackupSubmit(msg)
 		
+	case BackupStartMsg:
+		return m.handleBackupStart(msg)
+		
 	case BackupProgressMsg:
 		return m.handleBackupProgress(msg)
 		
 	case BackupCompleteMsg:
 		return m.handleBackupComplete(msg)
 		
+	case BackupErrorMsg:
+		return m.handleBackupError(msg)
+		
 	case BackupCancelMsg:
 		return m.handleBackupCancel(msg)
 		
+	case JobExecuteMsg:
+		return m.handleJobExecute(msg)
+		
 	case ScreenJobManagerMsg:
-		m.screen = ScreenJobManager
+		m = m.pushScreen(ScreenJobManager)
 		m.selected = 0
 		return m, nil
+		
+	case NavigateBackMsg:
+		m = m.popScreen()
+		return m, nil
+		
+	case JobDetailMsg:
+		m.jobDetailView = true
+		m.activeJobID = msg.JobID
+		return m, nil
+		
+	case RefreshMsg:
+		// Check for next job to run
+		return m, waitForNextJobCmd(m.jobManager, m.program)
 		
 	case JobListUpdateMsg:
 		// Force refresh

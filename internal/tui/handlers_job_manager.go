@@ -4,8 +4,8 @@ import ()
 
 // handleJobManagerKey handles key presses in the job manager screen
 func handleJobManagerKey(m Model, key string) Model {
-	activeJobs := m.jobScheduler.GetActiveJobs()
-	queuedJobs := m.jobScheduler.GetQueuedJobs()
+	activeJobs := m.jobManager.GetActive()
+	queuedJobs := m.jobManager.GetQueued()
 	totalJobs := len(activeJobs) + len(queuedJobs)
 	
 	switch key {
@@ -38,33 +38,27 @@ func handleJobManagerKey(m Model, key string) Model {
 		}
 		
 	case "enter":
-		// View detailed job output (future enhancement)
-		// For now, just refresh
+		// Toggle job detail view
+		m.jobDetailView = !m.jobDetailView
 		return m
 		
 	case "c":
 		// Cancel selected job
 		if m.activeJobID != "" {
-			m.jobScheduler.Cancel(m.activeJobID)
+			m.jobManager.CancelJob(m.activeJobID)
 		}
 		
 	case "K":
 		// Cancel all jobs
-		for _, job := range activeJobs {
-			m.jobScheduler.Cancel(job.ID)
-		}
-		for _, job := range queuedJobs {
-			m.jobScheduler.Cancel(job.ID)
-		}
+		m.jobManager.CancelAll()
 		
 	case "r":
 		// Refresh (just return, view will update)
 		return m
 		
 	case "b", "esc":
-		// Back to main menu
-		m.screen = ScreenMain
-		m.selected = 0
+		// Back to previous screen
+		m = m.popScreen()
 		m.activeJobID = ""
 		
 	case "q":
@@ -82,11 +76,10 @@ func handleJobManagerKey(m Model, key string) Model {
 
 // Helper to show job manager from any screen
 func showJobManager(m Model) Model {
-	m.screen = ScreenJobManager
-	m.selected = 0
+	m = m.pushScreen(ScreenJobManager)
 	
 	// Select first active job if any
-	activeJobs := m.jobScheduler.GetActiveJobs()
+	activeJobs := m.jobManager.GetActive()
 	if len(activeJobs) > 0 {
 		m.activeJobID = activeJobs[0].ID
 	}

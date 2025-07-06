@@ -10,7 +10,7 @@ import (
 // handleBackupSubmit processes backup submission
 func (m Model) handleBackupSubmit(msg BackupSubmitMsg) (Model, tea.Cmd) {
 	// Generate unique job ID
-	jobID := fmt.Sprintf("backup-%d", time.Now().Unix())
+	jobID := fmt.Sprintf("backup-%s-%d", m.selectedPod, time.Now().Unix())
 	
 	// Create new backup job
 	job, err := NewBackupJob(jobID, msg.Command)
@@ -19,29 +19,46 @@ func (m Model) handleBackupSubmit(msg BackupSubmitMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	
-	// Submit to scheduler
-	err = m.jobScheduler.Submit(job)
+	// Add to job manager
+	err = m.jobManager.Add(job)
 	if err != nil {
 		m.err = err
 		return m, nil
 	}
 	
-	// Set up async executor
-	executor := NewAsyncBackupExecutor(nil) // We'll get the program reference later
+	// Check if we can run it immediately
+	if m.jobManager.CanRunMore() {
+		// Execute immediately
+		return m, tea.Batch(
+			func() tea.Msg {
+				return JobExecuteMsg{Job: job}
+			},
+			func() tea.Msg {
+				return ScreenJobManagerMsg{}
+			},
+		)
+	}
 	
-	// Start job asynchronously
-	return m, ExecuteBackupAsync(job, executor)
+	// Job is queued, just show job manager
+	return m, func() tea.Msg {
+		return ScreenJobManagerMsg{}
+	}
 }
 
 // handleBackupProgress updates job progress
 func (m Model) handleBackupProgress(msg BackupProgressMsg) (Model, tea.Cmd) {
 	// Find the job
-	job := m.jobScheduler.GetJob(msg.JobID)
+	job := m.jobManager.Get(msg.JobID)
 	if job == nil {
 		return m, nil
 	}
 	
-	// Progress is already updated by the executor
+	// Update job progress
+	job.AddOutput(msg.Output)
+	if msg.Progress >= 0 {
+		job.UpdateProgress(msg.Progress, msg.Output)
+	}
+	
 	// Just trigger a refresh if we're on the job manager screen
 	if m.screen == ScreenJobManager {
 		return m, nil
@@ -52,21 +69,21 @@ func (m Model) handleBackupProgress(msg BackupProgressMsg) (Model, tea.Cmd) {
 
 // handleBackupComplete processes job completion
 func (m Model) handleBackupComplete(msg BackupCompleteMsg) (Model, tea.Cmd) {
-	// The job is already marked as complete by the executor
-	// Just log for now
-	debugLog("Backup %s completed: success=%v, error=%v", msg.JobID, msg.Success, msg.Error)
-	
-	// If we're on the job manager screen, update display
-	if m.screen == ScreenJobManager {
-		return m, nil
+	// Mark job as complete
+	err := m.jobManager.MarkCompleted(msg.JobID, msg.Error)
+	if err != nil {
+		debugLog("Failed to mark job as complete: %v", err)
 	}
 	
-	return m, nil
+	debugLog("Backup %s completed: success=%v, error=%v", msg.JobID, msg.Success, msg.Error)
+	
+	// Check if there are more jobs to run
+	return m, waitForNextJobCmd(m.jobManager, m.program)
 }
 
 // handleBackupCancel cancels a backup job
 func (m Model) handleBackupCancel(msg BackupCancelMsg) (Model, tea.Cmd) {
-	err := m.jobScheduler.Cancel(msg.JobID)
+	err := m.jobManager.CancelJob(msg.JobID)
 	if err != nil {
 		m.err = err
 	}
@@ -74,24 +91,42 @@ func (m Model) handleBackupCancel(msg BackupCancelMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// Helper method to check if any jobs are active
-func (m Model) hasActiveJobs() bool {
-	return len(m.jobScheduler.GetActiveJobs()) > 0
+// handleBackupStart marks job as started
+func (m Model) handleBackupStart(msg BackupStartMsg) (Model, tea.Cmd) {
+	err := m.jobManager.UpdateStatus(msg.JobID, JobStatusRunning)
+	if err != nil {
+		debugLog("Failed to update job status: %v", err)
+	}
+	
+	return m, nil
 }
 
-// Helper method to get job count summary
-func (m Model) getJobSummary() string {
-	active := len(m.jobScheduler.GetActiveJobs())
-	queued := len(m.jobScheduler.GetQueuedJobs())
-	
-	if active == 0 && queued == 0 {
-		return "No active backups"
+// handleBackupError handles backup errors
+func (m Model) handleBackupError(msg BackupErrorMsg) (Model, tea.Cmd) {
+	err := m.jobManager.MarkCompleted(msg.JobID, msg.Error)
+	if err != nil {
+		debugLog("Failed to mark job as failed: %v", err)
 	}
 	
-	summary := fmt.Sprintf("%d active", active)
-	if queued > 0 {
-		summary += fmt.Sprintf(", %d queued", queued)
+	// Check if there are more jobs to run
+	return m, waitForNextJobCmd(m.jobManager, m.program)
+}
+
+// handleJobExecute starts executing a job
+func (m Model) handleJobExecute(msg JobExecuteMsg) (Model, tea.Cmd) {
+	job := msg.Job
+	
+	// Update job status to running
+	err := m.jobManager.UpdateStatus(job.ID, JobStatusRunning)
+	if err != nil {
+		return m, func() tea.Msg {
+			return BackupErrorMsg{JobID: job.ID, Error: err}
+		}
 	}
 	
-	return summary
+	// Start job execution
+	return m, tea.Batch(
+		executeBackupCmd(job, m.program),
+		monitorJobCmd(job),
+	)
 }

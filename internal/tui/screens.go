@@ -158,12 +158,17 @@ func viewJobManager(m Model, width int) string {
 	var view string
 	view += "=== Backup Job Manager ===\n\n"
 	
+	// Check if showing job detail
+	if m.jobDetailView && m.activeJobID != "" {
+		return viewJobDetail(m, width)
+	}
+	
 	// Get all jobs
-	activeJobs := m.jobScheduler.GetActiveJobs()
-	queuedJobs := m.jobScheduler.GetQueuedJobs()
+	activeJobs := m.jobManager.GetActive()
+	queuedJobs := m.jobManager.GetQueued()
 	
 	// Active jobs section
-	view += fmt.Sprintf("Active Jobs (%d/%d):\n", len(activeJobs), m.jobScheduler.GetMaxJobs())
+	view += fmt.Sprintf("Active Jobs (%d/%d):\n", len(activeJobs), m.jobManager.GetMaxJobs())
 	view += "─────────────────────────────────────────\n"
 	
 	if len(activeJobs) == 0 {
@@ -220,6 +225,52 @@ func viewJobManager(m Model, width int) string {
 	view += "  [K] Cancel ALL jobs\n"
 	view += "  [r] Refresh\n"
 	view += "  [b/Esc] Back to main menu\n"
+	
+	return view
+}
+
+// viewJobDetail renders detailed job information
+func viewJobDetail(m Model, width int) string {
+	job := m.jobManager.Get(m.activeJobID)
+	if job == nil {
+		return "Job not found\n\n[Enter] Back to list"
+	}
+	
+	var view string
+	view += fmt.Sprintf("=== Job Details: %s ===\n\n", job.ID)
+	
+	// Job info
+	view += fmt.Sprintf("Command: %s\n", job.Command)
+	view += fmt.Sprintf("Status: %s\n", job.GetStatus())
+	view += fmt.Sprintf("Progress: %d%%\n", job.GetProgress())
+	view += fmt.Sprintf("Duration: %s\n", job.Duration())
+	
+	if job.Error != nil {
+		view += fmt.Sprintf("Error: %v\n", job.Error)
+	}
+	
+	view += "\n"
+	view += "Output:\n"
+	view += "─────────────────────────────────────────\n"
+	
+	// Show last N lines of output
+	output := job.GetOutput()
+	maxLines := 20
+	startIdx := 0
+	if len(output) > maxLines {
+		startIdx = len(output) - maxLines
+	}
+	
+	for i := startIdx; i < len(output); i++ {
+		line := output[i]
+		if len(line) > width-2 {
+			line = line[:width-5] + "..."
+		}
+		view += line + "\n"
+	}
+	
+	view += "\n"
+	view += "[Enter] Back to list  [c] Cancel job  [b/Esc] Exit job manager\n"
 	
 	return view
 }

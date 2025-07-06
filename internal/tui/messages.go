@@ -1,6 +1,10 @@
 package tui
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	"time"
+	
+	tea "github.com/charmbracelet/bubbletea"
+)
 
 // Message types for backup job management
 
@@ -11,16 +15,19 @@ type BackupSubmitMsg struct {
 
 // BackupProgressMsg updates progress for a specific job
 type BackupProgressMsg struct {
-	JobID   string
-	Output  string
-	Percent int
+	JobID     string
+	Output    string
+	Percent   int
+	Progress  int         // Same as Percent for compatibility
+	Timestamp time.Time
 }
 
 // BackupCompleteMsg indicates a job has completed
 type BackupCompleteMsg struct {
-	JobID   string
-	Success bool
-	Error   error
+	JobID    string
+	Success  bool
+	Error    error
+	Duration time.Duration
 }
 
 // BackupCancelMsg requests cancellation of a job
@@ -50,6 +57,28 @@ type BackupQueuedMsg struct {
 
 // EmergencyShutdownMsg requests emergency shutdown of all jobs
 type EmergencyShutdownMsg struct{}
+
+// NavigateBackMsg requests to go back to previous screen
+type NavigateBackMsg struct{}
+
+// JobDetailMsg requests to show job details
+type JobDetailMsg struct {
+	JobID string
+}
+
+// RefreshMsg requests a UI refresh
+type RefreshMsg struct{}
+
+// BackupErrorMsg is sent when a backup job encounters an error during setup
+type BackupErrorMsg struct {
+	JobID string
+	Error error
+}
+
+// JobExecuteMsg requests execution of a backup job
+type JobExecuteMsg struct {
+	Job *BackupJob
+}
 
 // Helper functions for creating tea.Cmd
 

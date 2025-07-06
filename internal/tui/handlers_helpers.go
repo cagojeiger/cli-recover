@@ -8,66 +8,23 @@ import (
 
 // handleBack processes back navigation
 func handleBack(m Model) Model {
-	switch m.screen {
-	case ScreenBackupType:
-		m.screen = ScreenMain
-		m.selected = 0
-		
-	case ScreenNamespaceList:
-		m.screen = ScreenBackupType
-		m.selected = 0
-		
-	case ScreenPodList:
-		m.screen = ScreenNamespaceList
-		m.selected = 0
-		
-	case ScreenContainerList:
-		m.screen = ScreenPodList
-		m.selected = 0
-		
-	case ScreenDirectoryBrowser:
-		if m.currentPath == "/" {
-			// Go back to container list if multi-container, otherwise pod list
-			if len(m.pods) > 0 {
-				var selectedPod kubernetes.Pod
-				for _, pod := range m.pods {
-					if pod.Name == m.selectedPod {
-						selectedPod = pod
-						break
-					}
-				}
-				if len(selectedPod.Containers) > 1 {
-					m.screen = ScreenContainerList
-				} else {
-					m.screen = ScreenPodList
-				}
-			} else {
-				m.screen = ScreenPodList
-			}
-			m.selected = 0
-		} else {
-			// Go to parent directory
-			parentPath := filepath.Dir(m.currentPath)
-			directories, err := kubernetes.GetDirectoryContents(m.runner, m.selectedPod, m.selectedNamespace, parentPath, m.selectedContainer)
-			if err != nil {
-				m.err = err
-				return m
-			}
-			m.currentPath = parentPath
-			m.directories = directories
-			m.selected = 0
+	// Special handling for directory browser - navigate within directories
+	if m.screen == ScreenDirectoryBrowser && m.currentPath != "/" {
+		// Go to parent directory
+		parentPath := filepath.Dir(m.currentPath)
+		directories, err := kubernetes.GetDirectoryContents(m.runner, m.selectedPod, m.selectedNamespace, parentPath, m.selectedContainer)
+		if err != nil {
+			m.err = err
+			return m
 		}
-		
-	case ScreenBackupOptions:
-		m.screen = ScreenDirectoryBrowser
+		m.currentPath = parentPath
+		m.directories = directories
 		m.selected = 0
-		
-	case ScreenPathInput:
-		m.screen = ScreenBackupOptions
-		m.selected = 0
+		return m
 	}
 	
-	return m
+	// Use screen history for navigation
+	return m.popScreen()
 }
 
 // getMaxItems returns the number of items in current screen

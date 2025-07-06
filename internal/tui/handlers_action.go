@@ -17,10 +17,9 @@ func handleSpace(m Model) Model {
 		// Update command builder with selected path
 		m.commandBuilder.SetPath(m.selectedPath)
 		
-		m.screen = ScreenBackupOptions
+		m = m.pushScreen(ScreenBackupOptions)
 		m.optionCategory = 0
 		m.optionSelected = 0
-		m.selected = 0
 		
 		// Set default output filename based on selected path
 		m = setDefaultOutputFilename(m)
@@ -129,8 +128,7 @@ func handleMainMenuEnter(m Model) Model {
 	switch m.selected {
 	case 0: // Backup
 		debugLog("Starting backup flow - selecting backup type")
-		m.screen = ScreenBackupType
-		m.selected = 0
+		m = m.pushScreen(ScreenBackupType)
 		
 	case 1: // Restore
 		debugLog("Restore selected - not implemented")
@@ -155,8 +153,7 @@ func handleNamespaceEnter(m Model) Model {
 		return m
 	}
 	m.pods = pods
-	m.screen = ScreenPodList
-	m.selected = 0
+	m = m.pushScreen(ScreenPodList)
 	return m
 }
 
@@ -170,8 +167,7 @@ func handlePodEnter(m Model) Model {
 	// Check if pod has multiple containers
 	if len(selectedPod.Containers) > 1 {
 		// Multi-container pod: show container selection
-		m.screen = ScreenContainerList
-		m.selected = 0
+		m = m.pushScreen(ScreenContainerList)
 		return m
 	} else if len(selectedPod.Containers) == 1 {
 		// Single container pod: automatically select the container
@@ -186,8 +182,7 @@ func handlePodEnter(m Model) Model {
 	}
 	m.currentPath = "/"
 	m.directories = directories
-	m.screen = ScreenDirectoryBrowser
-	m.selected = 0
+	m = m.pushScreen(ScreenDirectoryBrowser)
 	return m
 }
 
@@ -212,8 +207,7 @@ func handleContainerEnter(m Model) Model {
 		}
 		m.currentPath = "/"
 		m.directories = directories
-		m.screen = ScreenDirectoryBrowser
-		m.selected = 0
+		m = m.pushScreen(ScreenDirectoryBrowser)
 	}
 	
 	return m
@@ -256,10 +250,9 @@ func handleDirectoryEnter(m Model) Model {
 		// Update command builder
 		m.commandBuilder.SetPath(m.selectedPath)
 		
-		m.screen = ScreenBackupOptions
+		m = m.pushScreen(ScreenBackupOptions)
 		m.optionCategory = 0
 		m.optionSelected = 0
-		m.selected = 0
 		
 		// Set default output filename based on selected path
 		m = setDefaultOutputFilename(m)
@@ -285,8 +278,7 @@ func handleBackupTypeEnter(m Model) Model {
 			return m
 		}
 		m.namespaces = namespaces
-		m.screen = ScreenNamespaceList
-		m.selected = 0
+		m = m.pushScreen(ScreenNamespaceList)
 	}
 	
 	return m
@@ -294,8 +286,7 @@ func handleBackupTypeEnter(m Model) Model {
 
 func handleBackupOptionsEnter(m Model) Model {
 	// Proceed to path input for filesystem backup
-	m.screen = ScreenPathInput
-	m.selected = 0
+	m = m.pushScreen(ScreenPathInput)
 	return m
 }
 
@@ -308,13 +299,11 @@ func handlePathInputEnter(m Model) Model {
 	args := m.commandBuilder.Build()
 	debugLog("Generated command args: %v", args)
 	
-	// No dry-run mode - execute asynchronously
-	
 	// Build full command string
 	cmdStr := strings.Join(args, " ")
-	debugLog("Submitting backup job: %s", cmdStr)
+	debugLog("Preparing backup job: %s", cmdStr)
 	
-	// Submit backup job to scheduler
+	// Create the backup job and submit it
 	jobID := fmt.Sprintf("backup-%s-%d", m.selectedPod, time.Now().Unix())
 	job, err := NewBackupJob(jobID, cmdStr)
 	if err != nil {
@@ -322,20 +311,22 @@ func handlePathInputEnter(m Model) Model {
 		return m
 	}
 	
-	// Submit to scheduler
-	err = m.jobScheduler.Submit(job)
+	// Add to job manager
+	err = m.jobManager.Add(job)
 	if err != nil {
 		m.err = err
 		return m
 	}
 	
-	// Show job manager
-	m.screen = ScreenJobManager
-	m.selected = 0
+	// Set the pending job to trigger execution in Update method
+	m.pendingBackupJob = job
 	m.activeJobID = jobID
 	
-	// Job will be executed asynchronously by the scheduler
-	debugLog("Backup job %s submitted", jobID)
+	// Show job manager
+	m = m.pushScreen(ScreenJobManager)
+	m.selected = 0
+	
+	debugLog("Backup job %s prepared for execution", jobID)
 	
 	return m
 }

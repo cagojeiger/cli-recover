@@ -119,13 +119,13 @@ func renderFooter(m Model, width int) string {
 	}
 	
 	// Add job status if any jobs are running
-	if m.jobScheduler != nil && m.hasActiveJobs() {
+	if m.jobManager != nil && m.hasActiveJobs() {
 		jobStatus := fmt.Sprintf(" | Jobs: %s", m.getJobSummary())
 		instructions += jobStatus
 	}
 	
 	// Add shortcut hint
-	if m.screen != ScreenJobManager && m.jobScheduler != nil {
+	if m.screen != ScreenJobManager && m.jobManager != nil {
 		instructions += " [J] Job Manager"
 	}
 	
