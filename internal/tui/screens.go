@@ -7,18 +7,69 @@ import (
 	"github.com/cagojeiger/cli-recover/internal/kubernetes"
 )
 
+// Helper functions for safe string rendering
+
+// renderLine renders a line with proper padding and truncation
+func renderLine(content string, width int) string {
+	if width < 2 {
+		return "│" + strings.Repeat(" ", width) + "│\n"
+	}
+	
+	contentWidth := width - 2
+	if len(content) > contentWidth {
+		// Truncate with ellipsis
+		if contentWidth > 3 {
+			content = content[:contentWidth-3] + "..."
+		} else {
+			content = content[:contentWidth]
+		}
+	}
+	
+	padding := contentWidth - len(content)
+	if padding < 0 {
+		padding = 0
+	}
+	
+	return "│" + content + strings.Repeat(" ", padding) + "│\n"
+}
+
+// renderTitle renders a title line with separator
+func renderTitle(title string, width int) string {
+	if width < 2 {
+		return ""
+	}
+	
+	contentWidth := width - 2
+	titleContent := " " + title
+	
+	if len(titleContent) > contentWidth {
+		if contentWidth > 4 {
+			titleContent = titleContent[:contentWidth-3] + "..."
+		} else {
+			titleContent = titleContent[:contentWidth]
+		}
+	}
+	
+	padding := contentWidth - len(titleContent)
+	if padding < 0 {
+		padding = 0
+	}
+	
+	var result string
+	result += "│" + titleContent + strings.Repeat(" ", padding) + "│\n"
+	result += "├" + strings.Repeat("─", contentWidth) + "┤\n"
+	
+	return result
+}
+
 // viewMainMenu renders the main menu
 func viewMainMenu(m Model, width int) string {
 	items := []string{"Backup", "Restore", "Exit"}
 	
 	var view string
-	contentWidth := width - 2 // Account for borders
 	
 	// Title
-	title := "Main Menu"
-	titlePadding := contentWidth - len(title)
-	view += "│ " + title + strings.Repeat(" ", titlePadding) + "│\n"
-	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
+	view += renderTitle("Main Menu", width)
 	
 	// Menu items
 	for i, item := range items {
@@ -28,11 +79,7 @@ func viewMainMenu(m Model, width int) string {
 		} else {
 			line = fmt.Sprintf("   %s", item)
 		}
-		padding := contentWidth - len(line)
-		if padding < 0 {
-			padding = 0
-		}
-		view += "│" + line + strings.Repeat(" ", padding) + "│\n"
+		view += renderLine(line, width)
 	}
 	
 	return view
@@ -41,13 +88,9 @@ func viewMainMenu(m Model, width int) string {
 // viewNamespaceList renders namespace selection
 func viewNamespaceList(m Model, width int) string {
 	var view string
-	contentWidth := width - 2
 	
 	// Title
-	title := "Select Namespace"
-	titlePadding := contentWidth - len(title)
-	view += "│ " + title + strings.Repeat(" ", titlePadding) + "│\n"
-	view += "├" + strings.Repeat("─", contentWidth) + "┤\n"
+	view += renderTitle("Select Namespace", width)
 	
 	// Command preview
 	preview := m.commandBuilder.Preview()

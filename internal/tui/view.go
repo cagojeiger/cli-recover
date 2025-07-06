@@ -33,7 +33,11 @@ func (m Model) View() string {
 func getViewDimensions(m Model) (int, int) {
 	width := m.width
 	if width == 0 {
-		width = 50
+		width = 80
+	}
+	// Ensure minimum width for proper display
+	if width < 60 {
+		width = 60
 	}
 	height := m.height
 	if height == 0 {
