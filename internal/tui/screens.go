@@ -247,9 +247,14 @@ func viewJobManager(m Model, width int) string {
 	}
 	
 	// Sort recent jobs by end time (newest first)
-	// Limit to last 10 recent jobs
-	if len(recentJobs) > 10 {
-		recentJobs = recentJobs[len(recentJobs)-10:]
+	// Limit based on terminal height to show more jobs
+	maxRecentJobs := 10
+	if m.height > 30 {
+		// Show more jobs on larger terminals
+		maxRecentJobs = (m.height - 20) / 2  // Reserve space for headers and controls
+	}
+	if len(recentJobs) > maxRecentJobs {
+		recentJobs = recentJobs[len(recentJobs)-maxRecentJobs:]
 	}
 	
 	// Job index for navigation
@@ -390,14 +395,29 @@ func viewJobManager(m Model, width int) string {
 		view += "\n"
 	}
 	
-	// Controls
-	view += "\nControls:\n"
-	view += "  [↑/↓] Navigate jobs\n"
-	view += "  [Enter] View job details\n"
-	view += "  [c] Cancel selected job\n"
-	view += "  [K] Cancel ALL jobs\n"
-	view += "  [r] Refresh\n"
-	view += "  [b/Esc] Back to main menu\n"
+	// Show current position if we have jobs
+	totalJobsDisplayed := len(activeJobs) + len(queuedJobs) + len(recentJobs)
+	if totalJobsDisplayed > 0 {
+		// Calculate which job is selected across all sections
+		currentPos := m.selected + 1
+		view += fmt.Sprintf("\nPosition: %d/%d jobs", currentPos, totalJobsDisplayed)
+		
+		// Show total jobs in system if different from displayed
+		totalInSystem := len(allJobs)
+		if totalInSystem > totalJobsDisplayed {
+			view += fmt.Sprintf(" (%d total in system)", totalInSystem)
+		}
+		view += "\n"
+	}
+	
+	// Controls - make more compact for small screens
+	view += "\nControls: "
+	if width < 80 {
+		view += "[↑/↓] Nav [Enter] Details [c] Cancel [b] Back"
+	} else {
+		view += "[↑/↓] Navigate [Enter] Details [c] Cancel Job [K] Cancel All [r] Refresh [b] Back"
+	}
+	view += "\n"
 	
 	return view
 }
@@ -426,12 +446,23 @@ func viewJobDetail(m Model, width int) string {
 	view += "Output:\n"
 	view += "─────────────────────────────────────────\n"
 	
-	// Show last N lines of output
+	// Show output - use available terminal height
 	output := job.GetOutput()
-	maxLines := 20
+	// Reserve lines for header (10) and footer (3)
+	availableLines := m.height - 13
+	if availableLines < 10 {
+		availableLines = 10
+	}
+	
+	// Show line count info if output is truncated
+	if len(output) > availableLines {
+		view += fmt.Sprintf("(Showing last %d of %d lines)\n", availableLines, len(output))
+		view += "─────────────────────────────────────────\n"
+	}
+	
 	startIdx := 0
-	if len(output) > maxLines {
-		startIdx = len(output) - maxLines
+	if len(output) > availableLines {
+		startIdx = len(output) - availableLines
 	}
 	
 	for i := startIdx; i < len(output); i++ {
@@ -442,8 +473,9 @@ func viewJobDetail(m Model, width int) string {
 		view += line + "\n"
 	}
 	
+	// Footer
 	view += "\n"
-	view += "[Enter] Back to list  [c] Cancel job  [b/Esc] Exit job manager\n"
+	view += "[Enter] Back to list  [c] Cancel job  [h] Home  [b/Esc] Exit job manager\n"
 	
 	return view
 }

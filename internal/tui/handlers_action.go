@@ -299,8 +299,9 @@ func handlePathInputEnter(m Model) Model {
 	args := m.commandBuilder.Build()
 	debugLog("Generated command args: %v", args)
 	
-	// Build full command string
-	cmdStr := strings.Join(args, " ")
+	// Build full command string with cli-recover prefix
+	fullArgs := append([]string{"cli-recover"}, args...)
+	cmdStr := strings.Join(fullArgs, " ")
 	debugLog("Preparing backup job: %s", cmdStr)
 	
 	// Create the backup job and submit it

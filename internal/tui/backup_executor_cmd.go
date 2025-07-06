@@ -234,6 +234,19 @@ func waitForNextJobCmd(manager *JobManager, program *tea.Program) tea.Cmd {
 
 // parseProgress extracts progress percentage from output line
 func parseProgress(line string) int {
+	// First, check for explicit percentage in [PROGRESS] lines
+	// Pattern: "[PROGRESS] ... - XX.X% complete"
+	if strings.Contains(line, "[PROGRESS]") && strings.Contains(line, "% complete") {
+		re := regexp.MustCompile(`(\d+(?:\.\d+)?)\s*%\s*complete`)
+		matches := re.FindStringSubmatch(line)
+		if len(matches) >= 2 {
+			var pct float64
+			if _, err := fmt.Sscanf(matches[1], "%f", &pct); err == nil {
+				return int(pct)
+			}
+		}
+	}
+	
 	// Look for common progress patterns
 	patterns := []struct {
 		prefix  string
@@ -266,16 +279,19 @@ func parseProgress(line string) int {
 			}
 			return -1
 		}},
-		// "[PROGRESS] X files processed"
-		{"[PROGRESS]", "files", func(s string) int {
+		// "[PROGRESS] X files processed" - only as fallback
+		{"[PROGRESS]", "files processed", func(s string) int {
+			// Skip if line contains "% complete" (handled above)
+			if strings.Contains(s, "% complete") {
+				return -1
+			}
 			var files int
-			if _, err := fmt.Sscanf(s, "[PROGRESS] %d files", &files); err == nil {
-				// Estimate: assume 10000 files as 100% (will be refined with actual data)
-				pct := (files * 100) / 10000
-				if pct > 100 {
-					pct = 100
-				}
-				return pct
+			re := regexp.MustCompile(`(\d+)\s+files\s+processed`)
+			matches := re.FindStringSubmatch(s)
+			if len(matches) >= 2 {
+				fmt.Sscanf(matches[1], "%d", &files)
+				// Don't estimate percentage from file count alone
+				return -1
 			}
 			return -1
 		}},
