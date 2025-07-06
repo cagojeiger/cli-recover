@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"os"
 	
@@ -56,6 +57,7 @@ const (
 	ScreenBackupOptions
 	ScreenPathInput
 	ScreenExecuting
+	ScreenJobManager
 )
 
 // Model represents the TUI state
@@ -88,6 +90,10 @@ type Model struct {
 	
 	// Execution state
 	executeOutput []string
+	
+	// Multi-backup support
+	jobScheduler *JobScheduler
+	activeJobID  string // Currently selected job in job manager
 	
 	// Text input state
 	editMode      bool
@@ -134,12 +140,16 @@ func InitialModel(runner runner.Runner) Model {
 	ti.CharLimit = 100
 	ti.Width = 50
 	
+	// Create job scheduler with max 3 concurrent jobs
+	scheduler := NewJobScheduler(3)
+	
 	return Model{
 		runner:         runner,
 		screen:         ScreenMain,
 		selected:       0,
 		commandBuilder: cb,
 		executor:       executor,
+		jobScheduler:   scheduler,
 		textInput:      ti,
 		editMode:       false,
 		backupOptions: kubernetes.BackupOptions{
@@ -155,6 +165,14 @@ func InitialModel(runner runner.Runner) Model {
 
 // Init is the Bubble Tea initialization function
 func (m Model) Init() tea.Cmd {
+	// Start the job scheduler in the background
+	ctx := context.Background()
+	go m.jobScheduler.Start(ctx)
+	
+	// Set up the async executor with tea.Program reference
+	executor := NewAsyncBackupExecutor(nil) // Will be set later
+	m.jobScheduler.SetExecutor(executor)
+	
 	return nil
 }
 
@@ -189,6 +207,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		return m, nil
+		
+	// Multi-backup message handling
+	case BackupSubmitMsg:
+		return m.handleBackupSubmit(msg)
+		
+	case BackupProgressMsg:
+		return m.handleBackupProgress(msg)
+		
+	case BackupCompleteMsg:
+		return m.handleBackupComplete(msg)
+		
+	case BackupCancelMsg:
+		return m.handleBackupCancel(msg)
+		
+	case ScreenJobManagerMsg:
+		m.screen = ScreenJobManager
+		m.selected = 0
+		return m, nil
+		
+	case JobListUpdateMsg:
+		// Force refresh
 		return m, nil
 	}
 	

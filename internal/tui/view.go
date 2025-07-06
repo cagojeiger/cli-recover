@@ -76,6 +76,8 @@ func renderContent(m Model, width int) string {
 		return viewPathInput(m, width)
 	case ScreenExecuting:
 		return viewExecuting(m, width)
+	case ScreenJobManager:
+		return viewJobManager(m, width)
 	}
 	return ""
 }
@@ -110,8 +112,21 @@ func renderFooter(m Model, width int) string {
 		} else {
 			instructions = "Executing backup..."
 		}
+	case ScreenJobManager:
+		instructions = "[↑/↓] Navigate  [c] Cancel Job  [K] Cancel All  [b] Back"
 	default:
 		instructions = "[↑/↓] Navigate  [Enter] Select  [b] Back  [q] Quit"
+	}
+	
+	// Add job status if any jobs are running
+	if m.jobScheduler != nil && m.hasActiveJobs() {
+		jobStatus := fmt.Sprintf(" | Jobs: %s", m.getJobSummary())
+		instructions += jobStatus
+	}
+	
+	// Add shortcut hint
+	if m.screen != ScreenJobManager && m.jobScheduler != nil {
+		instructions += " [J] Job Manager"
 	}
 	
 	return fmt.Sprintf("\n%s\n", instructions)

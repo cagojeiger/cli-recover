@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"time"
 	
 	"github.com/cagojeiger/cli-recover/internal/kubernetes"
 )
@@ -148,6 +149,77 @@ func viewExecuting(m Model, width int) string {
 	for _, line := range m.executeOutput {
 		view += line + "\n"
 	}
+	
+	return view
+}
+
+// viewJobManager renders the job manager screen
+func viewJobManager(m Model, width int) string {
+	var view string
+	view += "=== Backup Job Manager ===\n\n"
+	
+	// Get all jobs
+	activeJobs := m.jobScheduler.GetActiveJobs()
+	queuedJobs := m.jobScheduler.GetQueuedJobs()
+	
+	// Active jobs section
+	view += fmt.Sprintf("Active Jobs (%d/%d):\n", len(activeJobs), m.jobScheduler.GetMaxJobs())
+	view += "─────────────────────────────────────────\n"
+	
+	if len(activeJobs) == 0 {
+		view += "  No active jobs\n"
+	} else {
+		for i, job := range activeJobs {
+			selected := m.selected == i && m.activeJobID == job.ID
+			marker := "  "
+			if selected {
+				marker = "> "
+			}
+			
+			status := job.GetStatus()
+			progress := job.GetProgress()
+			duration := job.Duration()
+			
+			view += fmt.Sprintf("%s[%s] %s (%d%%) - %s\n", 
+				marker, job.ID, status, progress, duration.Round(time.Second))
+			
+			// Show last output line if selected
+			if selected && len(job.GetOutput()) > 0 {
+				output := job.GetOutput()
+				lastLine := output[len(output)-1]
+				if len(lastLine) > width-6 {
+					lastLine = lastLine[:width-9] + "..."
+				}
+				view += fmt.Sprintf("     └─ %s\n", lastLine)
+			}
+		}
+	}
+	
+	view += "\n"
+	
+	// Queued jobs section
+	if len(queuedJobs) > 0 {
+		view += fmt.Sprintf("Queued Jobs (%d):\n", len(queuedJobs))
+		view += "─────────────────────────────────────────\n"
+		
+		for i, job := range queuedJobs {
+			marker := "  "
+			if m.selected == len(activeJobs)+i {
+				marker = "> "
+			}
+			view += fmt.Sprintf("%s[%s] %s (waiting)\n", marker, job.ID, job.Command)
+		}
+		view += "\n"
+	}
+	
+	// Controls
+	view += "\nControls:\n"
+	view += "  [↑/↓] Navigate jobs\n"
+	view += "  [Enter] View job details\n"
+	view += "  [c] Cancel selected job\n"
+	view += "  [K] Cancel ALL jobs\n"
+	view += "  [r] Refresh\n"
+	view += "  [b/Esc] Back to main menu\n"
 	
 	return view
 }

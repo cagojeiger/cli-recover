@@ -308,54 +308,34 @@ func handlePathInputEnter(m Model) Model {
 	args := m.commandBuilder.Build()
 	debugLog("Generated command args: %v", args)
 	
-	// No dry-run mode - execute directly
+	// No dry-run mode - execute asynchronously
 	
-	// Change to executing screen
-	m.screen = ScreenExecuting
-	m.executeOutput = []string{"Starting backup..."}
+	// Build full command string
+	cmdStr := strings.Join(args, " ")
+	debugLog("Submitting backup job: %s", cmdStr)
 	
-	// Create streaming executor for progress tracking
-	streamingExec, err := NewStreamingExecutor(func(line string) {
-		// Parse progress lines
-		if strings.HasPrefix(line, "[") {
-			m.executeOutput = append(m.executeOutput, line)
-			// Keep only last 20 lines
-			if len(m.executeOutput) > 20 {
-				m.executeOutput = m.executeOutput[1:]
-			}
-		}
-	})
-	
+	// Submit backup job to scheduler
+	jobID := fmt.Sprintf("backup-%s-%d", m.selectedPod, time.Now().Unix())
+	job, err := NewBackupJob(jobID, cmdStr)
 	if err != nil {
-		m.err = fmt.Errorf("failed to create executor: %w", err)
+		m.err = err
 		return m
 	}
 	
-	// Execute using streaming executor
-	var output strings.Builder
-	err = streamingExec.Execute(args, &output)
-	
+	// Submit to scheduler
+	err = m.jobScheduler.Submit(job)
 	if err != nil {
-		debugLog("Backup failed: %v", err)
-		// Provide more user-friendly error messages
-		if strings.Contains(err.Error(), "executable file not found") {
-			m.err = fmt.Errorf("internal error: cannot execute self - please report this issue")
-		} else {
-			m.err = fmt.Errorf("backup failed: %w", err)
-		}
-		m.screen = ScreenPathInput // Go back on error
-	} else {
-		debugLog("Backup completed successfully")
-		// Parse output for completion message
-		outputStr := output.String()
-		if doneIdx := strings.Index(outputStr, "[DONE]"); doneIdx >= 0 {
-			doneEnd := strings.Index(outputStr[doneIdx:], "\n")
-			if doneEnd >= 0 {
-				m.executeOutput = append(m.executeOutput, outputStr[doneIdx:doneIdx+doneEnd])
-			}
-		}
-		m.executeOutput = append(m.executeOutput, "", "Press any key to continue...")
+		m.err = err
+		return m
 	}
+	
+	// Show job manager
+	m.screen = ScreenJobManager
+	m.selected = 0
+	m.activeJobID = jobID
+	
+	// Job will be executed asynchronously by the scheduler
+	debugLog("Backup job %s submitted", jobID)
 	
 	return m
 }

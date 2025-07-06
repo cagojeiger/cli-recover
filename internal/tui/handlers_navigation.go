@@ -24,6 +24,11 @@ func HandleKey(m Model, key string) Model {
 		return m
 	}
 	
+	// Special handling for job manager screen
+	if m.screen == ScreenJobManager {
+		return handleJobManagerKey(m, key)
+	}
+	
 	switch key {
 	case "q", "ctrl+c":
 		return handleQuit(m)
@@ -39,6 +44,12 @@ func HandleKey(m Model, key string) Model {
 		return handleTab(m)
 	case "b", "esc":
 		return handleBack(m)
+	case "J":
+		// Quick access to job manager from any screen
+		if m.screen != ScreenJobManager {
+			return showJobManager(m)
+		}
+		return m
 	}
 	
 	return m
