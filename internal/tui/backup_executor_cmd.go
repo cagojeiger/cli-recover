@@ -79,30 +79,56 @@ func executeBackupCmd(job *BackupJob, program *tea.Program) tea.Cmd {
 			}
 		}
 
-		// Send start message
-		program.Send(BackupStartMsg{
-			JobID:   job.ID,
-			Command: job.Command,
-		})
+		// Send start message with safety check
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					debugLog("PANIC in program.Send (start): %v", r)
+				}
+			}()
+			
+			if program != nil {
+				program.Send(BackupStartMsg{
+					JobID:   job.ID,
+					Command: job.Command,
+				})
+			}
+		}()
 
 		// Create channels for output collection
 		outputDone := make(chan bool, 2)
 		
 		// Read stdout (in goroutine within tea.Cmd is OK)
 		go func() {
-			defer func() { outputDone <- true }()
+			defer func() { 
+				outputDone <- true 
+				// Recover from any panic
+				if r := recover(); r != nil {
+					debugLog("PANIC in stdout reader goroutine: %v", r)
+				}
+			}()
 			scanner := bufio.NewScanner(stdout)
 			for scanner.Scan() {
 				line := scanner.Text()
 				debugLog("stdout: %s", line)
 				
-				// Send progress update
-				program.Send(BackupProgressMsg{
-					JobID:     job.ID,
-					Output:    line,
-					Progress:  parseProgress(line),
-					Timestamp: time.Now(),
-				})
+				// Send progress update with safety check
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							debugLog("PANIC in program.Send (stdout): %v", r)
+						}
+					}()
+					
+					if program != nil {
+						program.Send(BackupProgressMsg{
+							JobID:     job.ID,
+							Output:    line,
+							Progress:  parseProgress(line),
+							Timestamp: time.Now(),
+						})
+					}
+				}()
 			}
 			if err := scanner.Err(); err != nil {
 				debugLog("stdout scanner error: %v", err)
@@ -111,19 +137,35 @@ func executeBackupCmd(job *BackupJob, program *tea.Program) tea.Cmd {
 
 		// Read stderr
 		go func() {
-			defer func() { outputDone <- true }()
+			defer func() { 
+				outputDone <- true 
+				// Recover from any panic
+				if r := recover(); r != nil {
+					debugLog("PANIC in stderr reader goroutine: %v", r)
+				}
+			}()
 			scanner := bufio.NewScanner(stderr)
 			for scanner.Scan() {
 				line := scanner.Text()
 				debugLog("stderr: %s", line)
 				
-				// Send error output as progress
-				program.Send(BackupProgressMsg{
-					JobID:     job.ID,
-					Output:    "[ERROR] " + line,
-					Progress:  -1,
-					Timestamp: time.Now(),
-				})
+				// Send error output as progress with safety check
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							debugLog("PANIC in program.Send (stderr): %v", r)
+						}
+					}()
+					
+					if program != nil {
+						program.Send(BackupProgressMsg{
+							JobID:     job.ID,
+							Output:    "[ERROR] " + line,
+							Progress:  -1,
+							Timestamp: time.Now(),
+						})
+					}
+				}()
 			}
 			if err := scanner.Err(); err != nil {
 				debugLog("stderr scanner error: %v", err)

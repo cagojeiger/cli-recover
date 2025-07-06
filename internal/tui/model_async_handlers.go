@@ -84,13 +84,25 @@ func (m Model) handleBackupComplete(msg BackupCompleteMsg) (Model, tea.Cmd) {
 		
 		// Try to select another job
 		allJobs := m.jobManager.GetAll()
-		if m.selected < len(allJobs) {
-			m.activeJobID = allJobs[m.selected].ID
-		} else if len(allJobs) > 0 {
-			// Adjust selection if out of bounds
-			m.selected = len(allJobs) - 1
-			m.activeJobID = allJobs[m.selected].ID
+		if len(allJobs) > 0 {
+			// Ensure selected is within bounds
+			if m.selected >= len(allJobs) {
+				m.selected = len(allJobs) - 1
+			}
+			if m.selected < 0 {
+				m.selected = 0
+			}
+			// Set new active job ID
+			if m.selected < len(allJobs) {
+				m.activeJobID = allJobs[m.selected].ID
+			}
+		} else {
+			// No jobs left, reset selection
+			m.selected = 0
+			m.activeJobID = ""
 		}
+		
+		debugLog("Job %s completed, adjusted selection to %d, activeJobID: %s", msg.JobID, m.selected, m.activeJobID)
 	}
 	
 	// Check if there are more jobs to run
@@ -111,13 +123,25 @@ func (m Model) handleBackupCancel(msg BackupCancelMsg) (Model, tea.Cmd) {
 		
 		// Try to select another job
 		allJobs := m.jobManager.GetAll()
-		if m.selected < len(allJobs) {
-			m.activeJobID = allJobs[m.selected].ID
-		} else if len(allJobs) > 0 {
-			// Adjust selection if out of bounds
-			m.selected = len(allJobs) - 1
-			m.activeJobID = allJobs[m.selected].ID
+		if len(allJobs) > 0 {
+			// Ensure selected is within bounds
+			if m.selected >= len(allJobs) {
+				m.selected = len(allJobs) - 1
+			}
+			if m.selected < 0 {
+				m.selected = 0
+			}
+			// Set new active job ID
+			if m.selected < len(allJobs) {
+				m.activeJobID = allJobs[m.selected].ID
+			}
+		} else {
+			// No jobs left, reset selection
+			m.selected = 0
+			m.activeJobID = ""
 		}
+		
+		debugLog("Job %s cancelled, adjusted selection to %d, activeJobID: %s", msg.JobID, m.selected, m.activeJobID)
 	}
 	
 	return m, nil
@@ -147,13 +171,25 @@ func (m Model) handleBackupError(msg BackupErrorMsg) (Model, tea.Cmd) {
 		
 		// Try to select another job
 		allJobs := m.jobManager.GetAll()
-		if m.selected < len(allJobs) {
-			m.activeJobID = allJobs[m.selected].ID
-		} else if len(allJobs) > 0 {
-			// Adjust selection if out of bounds
-			m.selected = len(allJobs) - 1
-			m.activeJobID = allJobs[m.selected].ID
+		if len(allJobs) > 0 {
+			// Ensure selected is within bounds
+			if m.selected >= len(allJobs) {
+				m.selected = len(allJobs) - 1
+			}
+			if m.selected < 0 {
+				m.selected = 0
+			}
+			// Set new active job ID
+			if m.selected < len(allJobs) {
+				m.activeJobID = allJobs[m.selected].ID
+			}
+		} else {
+			// No jobs left, reset selection
+			m.selected = 0
+			m.activeJobID = ""
 		}
+		
+		debugLog("Job %s failed, adjusted selection to %d, activeJobID: %s", msg.JobID, m.selected, m.activeJobID)
 	}
 	
 	// Check if there are more jobs to run

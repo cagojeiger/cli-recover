@@ -12,18 +12,26 @@ func handleJobManagerKey(m Model, key string) Model {
 	case "j", "down":
 		if m.selected < totalJobs-1 {
 			m.selected++
-			// Update active job ID
+			// Update active job ID with bounds check
 			if m.selected < len(allJobs) {
 				m.activeJobID = allJobs[m.selected].ID
+			} else {
+				// Safety: clear activeJobID if out of bounds
+				m.activeJobID = ""
+				debugLog("WARNING: selected index %d out of bounds (total: %d)", m.selected, len(allJobs))
 			}
 		}
 		
 	case "k", "up":
 		if m.selected > 0 {
 			m.selected--
-			// Update active job ID
-			if m.selected < len(allJobs) {
+			// Update active job ID with bounds check
+			if m.selected < len(allJobs) && m.selected >= 0 {
 				m.activeJobID = allJobs[m.selected].ID
+			} else {
+				// Safety: clear activeJobID if out of bounds
+				m.activeJobID = ""
+				debugLog("WARNING: selected index %d out of bounds (total: %d)", m.selected, len(allJobs))
 			}
 		}
 		
