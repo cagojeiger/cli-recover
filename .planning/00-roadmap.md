@@ -1,84 +1,40 @@
-# Project Roadmap
+# Roadmap
 
-## Overall Vision
-Create a user-friendly Kubernetes backup tool that simplifies pod filesystem operations through an interactive TUI while maintaining educational value by showing equivalent kubectl commands.
+## Vision
+- K8s 백업 도구를 직관적 TUI로 제공
+- kubectl 명령어 교육적 가치
 
-## Development Phases
+## Completed Phases
+- **Phase 1-5** ✅: TUI 기본, 파일브라우저, 백업옵션, 리팩토링, 테스트 개선
 
-### Phase 1: Foundation ✅ COMPLETED
-**Goal**: Basic TUI with namespace/pod selection
-**Duration**: Initial development
-**Deliverables**:
-- ✅ Bubble Tea TUI framework setup
-- ✅ Basic navigation (namespace → pod selection)
-- ✅ kubectl integration for data fetching
-- ✅ Golden file testing infrastructure
+## Phase 6: TUI Async 🔄 CURRENT
+- tea.Cmd 패턴으로 비동기 실행
+- 실시간 진행률 업데이트
+- Ctrl+C 취소 지원
+- UI 반응성 유지
 
-### Phase 2: Directory Navigation ✅ COMPLETED  
-**Goal**: Interactive filesystem browsing
-**Duration**: Mid development
-**Deliverables**:
-- ✅ Directory browser with file/folder icons
-- ✅ Path navigation (enter directories, go back)
-- ✅ Current directory selection for backup
-- ✅ Visual indicators for file types and sizes
+## Phase 7: Production Features 📋 NEXT
+- 실제 백업 실행 (현재는 명령어만)
+- 진행률 인디케이터
+- 에러 복구/재시도
+- 설정 파일 지원
+- 다양한 출력 포맷
 
-### Phase 3: Backup Configuration ✅ COMPLETED
-**Goal**: Comprehensive backup options
-**Duration**: Feature completion
-**Deliverables**:
-- ✅ Backup options screen with tab navigation
-- ✅ Compression settings (gzip, bzip2, xz, none)
-- ✅ Exclude patterns and VCS exclusion
-- ✅ Advanced options (verbose, totals, permissions)
-- ✅ Complex tar command generation
+## Phase 8: Advanced Features 📋 FUTURE
+- 백그라운드 프로세스 관리
+- 백업 스케줄링
+- 클라우드 스토리지 연동
+- 암호화 기능
+- 웹 인터페이스
 
-### Phase 4: Architecture Refactoring ✅ COMPLETED
-**Goal**: Clean, maintainable codebase
-**Duration**: 2025-01-06
-**Deliverables**:
-- ✅ Split 922-line tui.go into focused modules
-- ✅ Internal package structure (kubernetes/runner/tui)
-- ✅ CLAUDE.md compliance (files <500 lines)
-- ✅ Improved test coverage and organization
+## Phase 9: Ecosystem 📋 FUTURE
+- K8s Operator
+- Helm chart
+- 모니터링 연동
+- 플러그인 시스템
+- 멀티클러스터
 
-### Phase 5: Quality & Compliance 🔄 IN PROGRESS
-**Goal**: 100% CLAUDE.md compliance and production readiness
-**Duration**: Current (2025-01-06)
-**Deliverables**:
-- ✅ Context engineering management structure
-- 🔄 Test coverage improvement (target: 90%+)
-- 📋 Function size optimization (<50 lines)
-- 📋 CLI mode enhancements
-- 📋 Debug mode implementation
-
-### Phase 6: Production Features 📋 PLANNED
-**Goal**: Complete feature set for production use
-**Deliverables**:
-- 📋 Actual backup execution (not just command generation)
-- 📋 Progress indicators for long operations
-- 📋 Error recovery and retry mechanisms
-- 📋 Configuration file support
-- 📋 Multiple output formats
-
-## Success Metrics
-
-### Technical Quality
-- ✅ All files < 500 lines (CLAUDE.md Rule 04)
-- 🎯 All functions < 50 lines (target for Phase 5)
-- 🎯 Test coverage > 90% (target for Phase 5)
-- ✅ Zero circular dependencies
-- ✅ Clean package boundaries
-
-### User Experience
-- ✅ Intuitive keyboard navigation
-- ✅ Visual file system representation
-- ✅ Educational command comparison
-- ✅ Responsive design across terminal sizes
-- 📋 Error messages with clear guidance
-
-### Maintainability
-- ✅ Clear separation of concerns
-- ✅ Comprehensive documentation
-- ✅ Reliable test suite
-- ✅ Consistent coding patterns
+## Metrics
+- 커버리지: 44.3% → 90% 목표
+- 함수 크기: <50줄 (대부분 달성)
+- 파일 크기: <500줄 ✅

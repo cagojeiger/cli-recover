@@ -55,9 +55,7 @@ func main() {
 		Long: `Backup various types of resources from Kubernetes pods.
 		
 Available backup types:
-  filesystem - Backup files and directories from pod filesystem
-  minio      - Backup objects from MinIO object storage
-  mongodb    - Backup MongoDB databases and collections`,
+  filesystem - Backup files and directories from pod filesystem`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// If no subcommand is provided, show help
 			return cmd.Help()
@@ -66,8 +64,6 @@ Available backup types:
 	
 	// Add subcommands for different backup types
 	backupCmd.AddCommand(newFilesystemBackupCmd())
-	backupCmd.AddCommand(newMinioBackupCmd())
-	backupCmd.AddCommand(newMongoDBBackupCmd())
 	
 	rootCmd.AddCommand(backupCmd)
 	

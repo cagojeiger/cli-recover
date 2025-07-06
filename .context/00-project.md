@@ -1,35 +1,39 @@
 # Project Context
 
-## Goals and Constraints
+## Purpose
+- K8s Pod 파일시스템 백업 TUI 도구
+- kubectl exec 복잡성 해결
+- 직관적 인터페이스 + 교육적 가치
 
-### Primary Goals
-- Kubernetes pod filesystem backup tool with interactive TUI
-- Simplified kubectl commands for backup operations
-- Directory browsing and selective backup functionality
-- Educational command comparison (kubectl vs cli-restore)
+## Current State
+- MVP 완성 (명령어 생성만)
+- 테스트 커버리지: 44.3%
+- 주요 이슈: TUI 비동기 실행 필요
 
-### Core Features
-- Interactive TUI for namespace/pod/directory selection
-- Comprehensive backup options (compression, exclusions, advanced settings)
-- Command generation with tar options
-- Golden file testing for reliable CI/CD
+## Working Features
+- 네임스페이스/Pod 선택
+- 파일시스템 브라우저
+- 백업 옵션 설정
+- kubectl 명령어 생성
+- 명령어 미리보기
 
-### Technical Constraints
-- CLAUDE.md compliance: files <500 lines, functions <50 lines
-- Test coverage >90%
-- Go standard project layout with internal packages
-- Bubble Tea framework for TUI
-- No external Kubernetes dependencies for testing
+## Missing Features
+- 실제 백업 실행
+- 진행률 표시
+- 백그라운드 실행
+- 에러 복구
+- 설정 파일
 
-### User Experience Goals
-- Intuitive navigation with keyboard shortcuts
-- Visual directory browsing with icons
-- Side-by-side command comparison
-- Tab-based option configuration
+## Core Values
+- **단순함**: Occam's Razor 준수
+- **UX**: 직관적 키보드 네비게이션
+- **교육**: kubectl 명령어 학습
+- **품질**: 90%+ 테스트 목표
 
-### Success Criteria
-- ✅ Interactive directory selection instead of hardcoded paths
-- ✅ Backup options configuration before command generation
-- ✅ Clean separation of concerns (kubernetes/runner/tui packages)
-- ✅ Comprehensive test coverage with golden files
-- ✅ All CLAUDE.md rules compliance
+## Constraints
+- Go 1.21+
+- kubectl 필수
+- K8s 클러스터 접근
+
+## Current Focus
+- TUI 비동기 실행 (StreamingExecutor 블로킹 해결)

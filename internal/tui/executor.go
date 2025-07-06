@@ -1,11 +1,14 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
+	"time"
 )
 
 // Executor interface for command execution
@@ -93,7 +96,12 @@ func NewStreamingExecutor(onOutput func(line string)) (*StreamingExecutor, error
 func (s *StreamingExecutor) Execute(args []string, writer io.Writer) error {
 	debugLog("StreamingExecutor.Execute: %s %v", s.selfPath, args)
 	
-	cmd := exec.Command(s.selfPath, args...)
+	// Create context with timeout to prevent hanging processes
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	
+	cmd := exec.CommandContext(ctx, s.selfPath, args...)
+	
 	
 	// Create pipes for stdout and stderr
 	stdout, err := cmd.StdoutPipe()
@@ -111,43 +119,74 @@ func (s *StreamingExecutor) Execute(args []string, writer io.Writer) error {
 		return fmt.Errorf("failed to start command: %w", err)
 	}
 	
-	// Read output in real-time
-	buf := make([]byte, 1024)
-	for {
-		n, err := stdout.Read(buf)
-		if n > 0 {
-			output := string(buf[:n])
-			if writer != nil {
-				writer.Write(buf[:n])
-			}
-			if s.OnOutput != nil {
-				s.OnOutput(output)
-			}
+	// Ensure process is cleaned up on exit
+	defer func() {
+		if cmd.Process != nil {
+			// Kill the process if it's still running
+			cmd.Process.Kill()
 		}
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("error reading stdout: %w", err)
-		}
-	}
+	}()
 	
-	// Also read stderr
-	stderrBuf := make([]byte, 1024)
-	for {
-		n, err := stderr.Read(stderrBuf)
-		if n > 0 {
-			if writer != nil {
-				writer.Write(stderrBuf[:n])
+	// Use goroutines to read stdout and stderr concurrently
+	var wg sync.WaitGroup
+	wg.Add(2)
+	
+	// Read stdout
+	go func() {
+		defer wg.Done()
+		buf := make([]byte, 1024)
+		for {
+			n, err := stdout.Read(buf)
+			if n > 0 {
+				output := string(buf[:n])
+				if writer != nil {
+					writer.Write(buf[:n])
+				}
+				if s.OnOutput != nil {
+					s.OnOutput(output)
+				}
+			}
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				debugLog("Error reading stdout: %v", err)
+				break
 			}
 		}
-		if err == io.EOF {
-			break
+	}()
+	
+	// Read stderr
+	go func() {
+		defer wg.Done()
+		stderrBuf := make([]byte, 1024)
+		for {
+			n, err := stderr.Read(stderrBuf)
+			if n > 0 {
+				if writer != nil {
+					writer.Write(stderrBuf[:n])
+				}
+			}
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				debugLog("Error reading stderr: %v", err)
+				break
+			}
 		}
-	}
+	}()
+	
+	// Wait for all goroutines to finish
+	wg.Wait()
 	
 	// Wait for command to complete
 	if err := cmd.Wait(); err != nil {
+		// Check if context timeout occurred
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("command timed out after 5 minutes")
+		}
+		// Process has been cleaned up by defer, just return the error
 		return fmt.Errorf("command failed: %w", err)
 	}
 	

@@ -219,17 +219,7 @@ func TestCommandBuilder_WithBackupType(t *testing.T) {
 		{
 			name:       "filesystem backup type",
 			backupType: "filesystem",
-			expectedArgs: []string{"backup", "test-pod", "/data", "--type", "filesystem"},
-		},
-		{
-			name:       "minio backup type",
-			backupType: "minio",
-			expectedArgs: []string{"backup", "test-pod", "bucket/path", "--type", "minio"},
-		},
-		{
-			name:       "mongodb backup type",
-			backupType: "mongodb",
-			expectedArgs: []string{"backup", "test-pod", "db.collection", "--type", "mongodb"},
+			expectedArgs: []string{"backup", "filesystem", "test-pod", "/data"},
 		},
 	}
 
@@ -278,6 +268,7 @@ func TestCommandBuilder_OptionsToFlags(t *testing.T) {
 				PreservePerms:   true,
 				Container:       "sidecar",
 				OutputFile:      "backup.tar",
+				DryRun:          true,
 			},
 			expected: []string{
 				"--compression", "xz",
@@ -289,6 +280,7 @@ func TestCommandBuilder_OptionsToFlags(t *testing.T) {
 				"--preserve-perms",
 				"--container", "sidecar",
 				"--output", "backup.tar",
+				"--dry-run",
 			},
 		},
 	}

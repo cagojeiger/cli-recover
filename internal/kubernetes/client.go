@@ -48,10 +48,16 @@ func GetPods(runner runner.Runner, namespace string) ([]Pod, error) {
 				Name      string `json:"name"`
 				Namespace string `json:"namespace"`
 			} `json:"metadata"`
+			Spec struct {
+				Containers []struct {
+					Name string `json:"name"`
+				} `json:"containers"`
+			} `json:"spec"`
 			Status struct {
 				Phase             string `json:"phase"`
 				ContainerStatuses []struct {
-					Ready bool `json:"ready"`
+					Ready bool   `json:"ready"`
+					Name  string `json:"name"`
 				} `json:"containerStatuses"`
 			} `json:"status"`
 		} `json:"items"`
@@ -71,11 +77,18 @@ func GetPods(runner runner.Runner, namespace string) ([]Pod, error) {
 			}
 		}
 
+		// Extract container names from spec
+		var containers []string
+		for _, container := range item.Spec.Containers {
+			containers = append(containers, container.Name)
+		}
+
 		pods = append(pods, Pod{
-			Name:      item.Metadata.Name,
-			Namespace: item.Metadata.Namespace,
-			Status:    item.Status.Phase,
-			Ready:     fmt.Sprintf("%d/%d", ready, total),
+			Name:       item.Metadata.Name,
+			Namespace:  item.Metadata.Namespace,
+			Status:     item.Status.Phase,
+			Ready:      fmt.Sprintf("%d/%d", ready, total),
+			Containers: containers,
 		})
 	}
 
@@ -83,8 +96,14 @@ func GetPods(runner runner.Runner, namespace string) ([]Pod, error) {
 }
 
 // GetDirectoryContents returns list of files and directories in the pod's path
-func GetDirectoryContents(runner runner.Runner, pod, namespace, path string) ([]DirectoryEntry, error) {
-	output, err := runner.Run("kubectl", "exec", "-n", namespace, pod, "--", "ls", "-la", path)
+func GetDirectoryContents(runner runner.Runner, pod, namespace, path, container string) ([]DirectoryEntry, error) {
+	args := []string{"exec", "-n", namespace}
+	if container != "" {
+		args = append(args, "-c", container)
+	}
+	args = append(args, pod, "--", "ls", "-la", path)
+	
+	output, err := runner.Run("kubectl", args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list directory: %w", err)
 	}

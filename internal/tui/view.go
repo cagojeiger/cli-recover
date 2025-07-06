@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 )
 
 // version will be set by ldflags during build (import from main)
@@ -25,6 +26,11 @@ func (m Model) View() string {
 	view += renderContent(m, width)
 	view += renderCommand(m, width)
 	view += renderFooter(m, width)
+	
+	// Add text input overlay if in edit mode
+	if m.editMode {
+		view += renderTextInputOverlay(m, width)
+	}
 	
 	return view
 }
@@ -60,12 +66,16 @@ func renderContent(m Model, width int) string {
 		return viewNamespaceList(m, width)
 	case ScreenPodList:
 		return viewPodList(m, width)
+	case ScreenContainerList:
+		return viewContainerList(m, width)
 	case ScreenDirectoryBrowser:
 		return viewDirectoryBrowser(m, width)
 	case ScreenBackupOptions:
 		return viewBackupOptions(m, width)
 	case ScreenPathInput:
 		return viewPathInput(m, width)
+	case ScreenExecuting:
+		return viewExecuting(m, width)
 	}
 	return ""
 }
@@ -94,9 +104,27 @@ func renderFooter(m Model, width int) string {
 		instructions = "[↑/↓] Navigate  [Space] Toggle  [Tab] Category  [Enter] OK  [b] Back"
 	case ScreenPathInput:
 		instructions = "[Enter] Execute  [b] Back  [q] Quit"
+	case ScreenExecuting:
+		if len(m.executeOutput) > 0 && strings.Contains(m.executeOutput[len(m.executeOutput)-1], "Press any key") {
+			instructions = "[Any key] Continue"
+		} else {
+			instructions = "Executing backup..."
+		}
 	default:
 		instructions = "[↑/↓] Navigate  [Enter] Select  [b] Back  [q] Quit"
 	}
 	
 	return fmt.Sprintf("\n%s\n", instructions)
+}
+
+// renderTextInputOverlay renders the text input overlay
+func renderTextInputOverlay(m Model, width int) string {
+	// Create a simple overlay with the text input
+	overlay := "\n\n"
+	overlay += strings.Repeat("=", width/2) + "\n"
+	overlay += m.textInput.View() + "\n"
+	overlay += "\n[Enter] Save  [Esc] Cancel\n"
+	overlay += strings.Repeat("=", width/2) + "\n"
+	
+	return overlay
 }

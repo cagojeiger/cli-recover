@@ -21,14 +21,15 @@ GOMOD := $(GOCMD) mod
 help:
 	@echo "CLI-Recover Makefile Commands:"
 	@echo ""
-	@echo "  make build         - Build for current platform"
-	@echo "  make build-all     - Build for all platforms"
-	@echo "  make run           - Build and run version command"
-	@echo "  make test          - Run tests"
-	@echo "  make test-coverage - Run tests with coverage report"
-	@echo "  make clean         - Clean build artifacts"
-	@echo "  make version       - Show current version"
-	@echo "  make deps          - Download dependencies"
+	@echo "  make build              - Build for current platform"
+	@echo "  make build-all          - Build for all platforms"
+	@echo "  make run                - Build and run version command"
+	@echo "  make test               - Run tests"
+	@echo "  make test-coverage      - Run tests with coverage (excluding TUI)"
+	@echo "  make test-coverage-all  - Run tests with coverage (including TUI)"
+	@echo "  make clean              - Clean build artifacts"
+	@echo "  make version            - Show current version"
+	@echo "  make deps               - Download dependencies"
 	@echo ""
 	@echo "Platform-specific builds:"
 	@echo "  make build-darwin-amd64  - Build for macOS Intel"
@@ -62,8 +63,25 @@ build-linux-arm64:
 test:
 	$(GOTEST) -v ./...
 
-# Test with coverage
+# Test with coverage (excluding TUI package)
 test-coverage:
+	@echo "Running tests with coverage (excluding TUI)..."
+	@$(GOTEST) -coverprofile=coverage.out \
+		$(shell go list ./... | grep -v "/internal/tui$$") || true
+	@echo ""
+	@echo "========== Coverage Summary =========="
+	@$(GOCMD) tool cover -func=coverage.out | grep "total:" || echo "No coverage data"
+	@echo ""
+	@echo "Package-level coverage:"
+	@$(GOCMD) tool cover -func=coverage.out | grep -E "^github.com/cagojeiger/cli-recover/(cmd|internal/kubernetes|internal/backup|internal/runner)" | grep -E "\s[0-9]+\.[0-9]+%" || true
+	@echo "======================================"
+	@echo ""
+	@echo "Generating HTML coverage report..."
+	@$(GOCMD) tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report saved to coverage.html"
+
+# Test with coverage including TUI (for reference)
+test-coverage-all:
 	$(GOTEST) -v -coverprofile=coverage.out ./...
 	$(GOCMD) tool cover -html=coverage.out -o coverage.html
 

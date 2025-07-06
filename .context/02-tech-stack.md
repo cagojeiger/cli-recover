@@ -1,65 +1,28 @@
-# Technology Stack
+# Tech Stack
 
-## Core Technologies
+## Core
+- **Go 1.21+**: 단일 바이너리, 크로스 컴파일
+- **Cobra**: CLI 프레임워크
+- **Bubble Tea**: TUI 프레임워크 (Elm 아키텍처)
+- **Lipgloss**: 터미널 스타일링
 
-### Language & Runtime
-- **Go 1.24.3**: Primary development language
-- **Standard Library**: JSON parsing, file operations, command execution
+## Dependencies
+- kubectl (필수)
+- Bubbles (textinput 컴포넌트)
+- Go standard library
 
-### CLI Framework
-- **Cobra**: Command-line interface structure
-- **pflag**: Command-line flag parsing
+## Intentionally Avoided
+- client-go (무거움, kubectl로 충분)
+- 복잡한 UI 라이브러리
+- ORM/Database
+- 설정 파일 라이브러리
 
-### TUI Framework
-- **Bubble Tea**: Terminal user interface framework
-- **Lipgloss**: Styling and layout for terminal UIs
-- **Termenv**: Terminal environment detection
+## Testing
+- Go testing package
+- Golden files
+- Mock interfaces
 
-### Testing Framework
-- **Go testing**: Built-in testing framework
-- **teatest**: Bubble Tea TUI testing utilities
-- **Golden Files**: Mock data for kubectl responses
-
-## Development Tools
-
-### Build & Dependencies
-- **Go Modules**: Dependency management
-- **Makefile**: Build automation scripts
-
-### Code Quality
-- **go fmt**: Code formatting
-- **go vet**: Static analysis
-- **golint**: Style checking (implied)
-
-### Testing & Coverage
-- **go test**: Unit and integration testing
-- **go tool cover**: Test coverage analysis
-- **CI/CD**: GitHub Actions (inferred from structure)
-
-## External Integrations
-
-### Kubernetes
-- **kubectl**: Command-line tool for K8s cluster interaction
-- **JSON API**: Kubernetes REST API responses
-- **tar**: Unix archiving tool for backup creation
-
-### File System
-- **Golden Files**: Test data in `testdata/kubectl/`
-- **Temporary Files**: For backup operations
-
-## Architecture Decisions
-
-### Why Bubble Tea?
-- Modern, reactive TUI framework
-- Excellent testing support with teatest
-- Clean model-view-update architecture
-
-### Why Golden Files?
-- Deterministic testing without K8s cluster
-- Fast CI/CD execution
-- Reproducible test results
-
-### Why Internal Packages?
-- Clear separation of concerns
-- Testable business logic
-- Follows Go project layout standards
+## Platform Support
+- Linux (amd64, arm64)
+- macOS (amd64, arm64)
+- Windows (미지원)

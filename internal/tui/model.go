@@ -5,6 +5,7 @@ import (
 	"os"
 	
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/textinput"
 
 	"github.com/cagojeiger/cli-recover/internal/kubernetes"
 	"github.com/cagojeiger/cli-recover/internal/runner"
@@ -50,6 +51,7 @@ const (
 	ScreenBackupType
 	ScreenNamespaceList
 	ScreenPodList
+	ScreenContainerList
 	ScreenDirectoryBrowser
 	ScreenBackupOptions
 	ScreenPathInput
@@ -72,10 +74,9 @@ type Model struct {
 	selectedBackupType string
 	selectedNamespace  string
 	selectedPod        string
+	selectedContainer  string
 	selectedPath       string
 	backupOptions      kubernetes.BackupOptions
-	minioOptions       kubernetes.MinioBackupOptions
-	mongoOptions       kubernetes.MongoBackupOptions
 	
 	// Backup options UI state
 	optionCategory int // 0: compression, 1: excludes, 2: advanced
@@ -84,6 +85,15 @@ type Model struct {
 	// Command building
 	commandBuilder *CommandBuilder
 	executor       Executor
+	
+	// Execution state
+	executeOutput []string
+	
+	// Text input state
+	editMode      bool
+	editField     string // "container", "output", "minio-endpoint", etc.
+	textInput     textinput.Model
+	originalValue string // for cancellation
 	
 	// UI state
 	err    error
@@ -109,24 +119,20 @@ func InitialModel(runner runner.Runner) Model {
 			err:            fmt.Errorf("failed to initialize: %w", err),
 			backupOptions: kubernetes.BackupOptions{
 				CompressionType: "gzip",
-				ExcludePatterns: []string{"*.log", "tmp/*", ".git"},
-				ExcludeVCS:      true,
-				Verbose:         true,
+				ExcludePatterns: []string{}, // 기본적으로 아무것도 제외하지 않음
+				ExcludeVCS:      false,     // 기본적으로 VCS 제외하지 않음
+				Verbose:         false,     // 기본적으로 verbose 끔
 				ShowTotals:      false,
-				PreservePerms:   true,
-			},
-			minioOptions: kubernetes.MinioBackupOptions{
-				Endpoint:  "http://localhost:9000",
-				Recursive: true,
-				Format:    "tar",
-			},
-			mongoOptions: kubernetes.MongoBackupOptions{
-				Host:   "localhost:27017",
-				AuthDB: "admin",
-				Gzip:   true,
+				PreservePerms:   false,     // 기본적으로 권한 보존하지 않음
 			},
 		}
 	}
+	
+	// Initialize text input
+	ti := textinput.New()
+	ti.Placeholder = "Enter value..."
+	ti.CharLimit = 100
+	ti.Width = 50
 	
 	return Model{
 		runner:         runner,
@@ -134,23 +140,15 @@ func InitialModel(runner runner.Runner) Model {
 		selected:       0,
 		commandBuilder: cb,
 		executor:       executor,
+		textInput:      ti,
+		editMode:       false,
 		backupOptions: kubernetes.BackupOptions{
 			CompressionType: "gzip",
-			ExcludePatterns: []string{"*.log", "tmp/*", ".git"},
-			ExcludeVCS:      true,
-			Verbose:         true,
+			ExcludePatterns: []string{}, // 기본적으로 아무것도 제외하지 않음
+			ExcludeVCS:      false,     // 기본적으로 VCS 제외하지 않음
+			Verbose:         false,     // 기본적으로 verbose 끔
 			ShowTotals:      false,
-			PreservePerms:   true,
-		},
-		minioOptions: kubernetes.MinioBackupOptions{
-			Endpoint:  "http://localhost:9000",
-			Recursive: true,
-			Format:    "tar",
-		},
-		mongoOptions: kubernetes.MongoBackupOptions{
-			Host:   "localhost:27017",
-			AuthDB: "admin",
-			Gzip:   true,
+			PreservePerms:   false,     // 기본적으로 권한 보존하지 않음
 		},
 	}
 }
@@ -164,6 +162,23 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Handle text input in edit mode
+		if m.editMode {
+			// Update text input component
+			var cmd tea.Cmd
+			m.textInput, cmd = m.textInput.Update(msg)
+			
+			// Handle special keys
+			switch msg.String() {
+			case "enter":
+				m = saveTextInput(m)
+			case "esc":
+				m = cancelTextInput(m)
+			}
+			
+			return m, cmd
+		}
+		
 		m = HandleKey(m, msg.String())
 		// Check if we should quit
 		if m.quit {

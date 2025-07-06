@@ -2,10 +2,11 @@ package kubernetes
 
 // Pod represents basic pod information
 type Pod struct {
-	Name      string
-	Namespace string
-	Status    string
-	Ready     string
+	Name       string
+	Namespace  string
+	Status     string
+	Ready      string
+	Containers []string // List of container names in this pod
 }
 
 // DirectoryEntry represents a file or directory in the pod
@@ -35,6 +36,9 @@ type BackupOptions struct {
 	
 	// File settings
 	OutputFile string // Output filename (auto-generated if empty)
+	
+	// Execution settings
+	DryRun bool // Show command without executing
 }
 
 // MinioBackupOptions represents MinIO-specific backup options
@@ -43,6 +47,7 @@ type MinioBackupOptions struct {
 	Endpoint   string // MinIO endpoint URL
 	AccessKey  string // MinIO access key
 	SecretKey  string // MinIO secret key
+	Bucket     string // MinIO bucket name
 	
 	// Backup settings
 	Recursive bool   // Recursive backup
@@ -51,12 +56,17 @@ type MinioBackupOptions struct {
 	// Common settings
 	Container  string // For multi-container pods
 	OutputFile string // Output filename
+	
+	// Execution settings
+	DryRun bool // Show command without executing
 }
 
 // MongoBackupOptions represents MongoDB-specific backup options
 type MongoBackupOptions struct {
 	// Connection settings
-	Host     string // MongoDB host:port
+	Host     string // MongoDB host
+	Port     string // MongoDB port
+	Database string // Database name
 	Username string // MongoDB username
 	Password string // MongoDB password
 	AuthDB   string // Authentication database
@@ -69,4 +79,7 @@ type MongoBackupOptions struct {
 	// Common settings
 	Container  string // For multi-container pods
 	OutputFile string // Output filename
+	
+	// Execution settings
+	DryRun bool // Show command without executing
 }

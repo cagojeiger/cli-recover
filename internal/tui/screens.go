@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	
+	"github.com/cagojeiger/cli-recover/internal/kubernetes"
 )
 
 
@@ -61,6 +63,33 @@ func viewPodList(m Model, width int) string {
 	return view
 }
 
+// viewContainerList renders container selection for multi-container pods
+func viewContainerList(m Model, width int) string {
+	var view string
+	
+	// Find the selected pod to get its containers
+	var selectedPod kubernetes.Pod
+	for _, pod := range m.pods {
+		if pod.Name == m.selectedPod {
+			selectedPod = pod
+			break
+		}
+	}
+	
+	view += fmt.Sprintf("Containers in %s:\n", m.selectedPod)
+	
+	// Container list
+	for i, container := range selectedPod.Containers {
+		if i == m.selected {
+			view += fmt.Sprintf("  > %s\n", container)
+		} else {
+			view += fmt.Sprintf("    %s\n", container)
+		}
+	}
+	
+	return view
+}
+
 // viewDirectoryBrowser renders directory browsing screen
 func viewDirectoryBrowser(m Model, width int) string {
 	var view string
@@ -93,8 +122,6 @@ func viewBackupType(m Model, width int) string {
 		description string
 	}{
 		{"filesystem", "Backup files and directories from pod filesystem"},
-		{"minio", "Backup objects from MinIO object storage"},
-		{"mongodb", "Backup collections from MongoDB database"},
 	}
 	
 	var view string
@@ -107,6 +134,19 @@ func viewBackupType(m Model, width int) string {
 		} else {
 			view += fmt.Sprintf("    %-12s - %s\n", bt.name, bt.description)
 		}
+	}
+	
+	return view
+}
+
+// viewExecuting renders the backup execution screen
+func viewExecuting(m Model, width int) string {
+	var view string
+	view += "Backup Progress:\n\n"
+	
+	// Show last N lines of output
+	for _, line := range m.executeOutput {
+		view += line + "\n"
 	}
 	
 	return view
