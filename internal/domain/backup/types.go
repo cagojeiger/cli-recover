@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"errors"
 	"fmt"
 	"time"
 )
@@ -55,4 +56,83 @@ func FormatETA(eta time.Duration) string {
 		return fmt.Sprintf("%dm%ds", minutes, seconds)
 	}
 	return fmt.Sprintf("%ds", seconds)
+}
+
+// Options represents backup operation options
+type Options struct {
+	Namespace  string
+	PodName    string
+	SourcePath string
+	OutputFile string
+	Compress   bool
+	Exclude    []string
+	Container  string // Optional: specific container in pod
+	Extra      map[string]interface{} // Provider-specific options
+}
+
+// Validate checks if all required options are provided
+func (o Options) Validate() error {
+	if o.Namespace == "" {
+		return errors.New("namespace is required")
+	}
+	if o.PodName == "" {
+		return errors.New("pod name is required")
+	}
+	if o.SourcePath == "" {
+		return errors.New("source path is required")
+	}
+	if o.OutputFile == "" {
+		return errors.New("output file is required")
+	}
+	return nil
+}
+
+// ErrorCode represents the type of error
+type ErrorCode string
+
+const (
+	ErrCodeNotFound     ErrorCode = "NOT_FOUND"
+	ErrCodeInvalidInput ErrorCode = "INVALID_INPUT"
+	ErrCodeInternal     ErrorCode = "INTERNAL"
+	ErrCodeTimeout      ErrorCode = "TIMEOUT"
+	ErrCodeUnauthorized ErrorCode = "UNAUTHORIZED"
+)
+
+// BackupError represents a domain-specific error
+type BackupError struct {
+	Code      ErrorCode
+	Message   string
+	Cause     error
+	Timestamp time.Time
+}
+
+// NewBackupError creates a new BackupError wrapping the given error
+func NewBackupError(message string, cause error) *BackupError {
+	return &BackupError{
+		Code:      ErrCodeInternal,
+		Message:   message,
+		Cause:     cause,
+		Timestamp: time.Now(),
+	}
+}
+
+// Error implements the error interface
+func (e BackupError) Error() string {
+	if e.Cause != nil {
+		return fmt.Sprintf("[%s] %s: %v", e.Code, e.Message, e.Cause)
+	}
+	return fmt.Sprintf("[%s] %s", e.Code, e.Message)
+}
+
+// Is checks if the error has the same code
+func (e BackupError) Is(target error) bool {
+	if t, ok := target.(BackupError); ok {
+		return e.Code == t.Code
+	}
+	return false
+}
+
+// Unwrap returns the underlying error
+func (e BackupError) Unwrap() error {
+	return e.Cause
 }

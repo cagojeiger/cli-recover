@@ -202,3 +202,128 @@ func TestProgress_FormatETA(t *testing.T) {
 		})
 	}
 }
+
+func TestOptions_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		options backup.Options
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid options",
+			options: backup.Options{
+				Namespace:  "default",
+				PodName:    "my-pod",
+				SourcePath: "/data",
+				OutputFile: "backup.tar.gz",
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing namespace",
+			options: backup.Options{
+				PodName:    "my-pod",
+				SourcePath: "/data",
+				OutputFile: "backup.tar.gz",
+			},
+			wantErr: true,
+			errMsg:  "namespace is required",
+		},
+		{
+			name: "missing pod name",
+			options: backup.Options{
+				Namespace:  "default",
+				SourcePath: "/data",
+				OutputFile: "backup.tar.gz",
+			},
+			wantErr: true,
+			errMsg:  "pod name is required",
+		},
+		{
+			name: "missing source path",
+			options: backup.Options{
+				Namespace:  "default",
+				PodName:    "my-pod",
+				OutputFile: "backup.tar.gz",
+			},
+			wantErr: true,
+			errMsg:  "source path is required",
+		},
+		{
+			name: "missing output file",
+			options: backup.Options{
+				Namespace:  "default",
+				PodName:    "my-pod",
+				SourcePath: "/data",
+			},
+			wantErr: true,
+			errMsg:  "output file is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.options.Validate()
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestBackupError_Wrap(t *testing.T) {
+	originalErr := assert.AnError
+	
+	err := backup.NewBackupError("operation failed", originalErr)
+	
+	assert.Equal(t, "operation failed", err.Message)
+	assert.Equal(t, originalErr, err.Cause)
+	assert.NotZero(t, err.Timestamp)
+}
+
+func TestBackupError_Error(t *testing.T) {
+	tests := []struct {
+		name  string
+		err   backup.BackupError
+		want  string
+	}{
+		{
+			name: "error without cause",
+			err: backup.BackupError{
+				Code:    backup.ErrCodeInternal,
+				Message: "internal error",
+			},
+			want: "[INTERNAL] internal error",
+		},
+		{
+			name: "error with cause",
+			err: backup.BackupError{
+				Code:    backup.ErrCodeNotFound,
+				Message: "resource not found",
+				Cause:   assert.AnError,
+			},
+			want: "[NOT_FOUND] resource not found: assert.AnError general error for testing",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.err.Error()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestBackupError_Is(t *testing.T) {
+	err1 := backup.BackupError{Code: backup.ErrCodeNotFound, Message: "not found"}
+	err2 := backup.BackupError{Code: backup.ErrCodeNotFound, Message: "also not found"}
+	err3 := backup.BackupError{Code: backup.ErrCodeInternal, Message: "internal"}
+
+	assert.True(t, err1.Is(err2))
+	assert.False(t, err1.Is(err3))
+	assert.False(t, err1.Is(assert.AnError))
+}
