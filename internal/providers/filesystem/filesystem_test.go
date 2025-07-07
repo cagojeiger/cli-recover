@@ -136,42 +136,53 @@ func TestFilesystemProvider_EstimateSize(t *testing.T) {
 }
 
 func TestFilesystemProvider_Execute(t *testing.T) {
-	// TODO: Mock CommandExecutor를 사용한 테스트
-	t.Skip("Waiting for implementation")
+	mockExecutor := new(MockCommandExecutor)
+	provider := filesystem.NewProvider(nil, mockExecutor)
 	
-	// mockExecutor := new(MockCommandExecutor)
-	// mockClient := new(MockKubeClient)
-	// provider := filesystem.NewProvider(mockClient)
-	// provider.SetExecutor(mockExecutor)
+	opts := backup.Options{
+		Namespace:  "default",
+		PodName:    "test-pod",
+		SourcePath: "/data",
+		OutputFile: "/tmp/backup.tar.gz",
+		Compress:   true,
+	}
 	
-	// opts := backup.Options{
-	// 	Namespace:  "default",
-	// 	PodName:    "test-pod",
-	// 	SourcePath: "/data",
-	// 	OutputFile: "backup.tar",
-	// 	Compress:   true,
-	// }
+	ctx := context.Background()
 	
-	// ctx := context.Background()
+	// Mock tar command
+	outputCh := make(chan string)
+	errorCh := make(chan error, 1)
 	
-	// // Mock tar command
-	// outputCh := make(chan string, 10)
-	// errorCh := make(chan error, 1)
-	// close(errorCh)
+	// Expected command
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
+		"tar", "-czf", "-", "-C", "/", "data", ">", "/tmp/backup.tar.gz"}
 	
-	// // Simulate tar output
-	// go func() {
-	// 	outputCh <- "tar: /data/file1.txt"
-	// 	outputCh <- "tar: /data/file2.txt"
-	// 	outputCh <- "tar: /data/dir1/"
-	// 	close(outputCh)
-	// }()
+	mockExecutor.On("Stream", ctx, expectedCmd).Return(
+		(<-chan string)(outputCh), (<-chan error)(errorCh))
 	
-	// mockExecutor.On("Stream", ctx, mock.Anything).Return(outputCh, errorCh)
+	// Simulate tar output and completion
+	go func() {
+		outputCh <- "tar: data/file1.txt"
+		outputCh <- "tar: data/file2.txt" 
+		outputCh <- "tar: data/dir1/"
+		close(outputCh)
+		close(errorCh) // No error
+	}()
 	
-	// err := provider.Execute(ctx, opts)
-	// assert.NoError(t, err)
-	// mockExecutor.AssertExpectations(t)
+	// Start monitoring progress
+	progressCh := provider.StreamProgress()
+	progressReceived := false
+	
+	go func() {
+		for range progressCh {
+			progressReceived = true
+		}
+	}()
+	
+	err := provider.Execute(ctx, opts)
+	assert.NoError(t, err)
+	assert.True(t, progressReceived, "Should receive progress updates")
+	mockExecutor.AssertExpectations(t)
 }
 
 func TestFilesystemProvider_StreamProgress(t *testing.T) {
@@ -183,28 +194,69 @@ func TestFilesystemProvider_StreamProgress(t *testing.T) {
 }
 
 func TestFilesystemProvider_Execute_WithExcludes(t *testing.T) {
-	// TODO: exclude 옵션 테스트
-	t.Skip("Waiting for implementation")
+	mockExecutor := new(MockCommandExecutor)
+	provider := filesystem.NewProvider(nil, mockExecutor)
 	
-	// opts := backup.Options{
-	// 	Namespace:  "default",
-	// 	PodName:    "test-pod",
-	// 	SourcePath: "/data",
-	// 	OutputFile: "backup.tar",
-	// 	Exclude:    []string{"*.log", "tmp/"},
-	// }
+	opts := backup.Options{
+		Namespace:  "default",
+		PodName:    "test-pod",
+		SourcePath: "/data",
+		OutputFile: "backup.tar",
+		Exclude:    []string{"*.log", "tmp/"},
+	}
 	
-	// // Test that tar command includes exclude flags
+	ctx := context.Background()
+	
+	// Mock channels
+	outputCh := make(chan string)
+	errorCh := make(chan error, 1)
+	
+	// Expected command with excludes
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
+		"tar", "-cf", "-", "--exclude=*.log", "--exclude=tmp/", "-C", "/", "data", ">", "backup.tar"}
+	
+	mockExecutor.On("Stream", ctx, expectedCmd).Return(
+		(<-chan string)(outputCh), (<-chan error)(errorCh))
+	
+	go func() {
+		close(outputCh)
+		close(errorCh)
+	}()
+	
+	err := provider.Execute(ctx, opts)
+	assert.NoError(t, err)
+	mockExecutor.AssertExpectations(t)
 }
 
 func TestFilesystemProvider_Execute_Cancellation(t *testing.T) {
-	// TODO: Context cancellation 테스트
-	t.Skip("Waiting for implementation")
+	mockExecutor := new(MockCommandExecutor)
+	provider := filesystem.NewProvider(nil, mockExecutor)
 	
-	// ctx, cancel := context.WithCancel(context.Background())
-	// cancel() // Cancel immediately
+	opts := backup.Options{
+		Namespace:  "default",
+		PodName:    "test-pod",
+		SourcePath: "/data",
+		OutputFile: "backup.tar",
+	}
 	
-	// err := provider.Execute(ctx, opts)
-	// assert.Error(t, err)
-	// assert.Contains(t, err.Error(), "context canceled")
+	ctx, cancel := context.WithCancel(context.Background())
+	
+	// Mock channels
+	outputCh := make(chan string)
+	errorCh := make(chan error, 1)
+	
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
+		"tar", "-cf", "-", "-C", "/", "data", ">", "backup.tar"}
+	
+	mockExecutor.On("Stream", ctx, expectedCmd).Return(
+		(<-chan string)(outputCh), (<-chan error)(errorCh))
+	
+	// Cancel context immediately
+	cancel()
+	
+	// Don't close channels to simulate ongoing operation
+	
+	err := provider.Execute(ctx, opts)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cancelled")
 }
