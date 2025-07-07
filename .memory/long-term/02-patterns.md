@@ -1,224 +1,8 @@
 # 재사용 가능한 패턴
 
-## UI 컴포넌트 패턴
-
-### 1. Generic List Component
-```go
-type ListComponent[T any] struct {
-    items      []T
-    selected   int
-    focused    bool
-    height     int
-    renderer   func(item T, selected bool) string
-    onSelect   func(item T) tea.Cmd
-    filter     string
-}
-
-func (l *ListComponent[T]) Update(msg tea.Msg) (*ListComponent[T], tea.Cmd) {
-    switch msg := msg.(type) {
-    case tea.KeyMsg:
-        switch msg.String() {
-        case "up", "k":
-            if l.selected > 0 {
-                l.selected--
-            }
-        case "down", "j":
-            if l.selected < len(l.items)-1 {
-                l.selected++
-            }
-        case "enter":
-            if l.onSelect != nil && l.selected < len(l.items) {
-                return l, l.onSelect(l.items[l.selected])
-            }
-        }
-    }
-    return l, nil
-}
-
-func (l *ListComponent[T]) View() string {
-    var b strings.Builder
-    start := 0
-    end := len(l.items)
-    
-    // 스크롤링 처리
-    if l.height > 0 && len(l.items) > l.height {
-        // 선택된 항목을 중앙에 유지
-        if l.selected >= l.height/2 {
-            start = l.selected - l.height/2
-            end = start + l.height
-        }
-    }
-    
-    for i := start; i < end && i < len(l.items); i++ {
-        b.WriteString(l.renderer(l.items[i], i == l.selected))
-        b.WriteString("\n")
-    }
-    
-    return b.String()
-}
-```
-
-### 2. Form Component
-```go
-type FormField struct {
-    Label       string
-    Value       string
-    Type        FieldType // text, password, select, checkbox
-    Options     []string  // for select
-    Validator   func(string) error
-    Required    bool
-}
-
-type FormComponent struct {
-    fields   []FormField
-    selected int
-    errors   map[int]string
-}
-
-func (f *FormComponent) Validate() bool {
-    f.errors = make(map[int]string)
-    valid := true
-    
-    for i, field := range f.fields {
-        if field.Required && field.Value == "" {
-            f.errors[i] = "This field is required"
-            valid = false
-        } else if field.Validator != nil {
-            if err := field.Validator(field.Value); err != nil {
-                f.errors[i] = err.Error()
-                valid = false
-            }
-        }
-    }
-    
-    return valid
-}
-```
-
-### 3. Table Component
-```go
-type Column struct {
-    Title string
-    Width int
-    Align Alignment // Left, Right, Center
-}
-
-type TableComponent[T any] struct {
-    columns  []Column
-    rows     []T
-    renderer func(row T, col int) string
-    selected int
-    sorted   int // column index for sorting
-}
-
-func (t *TableComponent[T]) View() string {
-    var b strings.Builder
-    
-    // Header
-    for _, col := range t.columns {
-        b.WriteString(padString(col.Title, col.Width, col.Align))
-        b.WriteString(" ")
-    }
-    b.WriteString("\n")
-    
-    // Separator
-    for _, col := range t.columns {
-        b.WriteString(strings.Repeat("─", col.Width))
-        b.WriteString(" ")
-    }
-    b.WriteString("\n")
-    
-    // Rows
-    for i, row := range t.rows {
-        for j, col := range t.columns {
-            content := t.renderer(row, j)
-            if i == t.selected {
-                content = highlightStyle.Render(content)
-            }
-            b.WriteString(padString(content, col.Width, col.Align))
-            b.WriteString(" ")
-        }
-        b.WriteString("\n")
-    }
-    
-    return b.String()
-}
-```
-
-## 상태 관리 패턴
-
-### 1. State Machine
-```go
-type State int
-
-const (
-    StateIdle State = iota
-    StateLoading
-    StateError
-    StateSuccess
-)
-
-type StateMachine struct {
-    current     State
-    transitions map[State][]State
-}
-
-func (sm *StateMachine) CanTransition(to State) bool {
-    allowed, ok := sm.transitions[sm.current]
-    if !ok {
-        return false
-    }
-    
-    for _, state := range allowed {
-        if state == to {
-            return true
-        }
-    }
-    return false
-}
-```
-
-### 2. Event Bus
-```go
-type EventType string
-
-type Event struct {
-    Type      EventType
-    Timestamp time.Time
-    Data      interface{}
-}
-
-type EventBus struct {
-    subscribers map[EventType][]chan Event
-    mu          sync.RWMutex
-}
-
-func (eb *EventBus) Subscribe(eventType EventType) <-chan Event {
-    eb.mu.Lock()
-    defer eb.mu.Unlock()
-    
-    ch := make(chan Event, 10)
-    eb.subscribers[eventType] = append(eb.subscribers[eventType], ch)
-    return ch
-}
-
-func (eb *EventBus) Publish(event Event) {
-    eb.mu.RLock()
-    defer eb.mu.RUnlock()
-    
-    for _, ch := range eb.subscribers[event.Type] {
-        select {
-        case ch <- event:
-        default:
-            // 채널이 가득 찬 경우 스킵
-        }
-    }
-}
-```
-
 ## 비즈니스 로직 패턴
 
-### 1. Service Layer
+### Service Layer
 ```go
 type BackupService struct {
     repo      BackupRepository
@@ -251,18 +35,13 @@ func (s *BackupService) CreateBackup(ctx context.Context, req BackupRequest) (*B
 }
 ```
 
-### 2. Repository with Cache
+### Repository with Cache
 ```go
 type CachedRepository struct {
     base  Repository
     cache map[string]*CacheEntry
     mu    sync.RWMutex
     ttl   time.Duration
-}
-
-type CacheEntry struct {
-    data      interface{}
-    expiresAt time.Time
 }
 
 func (r *CachedRepository) Get(id string) (interface{}, error) {
@@ -294,7 +73,7 @@ func (r *CachedRepository) Get(id string) (interface{}, error) {
 
 ## 에러 처리 패턴
 
-### 1. Error Types
+### Error Types
 ```go
 type ErrorCode string
 
@@ -321,43 +100,7 @@ func (e AppError) Error() string {
 }
 ```
 
-### 2. Error Handler
-```go
-type ErrorHandler struct {
-    logger Logger
-}
-
-func (h *ErrorHandler) Handle(err error) tea.Cmd {
-    var appErr AppError
-    if errors.As(err, &appErr) {
-        h.logger.Error("Application error", 
-            "code", appErr.Code,
-            "message", appErr.Message,
-            "details", appErr.Details,
-        )
-        
-        // UI에 에러 메시지 전달
-        return func() tea.Msg {
-            return ErrorMsg{Error: appErr}
-        }
-    }
-    
-    // 예상치 못한 에러
-    h.logger.Error("Unexpected error", "error", err)
-    return func() tea.Msg {
-        return ErrorMsg{
-            Error: AppError{
-                Code:    ErrInternal,
-                Message: "An unexpected error occurred",
-                Cause:   err,
-            },
-        }
-    }
-}
-
-## 2025-01-07 추가 패턴
-
-### Provider Registry Pattern
+## Provider Registry Pattern
 ```go
 type Registry struct {
     factories map[string]func() Provider
@@ -381,10 +124,11 @@ func (r *Registry) RegisterFactory(name string, factory func() Provider) error {
 - 복원 provider 등록
 - 동적 provider 로딩
 
-### Adapter Pattern for CLI
+## Adapter Pattern for CLI
 ```go
 type BackupAdapter struct {
     registry *backup.Registry
+    logger   logger.Logger
 }
 
 func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, args []string) error {
@@ -403,7 +147,7 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 - 테스트 용이
 - 다양한 CLI 프레임워크 지원 가능
 
-### Metadata Store Pattern
+## Metadata Store Pattern
 ```go
 type Store interface {
     Save(metadata *Metadata) error
@@ -422,7 +166,7 @@ type FileStore struct {
 - 파일 시스템 구현
 - 향후 DB로 교체 가능
 
-### Progress Monitoring Pattern
+## Progress Monitoring Pattern
 ```go
 func (a *Adapter) monitorProgress(provider Provider, done <-chan bool) {
     progressCh := provider.StreamProgress()
@@ -441,55 +185,86 @@ func (a *Adapter) monitorProgress(provider Provider, done <-chan bool) {
     }
 }
 ```
-**용도**:
-- 비동기 진행률 표시
-- 실시간 업데이트
-- 리소스 효율적
 
-### Domain Model Separation
+## Logger Integration Pattern
+
+### Provider에 로거 추가
 ```go
-// Domain layer
-internal/domain/
-├── backup/
-│   ├── provider.go
-│   ├── types.go
-│   └── registry.go
-├── restore/
-│   ├── provider.go
-│   ├── types.go
-│   └── registry.go
-├── metadata/
-│   └── store.go
-└── job/
-    ├── job.go
-    ├── repository.go
-    └── status.go
+type Provider struct {
+    executor Executor
+    logger   logger.Logger
+}
 
-// Infrastructure layer
-internal/infrastructure/
-├── kubernetes/
-│   ├── client.go
-│   └── executor.go
-├── process/
-│   └── executor.go
-└── storage/
-    └── file_repository.go
+func NewProvider(executor Executor) *Provider {
+    return &Provider{
+        executor: executor,
+        logger:   log.WithField("provider", "filesystem"),
+    }
+}
 
-// Application layer
-cmd/cli-recover/adapters/
-├── backup_adapter.go
-├── restore_adapter.go
-├── list_adapter.go
-└── job_adapter.go
+func (p *Provider) Execute(ctx context.Context, opts backup.Options) error {
+    p.logger.Info("Starting filesystem backup", 
+        log.F("namespace", opts.Namespace),
+        log.F("pod", opts.PodName),
+        log.F("path", opts.Path),
+    )
+    
+    // 백업 실행...
+    
+    if err != nil {
+        p.logger.Error("Backup failed", 
+            log.F("error", err),
+            log.F("pod", opts.PodName),
+        )
+        return err
+    }
+    
+    p.logger.Info("Backup completed successfully",
+        log.F("size", size),
+        log.F("duration", time.Since(start)),
+    )
+    
+    return nil
+}
 ```
-**이점**:
-- 명확한 계층 분리
-- 의존성 방향 제어
-- 도메인 로직 보호
 
-## 2025-01-07 백그라운드 실행 패턴
+### CLI 플래그로 로거 설정
+```go
+rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+    level, _ := cmd.Flags().GetString("log-level")
+    output, _ := cmd.Flags().GetString("log-output")
+    logFile, _ := cmd.Flags().GetString("log-file")
+    
+    cfg := logger.DefaultConfig()
+    cfg.Level = level
+    cfg.Output = output
+    if logFile != "" {
+        cfg.FilePath = logFile
+    }
+    
+    if err := logger.InitializeFromConfig(cfg); err != nil {
+        logger.Error("Failed to configure logger", logger.F("error", err))
+    }
+}
+```
 
-### Job Domain Model
+### 조건부 로깅
+```go
+// Verbose 모드에서만 로깅
+if logger.GetLevel() <= logger.DebugLevel {
+    logger.Debug("Detailed information", 
+        logger.F("data", complexData),
+    )
+}
+
+// 대량 데이터는 요약
+logger.Info("Processing items", 
+    logger.F("count", len(items)),
+    logger.F("first", items[0]),
+)
+```
+
+## Job Domain Model Pattern
 ```go
 type Job struct {
     ID          string
@@ -515,7 +290,7 @@ const (
 )
 ```
 
-### Background Execution Pattern
+## Background Execution Pattern
 ```go
 func (s *JobService) StartBackground(cmd *cobra.Command, args []string) (*Job, error) {
     // 1. Job 생성
@@ -550,7 +325,7 @@ func (s *JobService) StartBackground(cmd *cobra.Command, args []string) (*Job, e
 }
 ```
 
-### File-based Job Repository
+## File-based Job Repository
 ```go
 type FileJobRepository struct {
     baseDir string
@@ -586,7 +361,7 @@ func (r *FileJobRepository) GetByPID(pid int) (*Job, error) {
 }
 ```
 
-### Cleanup Pattern
+## Cleanup Pattern
 ```go
 type CleanupService struct {
     baseDir string

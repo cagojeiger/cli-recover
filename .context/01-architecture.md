@@ -1,22 +1,30 @@
 # 시스템 아키텍처
 
-## 현재 아키텍처 분석
+## 현재 아키텍처 (2025-01-07 현재)
 
-### 문제점
-- **God Object 안티패턴**: Model struct가 115개 이상의 필드 보유
-- **강한 결합**: UI와 비즈니스 로직이 혼재
-- **중복 코드**: 각 화면이 비슷한 레이아웃을 반복 구현
-- **메모리 누수**: BackupJob.Output이 무제한 증가
-- **테스트 불가**: 구체적 구현에 의존하여 모킹 불가
-- **확장성 부족**: 새 백업 타입 추가 시 다수 파일 수정 필요
+### 완료된 개선
+- **TUI 완전 제거**: God Object 안티패턴 해결
+- **헥사고날 아키텍처**: 명확한 레이어 분리
+- **Provider 패턴**: 확장 가능한 구조
+- **인터페이스 기반**: 테스트 용이
+- **의존성 주입**: Mock 가능
 
-### 현재 구조
+### 현재 디렉토리 구조
 ```
-Model (모든 것을 포함)
-├── UI 상태 (selected, screen, etc.)
-├── 비즈니스 상태 (jobs, backupOptions, etc.)
-├── 데이터 (namespaces, pods, etc.)
-└── 의존성 (runner, jobManager, etc.)
+internal/
+├── domain/              # 비즈니스 로직
+│   ├── backup/         # 백업 도메인
+│   ├── restore/        # 복원 도메인
+│   ├── metadata/       # 메타데이터
+│   └── logger/         # 로거 인터페이스
+├── infrastructure/      # 외부 시스템 연동
+│   ├── kubernetes/     # K8s 클라이언트
+│   ├── logger/         # 로거 구현체
+│   ├── providers/      # 백업 프로바이더
+│   └── runner/         # 명령 실행기
+└── application/        # 애플리케이션 서비스
+    ├── adapters/       # CLI 어댑터
+    └── config/         # 설정 관리
 ```
 
 ## 목표 아키텍처
@@ -106,28 +114,38 @@ Event (tea.Msg) → Update → New State → View
 - Component 인터페이스로 새 UI 요소 추가
 - Middleware 패턴으로 공통 기능 추가 (로깅, 모니터링)
 
-## 실용적 구현 전략
+## 향후 구현 계획 (Phase 3 진행중)
 
-### Phase별 접근
-1. **Phase 1 (2주)**: 긴급 문제 해결
-   - Ring Buffer로 메모리 누수 해결
-   - 기본적인 레이어 분리
-   - 핵심 인터페이스 정의
+### Phase 3: 백그라운드 모드 (1주)
+1. **Job 도메인 모델**
+   - internal/domain/job/ 패키지
+   - Job 엔티티 (PID 트래킹)
+   - JobRepository 인터페이스
 
-2. **Phase 2 (3주)**: 컴포넌트화
-   - UI 컴포넌트 추출
-   - 재사용 가능한 패턴 확립
-   - 테스트 커버리지 향상
+2. **백그라운드 실행**
+   - --background 플래그
+   - exec.Command 자기 재실행
+   - PID 파일 관리
 
-3. **Phase 3 (4주)**: 플러그인 시스템
-   - BackupType 플러그인화
-   - 새 백업 타입 추가
-   - 확장성 검증
+3. **Status 명령**
+   - Job 목록 조회
+   - 실시간 모니터링
 
-4. **Phase 4 (2주)**: 최적화
-   - 성능 개선
-   - UX 향상
-   - 문서화 완성
+4. **파일 관리**
+   - cleanup 명령
+   - 보관 정책
+   - ~/.cli-recover/ 조직화
+
+### Phase 4: TUI 재구현 (2주)
+- CLI 래퍼 방식
+- 단순한 UI로만
+- 비즈니스 로직 분리
+
+### Phase 5: Provider 확장 (4주)
+- MinIO Provider
+- MongoDB Provider  
+- PostgreSQL Provider
+- MySQL Provider
 
 ### 핵심 원칙
 - **점진적 개선**: 한 번에 모든 것을 바꾸지 않음
@@ -238,95 +256,53 @@ Business Logic
 - CI/CD 파이프라인 통합 가능
 - 테스트 커버리지 80% 이상
 
-## 2025-01-07 현재 구현 상태
+## 주요 인터페이스
 
-### 완료된 아키텍처 요소
-- **Domain Layer**:
-  - backup/restore provider 인터페이스
-  - Registry 패턴 구현
-  - Metadata store 인터페이스
-  - Logger 인터페이스
-- **Infrastructure Layer**:
-  - Kubernetes client 추상화
-  - Command executor 패턴
-  - Filesystem provider 구현
-  - Logger 구현체들 (file, console)
-- **Application Layer**:
-  - BackupAdapter (CLI → Domain)
-  - RestoreAdapter (CLI → Domain)
-  - ListAdapter (메타데이터 조회)
-
-### 현재 디렉토리 구조 (문제점 포함)
-```
-cli-recover/
-├── cmd/cli-recover/
-│   ├── adapters/          # Application layer ✅
-│   │   ├── backup_adapter.go
-│   │   ├── restore_adapter.go
-│   │   └── list_adapter.go
-│   ├── backup_new.go      # CLI commands
-│   ├── restore_new.go
-│   └── list_new.go
-├── internal/
-│   ├── domain/           # Domain layer ✅
-│   │   ├── backup/
-│   │   ├── restore/
-│   │   ├── metadata/
-│   │   └── logger/
-│   ├── infrastructure/   # Infrastructure layer ✅
-│   │   ├── kubernetes/
-│   │   ├── logger/
-│   │   └── providers/
-│   │       └── filesystem/
-│   ├── backup/          # ❌ 중복 (삭제 필요)
-│   ├── kubernetes/      # ❌ 중복 (삭제 필요)
-│   ├── providers/       # ❌ 잘못된 위치 (infrastructure로 이동)
-│   ├── runner/          # ❌ 잘못된 위치 (infrastructure로 이동)
-│   ├── config/          # ⚠️ application layer로 이동 고려
-│   └── presentation/    # ❌ 빈 디렉토리 (삭제)
-└── .memory/             # AI memory system
-    ├── short-term/
-    └── long-term/
+### BackupProvider
+```go
+type BackupProvider interface {
+    Name() string
+    Description() string
+    Execute(ctx context.Context, opts BackupOptions) error
+    EstimateSize(opts BackupOptions) (int64, error)
+    StreamProgress() <-chan Progress
+    ValidateOptions(opts BackupOptions) error
+}
 ```
 
-### 아키텍처 위반 사항
-1. **중복 패키지**:
-   - internal/backup/ vs internal/domain/backup/
-   - internal/kubernetes/ vs internal/infrastructure/kubernetes/
-   - internal/providers/ vs internal/infrastructure/providers/
-
-2. **잘못된 위치**:
-   - internal/runner/ → internal/infrastructure/runner/
-   - internal/config/ → internal/application/config/
-
-3. **빈 디렉토리**:
-   - internal/presentation/ (TUI 삭제로 불필요)
-
-### 아키텍처 준수 평가
-- ✅ 레이어 분리 완료
-- ✅ 인터페이스 기반 설계
-- ✅ 의존성 역전 원칙
-- ✅ Provider 플러그인 패턴
-- ✅ TUI 레이어 완전 제거
-- ❌ 레거시 중복 코드 존재
-
-## 향후 구조 (Job 도메인 추가)
+### RestoreProvider
+```go
+type RestoreProvider interface {
+    Name() string
+    Description() string
+    Execute(ctx context.Context, opts RestoreOptions) error
+    ValidateBackup(metadata *Metadata) error
+    StreamProgress() <-chan Progress
+}
 ```
-internal/
-├── domain/              # 비즈니스 로직
-│   ├── backup/
-│   ├── restore/
-│   ├── metadata/
-│   ├── logger/
-│   └── job/            # 새로 추가
-├── infrastructure/      # 외부 시스템 연동
-│   ├── kubernetes/
-│   ├── logger/
-│   ├── providers/
-│   ├── process/        # 새로 추가
-│   ├── storage/        # 새로 추가
-│   └── runner/         # 이동
-└── application/        # 애플리케이션 서비스
-    ├── config/         # 이동
-    └── service/        # 새로 추가
+
+### JobRepository (Phase 3)
+```go
+type JobRepository interface {
+    Save(job *Job) error
+    Get(id string) (*Job, error)
+    GetByPID(pid int) (*Job, error)
+    List() ([]*Job, error)
+    Update(job *Job) error
+    Delete(id string) error
+}
 ```
+
+## 성공 지표
+
+### 현재 달성
+- ✅ 헥사고날 아키텍처 100% 준수
+- ✅ 모든 의존성 인터페이스화
+- ✅ 새 provider 추가 < 200 LOC
+- ✅ 테스트 커버리지 53.0%
+
+### Phase 3 목표
+- [ ] 백그라운드 실행 동작
+- [ ] Job 상태 추적 가능
+- [ ] 파일 자동 정리
+- [ ] 테스트 커버리지 80%

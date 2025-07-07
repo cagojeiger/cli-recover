@@ -193,9 +193,9 @@ type BackupType interface {
 - 복잡도 30/100 유지
 - 모든 테스트 통과
 
-## 2025-01-07 TUI 완전 삭제
+## 2025-01-07 아키텍처 대대적 정리
 
-### TUI 삭제 결정
+### TUI 완전 삭제 결정
 **결정**: TUI 레이어 완전 제거
 **이유**:
 - 헥사고날 아키텍처 심각한 위반
@@ -207,6 +207,24 @@ type BackupType interface {
 - 코드베이스 대폭 단순화
 - 테스트 가능한 구조로 전환
 - Phase 4에서 깨끗한 재시작 가능
+
+### 헥사고날 아키텍처 재구성
+**결정**: 모든 패키지를 올바른 레이어로 재배치
+**변경사항**:
+- adapters: cmd/cli-recover/adapters → internal/application/adapters
+- config: internal/config → internal/application/config
+- runner: internal/runner → internal/infrastructure/runner
+- providers: internal/providers → internal/infrastructure/providers
+**중복 제거**:
+- internal/backup/ (domain/backup과 중복)
+- internal/kubernetes/ (infrastructure/kubernetes와 중복)
+- internal/presentation/ (빈 디렉토리)
+**파일명 정리**:
+- _new suffix 모두 제거 (Go 컨벤션 준수)
+**결과**:
+- 명확한 레이어 분리
+- 의존성 방향 올바름
+- 테스트 용이한 구조
 
 ### 백그라운드 실행 모드 설계
 **결정**: Job 도메인 모델 도입

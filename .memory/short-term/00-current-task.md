@@ -1,46 +1,57 @@
-# 현재 작업: Phase 3 - 로그 시스템 구현
+# 현재 작업: Phase 3 - 백그라운드 모드 구현
 
 ## 작업 시작
 - 날짜: 2025-01-07
-- 목표: Phase 3 로그 시스템 구현 (TDD 방식)
-- 이전 작업: 코드 정리 및 테스트 개선 완료 (58.4% 커버리지)
-
-## 진행 사항
-### 1. 로거 인터페이스 확인 ✅
-- internal/domain/logger/logger.go 이미 구현됨
-- Level, Field, Logger 인터페이스 정의 완료
-
-### 2. 파일 로거 구현 확인 ✅
-- internal/infrastructure/logger/file.go 완전 구현
-- 로그 로테이션 기능 포함
-- JSON/Text 포맷 지원
-- 테스트 완료 (file_test.go)
-
-### 3. 글로벌 로거 및 팩토리 ✅
-- global.go: 전역 로거 관리
-- factory.go: 설정 기반 로거 생성
-- console.go: 콘솔 로거 구현
-
-### 4. 기존 코드 통합 ✅
-- backup_adapter.go: fmt.Printf → logger 사용
-- restore_adapter.go: fmt.Printf → logger 사용
-- list_adapter.go: 출력 포맷팅은 그대로 유지
-- 테스트 수정: NoOpLogger 추가로 테스트 통과
-
-### 5. CLI 플래그 추가 ✅
-- main.go에 로그 관련 플래그 추가
-  - --log-level: 로그 레벨 설정
-  - --log-file: 로그 파일 경로
-  - --log-format: 로그 포맷 (text/json)
-- PersistentPreRun에서 로거 초기화
+- 목표: Phase 3 백그라운드 실행 모드 및 파일 관리 시스템
+- 이전 작업: 헥사고날 아키텍처 정리 완료
 
 ## 완료된 작업
-- 로거 시스템이 이미 완전히 구현되어 있었음
-- 기존 코드에 로거 통합 완료
-- CLI 플래그로 로그 제어 가능
-- 모든 테스트 통과
+### 1. 헥사고날 아키텍처 정리 ✅
+- TUI 완전 삭제 (backup/legacy-tui-20250107/)
+- 중복 디렉토리 제거
+- 패키지 올바른 레이어로 이동
+- _new suffix 파일명 정리
 
-## 다음 단계
-- 문서 업데이트
-- Phase 3 완료 선언
-- CLAUDE.md 평가
+### 2. 로거 시스템 확인 ✅
+- 이미 완전히 구현되어 있음
+- CLI 플래그 통합 완료
+- 테스트 커버리지 유지
+
+### 3. 테스트 상태 ✅
+- 모든 테스트 통과
+- 커버리지: 53.0% (TUI 제거로 감소)
+- 실제 비즈니스 로직 커버리지는 유지
+
+## 진행 예정
+### 1. Job 도메인 모델
+- [ ] internal/domain/job/ 패키지 생성
+- [ ] Job 엔티티 (ID, PID, Status, StartTime, EndTime)
+- [ ] JobRepository 인터페이스
+- [ ] JobStatus enum (pending, running, completed, failed)
+
+### 2. 백그라운드 실행 인프라
+- [ ] internal/infrastructure/process/ 패키지
+- [ ] ProcessExecutor 구현
+- [ ] PID 파일 관리 (~/.cli-recover/jobs/)
+- [ ] 시그널 핸들링
+
+### 3. JobService 애플리케이션 레이어
+- [ ] internal/application/service/ 패키지
+- [ ] JobService 구현
+- [ ] FileJobRepository 구현
+
+### 4. CLI 통합
+- [ ] backup 명령에 --background 플래그
+- [ ] status 명령 구현
+- [ ] --watch 옵션
+
+### 5. 파일 관리 시스템
+- [ ] cleanup 명령
+- [ ] 보관 정책 설정
+- [ ] Dry-run 모드
+
+## 목표
+- 백그라운드 실행 가능
+- Job 상태 추적
+- 파일 자동 정리
+- 테스트 커버리지 80%
