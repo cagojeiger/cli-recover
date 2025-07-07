@@ -53,8 +53,8 @@ func (p *Provider) ValidateOptions(opts backup.Options) error {
 
 // EstimateSize estimates the size of the source directory
 func (p *Provider) EstimateSize(opts backup.Options) (int64, error) {
-	// TODO: Implement size estimation
-	return 0, nil
+	ctx := context.Background()
+	return kubernetes.EstimateSize(ctx, p.executor, opts.Namespace, opts.PodName, opts.SourcePath)
 }
 
 // Execute performs the backup

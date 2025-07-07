@@ -1,26 +1,29 @@
 package filesystem_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
+	"github.com/cagojeiger/cli-recover/internal/providers/filesystem"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestFilesystemProvider_Interface(t *testing.T) {
-	// TODO: provider 생성
-	// var _ backup.Provider = (*filesystem.Provider)(nil)
+	// Compile-time check
+	var _ backup.Provider = (*filesystem.Provider)(nil)
 }
 
 func TestFilesystemProvider_Name(t *testing.T) {
-	t.Skip("Waiting for implementation")
-	// provider := filesystem.NewProvider(nil)
-	// assert.Equal(t, "filesystem", provider.Name())
+	provider := filesystem.NewProvider(nil, nil)
+	assert.Equal(t, "filesystem", provider.Name())
 }
 
 func TestFilesystemProvider_Description(t *testing.T) {
-	t.Skip("Waiting for implementation")
-	// provider := filesystem.NewProvider(nil)
-	// assert.Equal(t, "Backup filesystem from Kubernetes pods", provider.Description())
+	provider := filesystem.NewProvider(nil, nil)
+	assert.Equal(t, "Backup filesystem from Kubernetes pods", provider.Description())
 }
 
 func TestFilesystemProvider_ValidateOptions(t *testing.T) {
@@ -84,41 +87,52 @@ func TestFilesystemProvider_ValidateOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Skip("Waiting for implementation")
-			// provider := filesystem.NewProvider(nil)
-			// err := provider.ValidateOptions(tt.opts)
-			// if tt.wantErr {
-			// 	assert.Error(t, err)
-			// 	assert.Contains(t, err.Error(), tt.errMsg)
-			// } else {
-			// 	assert.NoError(t, err)
-			// }
+			provider := filesystem.NewProvider(nil, nil)
+			err := provider.ValidateOptions(tt.opts)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
 
+// MockCommandExecutor for testing
+type MockCommandExecutor struct {
+	mock.Mock
+}
+
+func (m *MockCommandExecutor) Execute(ctx context.Context, command []string) (string, error) {
+	args := m.Called(ctx, command)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockCommandExecutor) Stream(ctx context.Context, command []string) (<-chan string, <-chan error) {
+	args := m.Called(ctx, command)
+	return args.Get(0).(<-chan string), args.Get(1).(<-chan error)
+}
+
 func TestFilesystemProvider_EstimateSize(t *testing.T) {
-	// TODO: Mock KubeClient를 사용한 테스트
-	t.Skip("Waiting for implementation")
+	mockExecutor := new(MockCommandExecutor)
+	provider := filesystem.NewProvider(nil, mockExecutor)
 	
-	// mockClient := new(MockKubeClient)
-	// provider := filesystem.NewProvider(mockClient)
+	opts := backup.Options{
+		Namespace:  "default",
+		PodName:    "test-pod",
+		SourcePath: "/data",
+	}
 	
-	// opts := backup.Options{
-	// 	Namespace:  "default",
-	// 	PodName:    "test-pod",
-	// 	SourcePath: "/data",
-	// }
+	// Mock du command execution
+	ctx := context.Background()
+	expectedCmd := kubernetes.BuildKubectlCommand("exec", "-n", "default", "test-pod", "--", "du", "-sb", "/data")
+	mockExecutor.On("Execute", ctx, expectedCmd).Return("1024000\t/data\n", nil)
 	
-	// // Mock du command execution
-	// ctx := context.Background()
-	// mockClient.On("ExecCommand", ctx, "default", "test-pod", "", []string{"du", "-sb", "/data"}).
-	// 	Return("1024000\t/data\n", nil)
-	
-	// size, err := provider.EstimateSize(opts)
-	// assert.NoError(t, err)
-	// assert.Equal(t, int64(1024000), size)
-	// mockClient.AssertExpectations(t)
+	size, err := provider.EstimateSize(opts)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1024000), size)
+	mockExecutor.AssertExpectations(t)
 }
 
 func TestFilesystemProvider_Execute(t *testing.T) {
@@ -161,17 +175,11 @@ func TestFilesystemProvider_Execute(t *testing.T) {
 }
 
 func TestFilesystemProvider_StreamProgress(t *testing.T) {
-	// TODO: Progress channel 테스트
-	t.Skip("Waiting for implementation")
+	provider := filesystem.NewProvider(nil, nil)
+	progressCh := provider.StreamProgress()
 	
-	// provider := filesystem.NewProvider(nil)
-	// progressCh := provider.StreamProgress()
-	
-	// // Progress channel should be non-nil
-	// assert.NotNil(t, progressCh)
-	
-	// // Test progress updates during execution
-	// // This would be tested in integration with Execute method
+	// Progress channel should be non-nil
+	assert.NotNil(t, progressCh)
 }
 
 func TestFilesystemProvider_Execute_WithExcludes(t *testing.T) {
