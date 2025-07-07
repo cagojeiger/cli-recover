@@ -192,3 +192,45 @@ type BackupType interface {
 - 예상 2일 → 실제 1시간
 - 복잡도 30/100 유지
 - 모든 테스트 통과
+
+## 2025-01-07 TUI 완전 삭제
+
+### TUI 삭제 결정
+**결정**: TUI 레이어 완전 제거
+**이유**:
+- 헥사고날 아키텍처 심각한 위반
+- God Object 안티패턴 (Model 115+ 필드)
+- 비즈니스 로직이 UI 레이어에 혼재
+- 테스트 불가능한 구조
+**백업**: backup/legacy-tui-20250107/에 보관
+**영향**:
+- 코드베이스 대폭 단순화
+- 테스트 가능한 구조로 전환
+- Phase 4에서 깨끗한 재시작 가능
+
+### 백그라운드 실행 모드 설계
+**결정**: Job 도메인 모델 도입
+**구현 방식**:
+- exec.Command 자기 재실행 패턴 (Go는 fork() 불가)
+- PID 파일 관리 (~/.cli-recover/jobs/)
+- Job 상태 추적 (pending → running → completed/failed)
+**아키텍처**:
+- Domain: Job entity, JobRepository interface
+- Infrastructure: FileJobRepository, ProcessExecutor
+- Application: JobService
+
+### 파일 관리 시스템 설계
+**결정**: ~/.cli-recover/ 하위 통합 관리
+**구조**:
+```
+~/.cli-recover/
+├── config.yaml    # 설정 파일
+├── logs/         # 로그 파일 (로테이션)
+├── metadata/     # 백업 메타데이터
+├── jobs/         # Job 상태 및 PID
+└── tmp/          # 임시 파일
+```
+**Cleanup 명령**:
+- 오래된 파일 자동 정리
+- 타입별 선택적 정리
+- Dry-run 모드 지원

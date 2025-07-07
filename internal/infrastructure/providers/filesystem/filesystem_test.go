@@ -6,7 +6,7 @@ import (
 
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
-	"github.com/cagojeiger/cli-recover/internal/providers/filesystem"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/providers/filesystem"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

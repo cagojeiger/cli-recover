@@ -18,7 +18,7 @@ import (
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
 	infLogger "github.com/cagojeiger/cli-recover/internal/infrastructure/logger"
-	"github.com/cagojeiger/cli-recover/internal/providers"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/providers"
 )
 
 // BackupAdapter adapts CLI commands to Provider interface

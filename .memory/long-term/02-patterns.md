@@ -458,22 +458,156 @@ internal/domain/
 │   ├── provider.go
 │   ├── types.go
 │   └── registry.go
-└── metadata/
-    └── store.go
+├── metadata/
+│   └── store.go
+└── job/
+    ├── job.go
+    ├── repository.go
+    └── status.go
 
 // Infrastructure layer
 internal/infrastructure/
-└── kubernetes/
-    ├── client.go
-    └── executor.go
+├── kubernetes/
+│   ├── client.go
+│   └── executor.go
+├── process/
+│   └── executor.go
+└── storage/
+    └── file_repository.go
 
 // Application layer
 cmd/cli-recover/adapters/
 ├── backup_adapter.go
 ├── restore_adapter.go
-└── list_adapter.go
+├── list_adapter.go
+└── job_adapter.go
 ```
 **이점**:
 - 명확한 계층 분리
 - 의존성 방향 제어
 - 도메인 로직 보호
+
+## 2025-01-07 백그라운드 실행 패턴
+
+### Job Domain Model
+```go
+type Job struct {
+    ID          string
+    PID         int        // 프로세스 ID
+    Command     string
+    Args        []string
+    Status      JobStatus
+    Progress    int
+    Output      *RingBuffer // 메모리 효율적 출력 관리
+    StartTime   time.Time
+    EndTime     time.Time
+    Error       error
+}
+
+type JobStatus string
+
+const (
+    JobStatusPending   JobStatus = "pending"
+    JobStatusRunning   JobStatus = "running"
+    JobStatusCompleted JobStatus = "completed"
+    JobStatusFailed    JobStatus = "failed"
+    JobStatusCancelled JobStatus = "cancelled"
+)
+```
+
+### Background Execution Pattern
+```go
+func (s *JobService) StartBackground(cmd *cobra.Command, args []string) (*Job, error) {
+    // 1. Job 생성
+    job := &Job{
+        ID:      generateJobID(),
+        Command: os.Args[0],
+        Args:    append(args, "--job-id", job.ID),
+        Status:  JobStatusPending,
+    }
+    
+    // 2. Job 저장
+    if err := s.repo.Save(job); err != nil {
+        return nil, err
+    }
+    
+    // 3. 백그라운드 프로세스 시작
+    process := exec.Command(job.Command, job.Args...)
+    process.SysProcAttr = &syscall.SysProcAttr{
+        Setpgid: true,
+    }
+    
+    if err := process.Start(); err != nil {
+        return nil, err
+    }
+    
+    // 4. PID 저장
+    job.PID = process.Process.Pid
+    job.Status = JobStatusRunning
+    s.repo.Update(job)
+    
+    return job, nil
+}
+```
+
+### File-based Job Repository
+```go
+type FileJobRepository struct {
+    baseDir string
+}
+
+func (r *FileJobRepository) Save(job *Job) error {
+    data, err := json.Marshal(job)
+    if err != nil {
+        return err
+    }
+    
+    path := filepath.Join(r.baseDir, "jobs", job.ID+".json")
+    return os.WriteFile(path, data, 0644)
+}
+
+func (r *FileJobRepository) GetByPID(pid int) (*Job, error) {
+    files, err := os.ReadDir(filepath.Join(r.baseDir, "jobs"))
+    if err != nil {
+        return nil, err
+    }
+    
+    for _, file := range files {
+        job, err := r.load(file.Name())
+        if err != nil {
+            continue
+        }
+        if job.PID == pid {
+            return job, nil
+        }
+    }
+    
+    return nil, ErrJobNotFound
+}
+```
+
+### Cleanup Pattern
+```go
+type CleanupService struct {
+    baseDir string
+    logger  Logger
+}
+
+func (s *CleanupService) CleanOlderThan(duration time.Duration) error {
+    cutoff := time.Now().Add(-duration)
+    
+    // Clean logs
+    logDir := filepath.Join(s.baseDir, "logs")
+    if err := s.cleanDirectory(logDir, cutoff); err != nil {
+        s.logger.Error("Failed to clean logs", "error", err)
+    }
+    
+    // Clean completed jobs
+    jobDir := filepath.Join(s.baseDir, "jobs")
+    if err := s.cleanCompletedJobs(jobDir, cutoff); err != nil {
+        s.logger.Error("Failed to clean jobs", "error", err)
+    }
+    
+    return nil
+}
+```

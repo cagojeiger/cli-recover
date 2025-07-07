@@ -6,12 +6,9 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/cagojeiger/cli-recover/internal/config"
+	"github.com/cagojeiger/cli-recover/internal/application/config"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/logger"
-	"github.com/cagojeiger/cli-recover/internal/runner"
-	"github.com/cagojeiger/cli-recover/internal/tui"
 )
 
 // version will be set by ldflags during build
@@ -96,28 +93,8 @@ func main() {
 			cmd.SetContext(config.WithConfig(cmd.Context(), appConfig))
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			// Get debug flag for TUI mode
-			debug, _ := cmd.Flags().GetBool("debug")
-			
-			// If no args, start TUI
-			runner := runner.NewRunner()
-			tui.SetVersion(version)
-			tui.SetDebug(debug)
-			model := tui.InitialModel(runner)
-			
-			if debug {
-				fmt.Printf("Debug: Starting TUI mode\n")
-			}
-			
-			p := tea.NewProgram(model, tea.WithAltScreen())
-			
-			// Set program reference for message passing
-			model.SetProgram(p)
-			
-			if _, err := p.Run(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error running TUI: %v\n", err)
-				os.Exit(1)
-			}
+			// If no args, show help
+			cmd.Help()
 		},
 	}
 

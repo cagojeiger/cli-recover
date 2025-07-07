@@ -4,7 +4,7 @@ import (
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
-	"github.com/cagojeiger/cli-recover/internal/providers/filesystem"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/providers/filesystem"
 )
 
 // RegisterProviders registers all available providers to the global registry

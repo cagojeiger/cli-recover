@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/cagojeiger/cli-recover/cmd/cli-recover/adapters"
+	"github.com/cagojeiger/cli-recover/internal/application/adapters"
 )
 
 // newBackupCommand creates the new backup command structure

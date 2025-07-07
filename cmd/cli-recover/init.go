@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cagojeiger/cli-recover/internal/config"
+	"github.com/cagojeiger/cli-recover/internal/application/config"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

@@ -245,20 +245,22 @@ Business Logic
   - backup/restore provider 인터페이스
   - Registry 패턴 구현
   - Metadata store 인터페이스
+  - Logger 인터페이스
 - **Infrastructure Layer**:
   - Kubernetes client 추상화
   - Command executor 패턴
   - Filesystem provider 구현
+  - Logger 구현체들 (file, console)
 - **Application Layer**:
   - BackupAdapter (CLI → Domain)
   - RestoreAdapter (CLI → Domain)
   - ListAdapter (메타데이터 조회)
 
-### 현재 디렉토리 구조
+### 현재 디렉토리 구조 (문제점 포함)
 ```
 cli-recover/
 ├── cmd/cli-recover/
-│   ├── adapters/          # Application layer
+│   ├── adapters/          # Application layer ✅
 │   │   ├── backup_adapter.go
 │   │   ├── restore_adapter.go
 │   │   └── list_adapter.go
@@ -266,22 +268,65 @@ cli-recover/
 │   ├── restore_new.go
 │   └── list_new.go
 ├── internal/
-│   ├── domain/           # Domain layer
+│   ├── domain/           # Domain layer ✅
 │   │   ├── backup/
 │   │   ├── restore/
-│   │   └── metadata/
-│   ├── infrastructure/   # Infrastructure layer
-│   │   └── kubernetes/
-│   └── providers/        # Provider implementations
-│       └── filesystem/
+│   │   ├── metadata/
+│   │   └── logger/
+│   ├── infrastructure/   # Infrastructure layer ✅
+│   │   ├── kubernetes/
+│   │   ├── logger/
+│   │   └── providers/
+│   │       └── filesystem/
+│   ├── backup/          # ❌ 중복 (삭제 필요)
+│   ├── kubernetes/      # ❌ 중복 (삭제 필요)
+│   ├── providers/       # ❌ 잘못된 위치 (infrastructure로 이동)
+│   ├── runner/          # ❌ 잘못된 위치 (infrastructure로 이동)
+│   ├── config/          # ⚠️ application layer로 이동 고려
+│   └── presentation/    # ❌ 빈 디렉토리 (삭제)
 └── .memory/             # AI memory system
     ├── short-term/
     └── long-term/
 ```
+
+### 아키텍처 위반 사항
+1. **중복 패키지**:
+   - internal/backup/ vs internal/domain/backup/
+   - internal/kubernetes/ vs internal/infrastructure/kubernetes/
+   - internal/providers/ vs internal/infrastructure/providers/
+
+2. **잘못된 위치**:
+   - internal/runner/ → internal/infrastructure/runner/
+   - internal/config/ → internal/application/config/
+
+3. **빈 디렉토리**:
+   - internal/presentation/ (TUI 삭제로 불필요)
 
 ### 아키텍처 준수 평가
 - ✅ 레이어 분리 완료
 - ✅ 인터페이스 기반 설계
 - ✅ 의존성 역전 원칙
 - ✅ Provider 플러그인 패턴
-- ⚠️ TUI 레이어는 아직 리팩토링 필요
+- ✅ TUI 레이어 완전 제거
+- ❌ 레거시 중복 코드 존재
+
+## 향후 구조 (Job 도메인 추가)
+```
+internal/
+├── domain/              # 비즈니스 로직
+│   ├── backup/
+│   ├── restore/
+│   ├── metadata/
+│   ├── logger/
+│   └── job/            # 새로 추가
+├── infrastructure/      # 외부 시스템 연동
+│   ├── kubernetes/
+│   ├── logger/
+│   ├── providers/
+│   ├── process/        # 새로 추가
+│   ├── storage/        # 새로 추가
+│   └── runner/         # 이동
+└── application/        # 애플리케이션 서비스
+    ├── config/         # 이동
+    └── service/        # 새로 추가
+```

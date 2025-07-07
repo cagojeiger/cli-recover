@@ -1,177 +1,87 @@
-# 기술 스택 결정
+# 기술 스택
 
-## UI 프레임워크
-### Bubble Tea (유지 결정)
-- **장점**
-  - 이미 구현되어 있음 (마이그레이션 비용 절감)
-  - Elm 아키텍처 (단방향 데이터 플로우)
-  - 활발한 커뮤니티와 Charm 생태계
-  - teatest로 UI 테스트 가능
-  
-- **제약사항**
-  - goroutine 사용 금지 → tea.Cmd 사용 필수
-  - 전체 화면 다시 그리기 (최적화 필요)
-  - 상태 불변성 요구
+## 프로그래밍 언어
+- **Go 1.24.3**: 메인 언어
+  - 크로스 플랫폼 지원
+  - 정적 타입 안정성
+  - 뛰어난 동시성 지원
 
-### 대안 검토 결과
-- **tview**: k9s에서 사용, 위젯 기반이지만 마이그레이션 비용 높음
-- **tcell**: 저수준 라이브러리, 구현 복잡도 증가
-- **결론**: Bubble Tea 유지가 최선
-
-## 스타일링
-### lipgloss (Charm 생태계)
-```go
-var (
-    headerStyle = lipgloss.NewStyle().
-        Background(lipgloss.Color("62")).
-        Foreground(lipgloss.Color("230")).
-        Bold(true)
-        
-    selectedStyle = lipgloss.NewStyle().
-        Foreground(lipgloss.Color("170"))
-)
-```
+## CLI 프레임워크
+- **Cobra**: 명령어 라인 파싱
+  - 서브커맨드 지원
+  - 플래그 관리
+  - 자동 help 생성
+- **YAML**: 설정 파일 (gopkg.in/yaml.v3)
+  - 설정 파일 파싱
+  - 구조화된 설정 관리
 
 ## 테스트 프레임워크
-### 단위 테스트
-- 표준 `testing` 패키지
-- `testify/assert` (선택적)
-- `gomock` (인터페이스 모킹)
+- **testify**: 어설션 라이브러리
+  - assert/require 패키지
+  - mock 생성 도구
+- **golden files**: 스냅샷 테스트
+  - kubectl 출력 모킹
+  - 재현 가능한 테스트
 
-### UI 테스트
-- `teatest` (Bubble Tea 공식)
-- 시나리오 기반 테스트 가능
+## 로깅 시스템
+- **구조화된 로거**: 자체 구현
+  - 파일/콘솔 출력
+  - 로그 로테이션
+  - JSON/Text 포맷
+  - 레벨 필터링
 
-### 통합 테스트
-- `testcontainers-go` (K8s API 서버 모킹)
-- 실제 kubectl 명령 테스트
+## 백업 도구
+- **tar**: 파일시스템 백업
+  - 압축 옵션 (gzip, bzip2, xz)
+  - 제외 패턴 지원
+  - 진행률 추적
 
-## 데이터 구조
-### Ring Buffer
-```go
-type RingBuffer struct {
-    data     []string
-    size     int
-    writePos int
-    full     bool
-}
+## 외부 도구
+- **kubectl**: Kubernetes CLI
+  - 필수 의존성
+  - exec/cp 명령 사용
+- **tar**: 아카이브 도구
+  - 모든 Unix 시스템 표준
+
+## 개발 도구
+- **Make**: 빌드 자동화
+  - 테스트, 빌드, 설치
+  - 크로스 컴파일
+- **golangci-lint**: 코드 품질
+  - 정적 분석
+  - 포맷팅 검사
+
+## 아키텍처 패턴
+- **Hexagonal Architecture**: 핵심 아키텍처
+  - Domain/Infrastructure/Application 레이어 분리
+  - 의존성 역전 원칙
+  - Provider 플러그인 패턴
+
+## 패키지 구조
+```
+github.com/cagojeiger/cli-recover
+├── /cmd           # 실행 파일
+│   └── /cli-recover
+│       └── /adapters  # Application layer
+├── /internal      # 내부 패키지
+│   ├── /domain    # 비즈니스 로직
+│   ├── /infrastructure  # 외부 시스템
+│   └── /application     # 애플리케이션 서비스
+├── /testdata      # 테스트 데이터
+└── /backup        # 레거시 백업
 ```
 
-### 이벤트 소싱
-```go
-type Event struct {
-    ID        string
-    Type      EventType
-    Timestamp time.Time
-    Data      interface{}
-}
-```
-
-## 설정 관리
-### viper 사용
-```go
-viper.SetConfigName("config")
-viper.SetConfigType("yaml")
-viper.AddConfigPath("$HOME/.cli-recover")
-```
-
-## 로깅
-### 구조화된 로깅
-```go
-type Logger interface {
-    Debug(msg string, fields ...Field)
-    Info(msg string, fields ...Field)
-    Error(msg string, fields ...Field)
-}
-```
-- 파일 기반 로깅: `~/.cli-recover/logs/`
-- 로테이션 지원
-
-## 국제화(i18n)
-### go-i18n 사용
-```go
-bundle := i18n.NewBundle(language.Korean)
-bundle.RegisterUnmarshalFunc("yaml", yaml.Unmarshal)
-bundle.LoadMessageFile("locales/ko.yaml")
-bundle.LoadMessageFile("locales/en.yaml")
-```
-
-## 의존성 주입
-### Wire 또는 수동 DI
-```go
-// 수동 DI 예시
-func NewApp(
-    kubeClient KubernetesClient,
-    backupService BackupService,
-    jobManager JobManager,
-) *App {
-    return &App{
-        kubeClient: kubeClient,
-        backupService: backupService,
-        jobManager: jobManager,
-    }
-}
-```
-
-## 빌드 도구
-### Makefile
-```makefile
-.PHONY: test build run
-
-test:
-    go test -v -cover ./...
-
-build:
-    go build -ldflags "-X main.version=$(VERSION)" -o cli-recover
-
-run:
-    go run ./cmd/cli-recover
-```
-
-## 코드 품질 도구
-- `golangci-lint`: 정적 분석
-- `go fmt`: 코드 포맷팅
-- `go vet`: 버그 검출
-- `gocyclo`: 순환 복잡도 측정
-
-## 2025-01-07 현재 사용 중인 기술
-
-### 핵심 의존성
-- **Go 1.21+**: 프로그래밍 언어
-- **Cobra**: CLI 프레임워크
-- **Bubble Tea**: TUI 프레임워크
-- **client-go**: Kubernetes API 클라이언트
-- **testify**: 테스트 assertion 라이브러리
-
-### CLI 아키텍처
-```go
-// Cobra 명령 구조
-cli-recover
-├── backup
-│   └── filesystem
-├── restore
-│   └── filesystem
-└── list
-    └── backups
-```
-
-### 테스트 전략
-- **단위 테스트**: Provider, Registry, Store
-- **통합 테스트**: CLI 명령 엔드투엔드
-- **Mock 사용**: Kubernetes client, Command executor
-- **커버리지 목표**: 80% (TUI 제외)
-
-### 메타데이터 저장
+## 메타데이터 저장
 - **파일 기반**: ~/.cli-recover/metadata/
 - **JSON 형식**: 직렬화/역직렬화
 - **SHA256 체크섬**: 무결성 검증
 
-### 진행률 표시
+## 진행률 표시
 - **채널 기반**: StreamProgress() <-chan Progress
 - **실시간 업데이트**: 500ms 간격
 - **ETA 계산**: 처리량 기반
 
-### 빌드 시스템
+## 빌드 시스템
 ```makefile
 # 현재 Makefile 타겟
 test         # 전체 테스트
@@ -179,3 +89,18 @@ test-coverage # 커버리지 (TUI 제외)
 build        # 바이너리 빌드
 lint         # golangci-lint
 ```
+
+## 테스트 전략
+- **단위 테스트**: Provider, Registry, Store
+- **통합 테스트**: CLI 명령 엔드투엔드
+- **Mock 사용**: Kubernetes client, Command executor
+- **커버리지 목표**: 80% (TUI 제외됨)
+
+## 제거된 기술 (2025-01-07)
+- ~~Bubble Tea~~: TUI 프레임워크 
+- ~~Lipgloss~~: 터미널 스타일링
+- ~~termenv~~: 터미널 환경
+- ~~Bubbles~~: UI 컴포넌트 라이브러리
+
+제거 이유: 헥사고날 아키텍처 위반, God Object 안티패턴, 테스트 불가능한 구조
+백업 위치: backup/legacy-tui-20250107/
