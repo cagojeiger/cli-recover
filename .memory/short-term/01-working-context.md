@@ -33,10 +33,16 @@
   - 모든 테스트 통과
   - 진행률 스트리밍
   - 압축/exclude 옵션
+- CLI 프레임워크 통합 ✓
+  - Provider 초기화 시스템
+  - CLI 어댑터 레이어
+  - 새로운 명령 구조 (`backup <type>`)
+  - 통합 테스트 작성
 
 ## 진행 중인 작업
-- 문서 동기화 및 정리 🔄
-- Git 상태 검토 예정
+- CLI 프레임워크 통합 완료 ✅
+- 문서 업데이트 진행 중 🔄
+- Git 상태 정리 예정
 
 ## 참조 문서
 - `.memory/long-term/04-strategic-decisions.md`: CLI-First 전략 결정

@@ -3,7 +3,7 @@
 ## 📅 스프린트 정보
 - **시작일**: 2025-01-07
 - **예정 종료일**: 2025-01-14
-- **현재 진행률**: 40%
+- **현재 진행률**: 70%
 
 ## ✅ 완료된 작업
 
@@ -44,34 +44,50 @@
   - Container 선택 지원
   - Context 취소 처리
 
+### 4. CLI 프레임워크 통합 (100%)
+- [x] Provider 초기화 시스템 구축
+  - `internal/providers/init.go`
+  - GlobalRegistry에 Provider 등록
+- [x] CLI 어댑터 레이어 구현
+  - `cmd/cli-recover/adapters/backup_adapter.go`
+  - cobra 명령과 Provider 연결
+  - 진행률 모니터링 통합
+- [x] 새로운 명령 구조 구현
+  - `cmd/cli-recover/backup_new.go`
+  - `cli-recover backup <type>` 구조
+  - filesystem, minio, mongodb 명령 스켈레톤
+- [x] 기존 명령과 호환성 유지
+  - 레거시 명령을 `backup-old`로 이동
+  - 점진적 마이그레이션 가능
+
+### 5. 통합 테스트 (100%)
+- [x] 어댑터 단위 테스트
+  - MockProvider 구현
+  - buildOptions 테스트
+  - 유틸리티 함수 테스트
+- [x] 모든 테스트 통과
+
 ## 🚧 진행 중인 작업
 
-### 4. 문서 동기화 (진행중)
-- [x] `.memory/short-term/00-current-task.md` 업데이트
-- [x] 진행 상황 문서 생성 (이 문서)
+### 6. 문서 동기화 (진행중)
+- [x] 진행 상황 문서 업데이트 (이 문서)
 - [ ] `.memory/short-term/01-working-context.md` 최신화
 - [ ] 체크포인트 문서 생성
 
 ## 📋 남은 작업
 
-### 5. Git 정리 (0%)
+### 7. Git 정리 (0%)
 - [ ] 현재 변경사항 검토
-- [ ] TUI 관련 변경사항 분리
-- [ ] 적절한 그룹으로 커밋
+- [ ] 의미 있는 단위로 커밋
+- [ ] PR 준비
 
-### 6. CLI 프레임워크 통합 (0%)
-- [ ] 프레임워크 선택 (cobra vs urfave/cli)
-- [ ] 명령 구조 구현
-- [ ] 기존 filesystem 백업 통합
-- [ ] 도움말 시스템
-
-### 7. MinIO Provider (0%)
+### 8. MinIO Provider (0%)
 - [ ] Provider 구조체 구현
 - [ ] S3 명령어 빌더
 - [ ] 진행률 파싱
 - [ ] 테스트 작성
 
-### 8. MongoDB Provider (0%)
+### 9. MongoDB Provider (0%)
 - [ ] Provider 구조체 구현
 - [ ] mongodump 명령어 빌더
 - [ ] 컬렉션별 진행률
