@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"io"
 	"time"
 )
 
@@ -44,4 +45,8 @@ type CommandExecutor interface {
 	
 	// Stream runs a command and streams the output
 	Stream(ctx context.Context, command []string) (<-chan string, <-chan error)
+	
+	// StreamBinary runs a command and streams binary output safely
+	// Returns stdout, stderr readers and a wait function for command completion
+	StreamBinary(ctx context.Context, command []string) (stdout io.ReadCloser, stderr io.ReadCloser, wait func() error, err error)
 }

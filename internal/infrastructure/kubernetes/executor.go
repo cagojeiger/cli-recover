@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 )
@@ -103,6 +104,41 @@ func (e *OSCommandExecutor) Stream(ctx context.Context, command []string) (<-cha
 	}()
 
 	return outputCh, errorCh
+}
+
+// StreamBinary runs a command and streams binary output safely
+func (e *OSCommandExecutor) StreamBinary(ctx context.Context, command []string) (stdout io.ReadCloser, stderr io.ReadCloser, wait func() error, err error) {
+	if len(command) == 0 {
+		return nil, nil, nil, fmt.Errorf("no command provided")
+	}
+
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
+	
+	// Get pipes for stdout and stderr
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		stdoutPipe.Close()
+		return nil, nil, nil, fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		stdoutPipe.Close()
+		stderrPipe.Close()
+		return nil, nil, nil, fmt.Errorf("failed to start command: %w", err)
+	}
+
+	// Wait function to be called when done reading
+	waitFunc := func() error {
+		return cmd.Wait()
+	}
+
+	return stdoutPipe, stderrPipe, waitFunc, nil
 }
 
 // EstimateSize estimates the size of a directory in bytes

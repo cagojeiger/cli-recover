@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"io"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -78,4 +79,16 @@ func (m *MockCommandExecutor) Stream(ctx context.Context, command []string) (<-c
 	}
 	
 	return outputCh.(<-chan string), errorCh.(<-chan error)
+}
+
+// StreamBinary mocks the StreamBinary method
+func (m *MockCommandExecutor) StreamBinary(ctx context.Context, command []string) (stdout io.ReadCloser, stderr io.ReadCloser, wait func() error, err error) {
+	args := m.Called(ctx, command)
+	
+	stdout = args.Get(0).(io.ReadCloser)
+	stderr = args.Get(1).(io.ReadCloser)
+	wait = args.Get(2).(func() error)
+	err = args.Error(3)
+	
+	return
 }

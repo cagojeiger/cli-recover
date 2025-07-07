@@ -52,7 +52,7 @@ func newProviderBackupCmd(providerName string) *cobra.Command {
 		
 		// Add filesystem-specific flags
 		cmd.Flags().StringP("namespace", "n", "default", "Kubernetes namespace")
-		cmd.Flags().StringP("compression", "c", "gzip", "Compression type (gzip, bzip2, xz, none)")
+		cmd.Flags().StringP("compression", "c", "none", "Compression type (none=.tar, gzip=.tar.gz)")
 		cmd.Flags().StringSliceP("exclude", "e", []string{}, "Exclude patterns (can be used multiple times)")
 		cmd.Flags().BoolP("exclude-vcs", "", false, "Exclude version control systems (.git, .svn, etc.)")
 		cmd.Flags().BoolP("verbose", "v", false, "Verbose output")

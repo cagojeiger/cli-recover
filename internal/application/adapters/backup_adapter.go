@@ -156,9 +156,12 @@ func (a *BackupAdapter) buildOptions(providerName string, cmd *cobra.Command, ar
 		opts.PodName = args[0]
 		opts.SourcePath = args[1]
 		
-		// Compression
+		// Compression - only support none (.tar) and gzip (.tar.gz)
 		compression, _ := cmd.Flags().GetString("compression")
-		opts.Compress = compression != "none"
+		if compression != "none" && compression != "gzip" {
+			return opts, fmt.Errorf("unsupported compression type '%s', only 'none' (.tar) and 'gzip' (.tar.gz) are supported", compression)
+		}
+		opts.Compress = compression == "gzip"
 		opts.Extra["compression"] = compression
 		
 		// Exclude patterns
@@ -285,14 +288,10 @@ func getFileExtension(compression string) string {
 	switch compression {
 	case "gzip":
 		return ".tar.gz"
-	case "bzip2":
-		return ".tar.bz2"
-	case "xz":
-		return ".tar.xz"
 	case "none":
 		return ".tar"
 	default:
-		return ".tar.gz"
+		return ".tar" // Default to uncompressed
 	}
 }
 

@@ -63,7 +63,7 @@ func TestBuildTarCommand(t *testing.T) {
 				Compress:   false,
 			},
 			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
-				"tar", "-cf", "-", "-C", "/", "data"},
+				"tar", "-cvf", "-", "-C", "/", "data"},
 		},
 		{
 			name: "tar with compression",
@@ -75,7 +75,7 @@ func TestBuildTarCommand(t *testing.T) {
 				Compress:   true,
 			},
 			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
-				"tar", "-czf", "-", "-C", "/", "data"},
+				"tar", "-czvf", "-", "-C", "/", "data"},
 		},
 		{
 			name: "tar with excludes",
@@ -87,7 +87,7 @@ func TestBuildTarCommand(t *testing.T) {
 				Exclude:    []string{"*.log", "tmp/"},
 			},
 			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
-				"tar", "-cf", "-", "--exclude=*.log", "--exclude=tmp/", "-C", "/", "data"},
+				"tar", "-cvf", "-", "--exclude=*.log", "--exclude=tmp/", "-C", "/", "data"},
 		},
 		{
 			name: "tar with container specified",
@@ -101,7 +101,7 @@ func TestBuildTarCommand(t *testing.T) {
 				},
 			},
 			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "-c", "app", "--", 
-				"tar", "-cf", "-", "-C", "/", "data"},
+				"tar", "-cvf", "-", "-C", "/", "data"},
 		},
 	}
 	
