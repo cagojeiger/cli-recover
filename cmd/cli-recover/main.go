@@ -129,4 +129,5 @@ func addSubcommands(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(newListCommand())
 	rootCmd.AddCommand(newLogsCommand())
 	rootCmd.AddCommand(newInitCommand())
+	rootCmd.AddCommand(newTUICommand())
 }
