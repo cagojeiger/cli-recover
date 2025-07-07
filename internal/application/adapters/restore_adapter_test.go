@@ -83,17 +83,13 @@ func createTestCommand() *cobra.Command {
 	return cmd
 }
 
-func TestRestoreAdapter_ExecuteRestore(t *testing.T) {
+func TestRestoreAdapter_ExecuteRestore_Success(t *testing.T) {
 	tests := []struct {
-		name            string
-		providerName    string
-		args            []string
-		setupFlags      func(*cobra.Command)
-		setupMock       func(*MockRestoreProvider)
-		expectedOptions restore.Options
-		wantErr         bool
-		expectedError   string
-		expectedOutput  string
+		name         string
+		providerName string
+		args         []string
+		setupFlags   func(*cobra.Command)
+		setupMock    func(*MockRestoreProvider)
 	}{
 		{
 			name:         "successful filesystem restore",
@@ -131,8 +127,6 @@ func TestRestoreAdapter_ExecuteRestore(t *testing.T) {
 					Warnings:     []string{},
 				}, nil)
 			},
-			expectedOutput: "Restore completed successfully: /data/restore (42 files, 1.0 MB)",
-			wantErr:        false,
 		},
 		{
 			name:         "restore with warnings",
@@ -154,8 +148,6 @@ func TestRestoreAdapter_ExecuteRestore(t *testing.T) {
 					Warnings:     []string{"Skipped 2 files due to permissions"},
 				}, nil)
 			},
-			expectedOutput: "Warning: Skipped 2 files due to permissions",
-			wantErr:        false,
 		},
 		{
 			name:         "dry run mode",
@@ -169,9 +161,30 @@ func TestRestoreAdapter_ExecuteRestore(t *testing.T) {
 				m.On("ValidateOptions", mock.Anything).Return(nil)
 				m.On("ValidateBackup", "backup.tar", mock.Anything).Return(nil)
 			},
-			expectedOutput: "Dry run - would execute filesystem restore",
-			wantErr:        false,
 		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd, adapter, mockProvider := setupRestoreTest(tt.setupFlags, tt.setupMock)
+			
+			err := adapter.ExecuteRestore(tt.providerName, cmd, tt.args)
+			
+			assert.NoError(t, err)
+			mockProvider.AssertExpectations(t)
+		})
+	}
+}
+
+func TestRestoreAdapter_ExecuteRestore_ValidationFailures(t *testing.T) {
+	tests := []struct {
+		name          string
+		providerName  string
+		args          []string
+		setupFlags    func(*cobra.Command)
+		setupMock     func(*MockRestoreProvider)
+		expectedError string
+	}{
 		{
 			name:         "invalid options",
 			providerName: "filesystem",
@@ -179,7 +192,6 @@ func TestRestoreAdapter_ExecuteRestore(t *testing.T) {
 			setupMock: func(m *MockRestoreProvider) {
 				m.On("ValidateOptions", mock.Anything).Return(errors.New("target path required"))
 			},
-			wantErr:       true,
 			expectedError: "invalid options: target path required",
 		},
 		{
@@ -193,9 +205,40 @@ func TestRestoreAdapter_ExecuteRestore(t *testing.T) {
 				m.On("ValidateOptions", mock.Anything).Return(nil)
 				m.On("ValidateBackup", "invalid.tar", mock.Anything).Return(errors.New("invalid backup format"))
 			},
-			wantErr:       true,
 			expectedError: "backup validation failed: invalid backup format",
 		},
+		{
+			name:          "insufficient arguments",
+			providerName:  "filesystem",
+			args:          []string{"test-pod"}, // Missing backup file
+			expectedError: "filesystem restore requires [pod] [backup-file] arguments",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd, adapter, mockProvider := setupRestoreTest(tt.setupFlags, tt.setupMock)
+			
+			err := adapter.ExecuteRestore(tt.providerName, cmd, tt.args)
+			
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.expectedError)
+			if mockProvider != nil {
+				mockProvider.AssertExpectations(t)
+			}
+		})
+	}
+}
+
+func TestRestoreAdapter_ExecuteRestore_ExecutionFailures(t *testing.T) {
+	tests := []struct {
+		name          string
+		providerName  string
+		args          []string
+		setupFlags    func(*cobra.Command)
+		setupMock     func(*MockRestoreProvider)
+		expectedError string
+	}{
 		{
 			name:         "restore execution failure",
 			providerName: "filesystem",
@@ -209,69 +252,52 @@ func TestRestoreAdapter_ExecuteRestore(t *testing.T) {
 				m.On("EstimateSize", "backup.tar").Return(int64(1024), nil)
 				m.On("Execute", mock.Anything, mock.Anything).Return(nil, errors.New("pod not found"))
 			},
-			wantErr:       true,
 			expectedError: "restore failed: pod not found",
-		},
-		{
-			name:         "insufficient arguments",
-			providerName: "filesystem",
-			args:         []string{"test-pod"}, // Missing backup file
-			wantErr:      true,
-			expectedError: "filesystem restore requires [pod] [backup-file] arguments",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test command
-			cmd := createTestCommand()
-			if tt.setupFlags != nil {
-				tt.setupFlags(cmd)
-			}
-
-			// Create mock provider
-			mockProvider := new(MockRestoreProvider)
-			if tt.setupMock != nil {
-				tt.setupMock(mockProvider)
-			}
-
-			// Create adapter with mock registry
-			adapter := &RestoreAdapter{
-				registry: &mockRestoreRegistry{
-					provider: mockProvider,
-				},
-				logger: &NoOpLogger{},
-			}
-
-			// Execute restore (output now goes to logger)
+			cmd, adapter, mockProvider := setupRestoreTest(tt.setupFlags, tt.setupMock)
+			
 			err := adapter.ExecuteRestore(tt.providerName, cmd, tt.args)
-
-			// Check error
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.expectedError != "" {
-					assert.Contains(t, err.Error(), tt.expectedError)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
-
-			// Skip output check as we're using logger now
-
-			// Verify mock expectations
+			
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.expectedError)
 			mockProvider.AssertExpectations(t)
 		})
 	}
 }
 
-func TestRestoreAdapter_BuildOptions(t *testing.T) {
+func setupRestoreTest(setupFlags func(*cobra.Command), setupMock func(*MockRestoreProvider)) (*cobra.Command, *RestoreAdapter, *MockRestoreProvider) {
+	cmd := createTestCommand()
+	if setupFlags != nil {
+		setupFlags(cmd)
+	}
+
+	var mockProvider *MockRestoreProvider
+	if setupMock != nil {
+		mockProvider = new(MockRestoreProvider)
+		setupMock(mockProvider)
+	}
+
+	adapter := &RestoreAdapter{
+		registry: &mockRestoreRegistry{
+			provider: mockProvider,
+		},
+		logger: &NoOpLogger{},
+	}
+
+	return cmd, adapter, mockProvider
+}
+
+func TestRestoreAdapter_BuildOptions_Success(t *testing.T) {
 	tests := []struct {
 		name         string
 		providerName string
 		args         []string
 		setupFlags   func(*cobra.Command)
 		expected     restore.Options
-		wantErr      bool
 	}{
 		{
 			name:         "filesystem options with all flags",
@@ -299,7 +325,6 @@ func TestRestoreAdapter_BuildOptions(t *testing.T) {
 					"verbose": true,
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name:         "default target path",
@@ -319,13 +344,6 @@ func TestRestoreAdapter_BuildOptions(t *testing.T) {
 					"verbose": false,
 				},
 			},
-			wantErr: false,
-		},
-		{
-			name:         "unknown provider",
-			providerName: "unknown",
-			args:         []string{"arg1", "arg2"},
-			wantErr:      true,
 		},
 	}
 
@@ -339,14 +357,21 @@ func TestRestoreAdapter_BuildOptions(t *testing.T) {
 			adapter := &RestoreAdapter{logger: &NoOpLogger{}}
 			opts, err := adapter.buildOptions(tt.providerName, cmd, tt.args)
 
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, opts)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, opts)
 		})
 	}
+}
+
+func TestRestoreAdapter_BuildOptions_Failure(t *testing.T) {
+	t.Run("unknown provider", func(t *testing.T) {
+		cmd := createTestCommand()
+		adapter := &RestoreAdapter{logger: &NoOpLogger{}}
+		
+		_, err := adapter.buildOptions("unknown", cmd, []string{"arg1", "arg2"})
+		
+		assert.Error(t, err)
+	})
 }
 
 func TestRestoreAdapter_MonitorProgress(t *testing.T) {

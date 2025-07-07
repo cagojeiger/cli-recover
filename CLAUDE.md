@@ -120,33 +120,37 @@ PURPOSE: Ensure code quality in pipeline
 ### .context/
 ```
 PURPOSE: Project runtime context
-CONTAINS:
+CONTAINS (minimum):
   - 00-project.md: Goals and constraints
   - 01-architecture.md: System design
   - 02-tech-stack.md: Technology decisions
   - 03-patterns.md: Coding conventions
+NOTE: Additional files may be added as needed following 00-*.md pattern
 ```
 
 ### .memory/
 ```
 PURPOSE: AI memory system
 STRUCTURE:
-  - short-term/: Current session state
+  - short-term/: Current session state (minimum)
     - 00-current-task.md
     - 01-working-context.md
-  - long-term/: Persistent knowledge
+    - Additional files as needed (00-*.md pattern)
+  - long-term/: Persistent knowledge (minimum)
     - 00-decisions.md
     - 01-learnings.md
     - 02-patterns.md
+    - Additional files as needed (00-*.md pattern)
 ```
 
 ### .planning/
 ```
 PURPOSE: Task and execution planning
-CONTAINS:
+CONTAINS (minimum):
   - 00-roadmap.md: Overall project plan
   - 01-current-sprint.md: Active work
   - 02-backlog.md: Future tasks
+NOTE: Additional files may be added as needed following 00-*.md pattern
 ```
 
 ### .checkpoint/
@@ -154,6 +158,7 @@ CONTAINS:
 PURPOSE: Project state snapshots
 PATTERN: 00-descriptor.md (e.g., 01-mvp.md)
 USE_CASE: Major milestones, rollback points
+NOTE: Multiple checkpoints expected as project progresses
 ```
 
 ## Override Conditions

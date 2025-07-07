@@ -51,16 +51,8 @@ func TestExpandPath(t *testing.T) {
 	}
 }
 
-func TestLoaderLoadFromReader(t *testing.T) {
-	tests := []struct {
-		name    string
-		yaml    string
-		wantErr bool
-		check   func(*Config) error
-	}{
-		{
-			name: "valid yaml",
-			yaml: `
+func TestLoaderLoadFromReader_ValidYAML(t *testing.T) {
+	yaml := `
 logger:
   level: debug
   output: file
@@ -72,69 +64,78 @@ backup:
   excludeVCS: false
 metadata:
   format: yaml
-`,
-			wantErr: false,
-			check: func(cfg *Config) error {
-				if cfg.Logger.Level != "debug" {
-					t.Errorf("Expected level 'debug', got %s", cfg.Logger.Level)
-				}
-				if cfg.Logger.Output != "file" {
-					t.Errorf("Expected output 'file', got %s", cfg.Logger.Output)
-				}
-				if cfg.Logger.File.Format != "json" {
-					t.Errorf("Expected file format 'json', got %s", cfg.Logger.File.Format)
-				}
-				if cfg.Backup.DefaultCompression != "bzip2" {
-					t.Errorf("Expected compression 'bzip2', got %s", cfg.Backup.DefaultCompression)
-				}
-				if cfg.Backup.ExcludeVCS != false {
-					t.Error("Expected excludeVCS to be false")
-				}
-				if cfg.Metadata.Format != "yaml" {
-					t.Errorf("Expected metadata format 'yaml', got %s", cfg.Metadata.Format)
-				}
-				return nil
-			},
-		},
-		{
-			name: "invalid yaml",
-			yaml: `
-logger:
-  level: invalid_level
-`,
-			wantErr: true,
-		},
-		{
-			name:    "empty yaml",
-			yaml:    "",
-			wantErr: false,
-			check: func(cfg *Config) error {
-				// Should have default values
-				if cfg.Logger.Level != "info" {
-					t.Errorf("Expected default level 'info', got %s", cfg.Logger.Level)
-				}
-				return nil
-			},
-		},
+`
+	loader := NewLoader("")
+	reader := strings.NewReader(yaml)
+	
+	cfg, err := loader.LoadFromReader(reader)
+	if err != nil {
+		t.Errorf("LoadFromReader() error = %v, expected no error", err)
+		return
 	}
 	
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			loader := NewLoader("")
-			reader := strings.NewReader(tt.yaml)
-			
-			cfg, err := loader.LoadFromReader(reader)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("LoadFromReader() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			
-			if err == nil && tt.check != nil {
-				if err := tt.check(cfg); err != nil {
-					t.Error(err)
-				}
-			}
-		})
+	validateLoggerConfig(t, cfg)
+	validateBackupConfig(t, cfg)
+	validateMetadataConfig(t, cfg)
+}
+
+func TestLoaderLoadFromReader_InvalidYAML(t *testing.T) {
+	yaml := `
+logger:
+  level: invalid_level
+`
+	loader := NewLoader("")
+	reader := strings.NewReader(yaml)
+	
+	_, err := loader.LoadFromReader(reader)
+	if err == nil {
+		t.Error("LoadFromReader() expected error for invalid YAML, got no error")
+	}
+}
+
+func TestLoaderLoadFromReader_EmptyYAML(t *testing.T) {
+	loader := NewLoader("")
+	reader := strings.NewReader("")
+	
+	cfg, err := loader.LoadFromReader(reader)
+	if err != nil {
+		t.Errorf("LoadFromReader() error = %v, expected no error", err)
+		return
+	}
+	
+	// Should have default values
+	if cfg.Logger.Level != "info" {
+		t.Errorf("Expected default level 'info', got %s", cfg.Logger.Level)
+	}
+}
+
+func validateLoggerConfig(t *testing.T, cfg *Config) {
+	t.Helper()
+	if cfg.Logger.Level != "debug" {
+		t.Errorf("Expected level 'debug', got %s", cfg.Logger.Level)
+	}
+	if cfg.Logger.Output != "file" {
+		t.Errorf("Expected output 'file', got %s", cfg.Logger.Output)
+	}
+	if cfg.Logger.File.Format != "json" {
+		t.Errorf("Expected file format 'json', got %s", cfg.Logger.File.Format)
+	}
+}
+
+func validateBackupConfig(t *testing.T, cfg *Config) {
+	t.Helper()
+	if cfg.Backup.DefaultCompression != "bzip2" {
+		t.Errorf("Expected compression 'bzip2', got %s", cfg.Backup.DefaultCompression)
+	}
+	if cfg.Backup.ExcludeVCS != false {
+		t.Error("Expected excludeVCS to be false")
+	}
+}
+
+func validateMetadataConfig(t *testing.T, cfg *Config) {
+	t.Helper()
+	if cfg.Metadata.Format != "yaml" {
+		t.Errorf("Expected metadata format 'yaml', got %s", cfg.Metadata.Format)
 	}
 }
 

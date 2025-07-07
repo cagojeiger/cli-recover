@@ -26,23 +26,28 @@ func TestFilesystemProvider_Description(t *testing.T) {
 	assert.Equal(t, "Backup filesystem from Kubernetes pods", provider.Description())
 }
 
-func TestFilesystemProvider_ValidateOptions(t *testing.T) {
+func TestFilesystemProvider_ValidateOptions_Success(t *testing.T) {
+	t.Run("valid options", func(t *testing.T) {
+		opts := backup.Options{
+			Namespace:  "default",
+			PodName:    "test-pod",
+			SourcePath: "/data",
+			OutputFile: "backup.tar",
+		}
+		
+		provider := filesystem.NewProvider(nil, nil)
+		err := provider.ValidateOptions(opts)
+		
+		assert.NoError(t, err)
+	})
+}
+
+func TestFilesystemProvider_ValidateOptions_MissingFields(t *testing.T) {
 	tests := []struct {
-		name    string
-		opts    backup.Options
-		wantErr bool
-		errMsg  string
+		name   string
+		opts   backup.Options
+		errMsg string
 	}{
-		{
-			name: "valid options",
-			opts: backup.Options{
-				Namespace:  "default",
-				PodName:    "test-pod",
-				SourcePath: "/data",
-				OutputFile: "backup.tar",
-			},
-			wantErr: false,
-		},
 		{
 			name: "missing namespace",
 			opts: backup.Options{
@@ -50,8 +55,7 @@ func TestFilesystemProvider_ValidateOptions(t *testing.T) {
 				SourcePath: "/data",
 				OutputFile: "backup.tar",
 			},
-			wantErr: true,
-			errMsg:  "namespace is required",
+			errMsg: "namespace is required",
 		},
 		{
 			name: "missing pod name",
@@ -60,8 +64,7 @@ func TestFilesystemProvider_ValidateOptions(t *testing.T) {
 				SourcePath: "/data",
 				OutputFile: "backup.tar",
 			},
-			wantErr: true,
-			errMsg:  "pod name is required",
+			errMsg: "pod name is required",
 		},
 		{
 			name: "missing source path",
@@ -70,8 +73,7 @@ func TestFilesystemProvider_ValidateOptions(t *testing.T) {
 				PodName:    "test-pod",
 				OutputFile: "backup.tar",
 			},
-			wantErr: true,
-			errMsg:  "source path is required",
+			errMsg: "source path is required",
 		},
 		{
 			name: "missing output file",
@@ -80,8 +82,7 @@ func TestFilesystemProvider_ValidateOptions(t *testing.T) {
 				PodName:    "test-pod",
 				SourcePath: "/data",
 			},
-			wantErr: true,
-			errMsg:  "output file is required",
+			errMsg: "output file is required",
 		},
 	}
 
@@ -89,12 +90,9 @@ func TestFilesystemProvider_ValidateOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			provider := filesystem.NewProvider(nil, nil)
 			err := provider.ValidateOptions(tt.opts)
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-			} else {
-				assert.NoError(t, err)
-			}
+			
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errMsg)
 		})
 	}
 }

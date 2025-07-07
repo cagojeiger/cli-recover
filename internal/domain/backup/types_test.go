@@ -203,23 +203,27 @@ func TestProgress_FormatETA(t *testing.T) {
 	}
 }
 
-func TestOptions_Validate(t *testing.T) {
+func TestOptions_Validate_Success(t *testing.T) {
+	t.Run("valid options", func(t *testing.T) {
+		options := backup.Options{
+			Namespace:  "default",
+			PodName:    "my-pod",
+			SourcePath: "/data",
+			OutputFile: "backup.tar.gz",
+		}
+		
+		err := options.Validate()
+		
+		assert.NoError(t, err)
+	})
+}
+
+func TestOptions_Validate_MissingFields(t *testing.T) {
 	tests := []struct {
 		name    string
 		options backup.Options
-		wantErr bool
 		errMsg  string
 	}{
-		{
-			name: "valid options",
-			options: backup.Options{
-				Namespace:  "default",
-				PodName:    "my-pod",
-				SourcePath: "/data",
-				OutputFile: "backup.tar.gz",
-			},
-			wantErr: false,
-		},
 		{
 			name: "missing namespace",
 			options: backup.Options{
@@ -227,8 +231,7 @@ func TestOptions_Validate(t *testing.T) {
 				SourcePath: "/data",
 				OutputFile: "backup.tar.gz",
 			},
-			wantErr: true,
-			errMsg:  "namespace is required",
+			errMsg: "namespace is required",
 		},
 		{
 			name: "missing pod name",
@@ -237,8 +240,7 @@ func TestOptions_Validate(t *testing.T) {
 				SourcePath: "/data",
 				OutputFile: "backup.tar.gz",
 			},
-			wantErr: true,
-			errMsg:  "pod name is required",
+			errMsg: "pod name is required",
 		},
 		{
 			name: "missing source path",
@@ -247,8 +249,7 @@ func TestOptions_Validate(t *testing.T) {
 				PodName:    "my-pod",
 				OutputFile: "backup.tar.gz",
 			},
-			wantErr: true,
-			errMsg:  "source path is required",
+			errMsg: "source path is required",
 		},
 		{
 			name: "missing output file",
@@ -257,20 +258,16 @@ func TestOptions_Validate(t *testing.T) {
 				PodName:    "my-pod",
 				SourcePath: "/data",
 			},
-			wantErr: true,
-			errMsg:  "output file is required",
+			errMsg: "output file is required",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.options.Validate()
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-			} else {
-				assert.NoError(t, err)
-			}
+			
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errMsg)
 		})
 	}
 }

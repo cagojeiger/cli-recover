@@ -48,18 +48,22 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
-func TestConfigValidate(t *testing.T) {
+func TestConfigValidate_Valid(t *testing.T) {
+	t.Run("valid config", func(t *testing.T) {
+		config := DefaultConfig()
+		err := config.Validate()
+		if err != nil {
+			t.Errorf("Validate() error = %v, expected no error", err)
+		}
+	})
+}
+
+func TestConfigValidate_LoggerValidation(t *testing.T) {
 	tests := []struct {
-		name    string
-		config  *Config
-		wantErr bool
-		errMsg  string
+		name   string
+		config *Config
+		errMsg string
 	}{
-		{
-			name:    "valid config",
-			config:  DefaultConfig(),
-			wantErr: false,
-		},
 		{
 			name: "invalid logger level",
 			config: &Config{
@@ -71,8 +75,7 @@ func TestConfigValidate(t *testing.T) {
 				Backup:   BackupConfig{DefaultCompression: "gzip"},
 				Metadata: MetadataConfig{Format: "json"},
 			},
-			wantErr: true,
-			errMsg:  "logger.level",
+			errMsg: "logger.level",
 		},
 		{
 			name: "invalid logger output",
@@ -85,8 +88,7 @@ func TestConfigValidate(t *testing.T) {
 				Backup:   BackupConfig{DefaultCompression: "gzip"},
 				Metadata: MetadataConfig{Format: "json"},
 			},
-			wantErr: true,
-			errMsg:  "logger.output",
+			errMsg: "logger.output",
 		},
 		{
 			name: "invalid file format",
@@ -99,51 +101,56 @@ func TestConfigValidate(t *testing.T) {
 				Backup:   BackupConfig{DefaultCompression: "gzip"},
 				Metadata: MetadataConfig{Format: "json"},
 			},
-			wantErr: true,
-			errMsg:  "logger.file.format",
-		},
-		{
-			name: "invalid compression",
-			config: &Config{
-				Logger: LoggerConfig{
-					Level:  "info",
-					Output: "console",
-					File:   FileLoggerConfig{Format: "text"},
-				},
-				Backup:   BackupConfig{DefaultCompression: "invalid"},
-				Metadata: MetadataConfig{Format: "json"},
-			},
-			wantErr: true,
-			errMsg:  "backup.defaultCompression",
-		},
-		{
-			name: "invalid metadata format",
-			config: &Config{
-				Logger: LoggerConfig{
-					Level:  "info",
-					Output: "console",
-					File:   FileLoggerConfig{Format: "text"},
-				},
-				Backup:   BackupConfig{DefaultCompression: "gzip"},
-				Metadata: MetadataConfig{Format: "invalid"},
-			},
-			wantErr: true,
-			errMsg:  "metadata.format",
+			errMsg: "logger.file.format",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.config.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if err != nil && tt.errMsg != "" {
-				if _, ok := err.(*ConfigError); !ok {
-					t.Errorf("Expected ConfigError, got %T", err)
-				}
-			}
+			validateConfigError(t, tt.config, tt.errMsg)
 		})
+	}
+}
+
+func TestConfigValidate_BackupValidation(t *testing.T) {
+	t.Run("invalid compression", func(t *testing.T) {
+		config := &Config{
+			Logger: LoggerConfig{
+				Level:  "info",
+				Output: "console",
+				File:   FileLoggerConfig{Format: "text"},
+			},
+			Backup:   BackupConfig{DefaultCompression: "invalid"},
+			Metadata: MetadataConfig{Format: "json"},
+		}
+		validateConfigError(t, config, "backup.defaultCompression")
+	})
+}
+
+func TestConfigValidate_MetadataValidation(t *testing.T) {
+	t.Run("invalid metadata format", func(t *testing.T) {
+		config := &Config{
+			Logger: LoggerConfig{
+				Level:  "info",
+				Output: "console",
+				File:   FileLoggerConfig{Format: "text"},
+			},
+			Backup:   BackupConfig{DefaultCompression: "gzip"},
+			Metadata: MetadataConfig{Format: "invalid"},
+		}
+		validateConfigError(t, config, "metadata.format")
+	})
+}
+
+func validateConfigError(t *testing.T, config *Config, expectedErrMsg string) {
+	t.Helper()
+	err := config.Validate()
+	if err == nil {
+		t.Errorf("Validate() expected error containing %s, got no error", expectedErrMsg)
+		return
+	}
+	if _, ok := err.(*ConfigError); !ok {
+		t.Errorf("Expected ConfigError, got %T", err)
 	}
 }
 
