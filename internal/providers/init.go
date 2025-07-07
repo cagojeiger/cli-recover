@@ -2,15 +2,24 @@ package providers
 
 import (
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
+	"github.com/cagojeiger/cli-recover/internal/domain/restore"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
 	"github.com/cagojeiger/cli-recover/internal/providers/filesystem"
 )
 
 // RegisterProviders registers all available providers to the global registry
 func RegisterProviders(kubeClient kubernetes.KubeClient, executor kubernetes.CommandExecutor) error {
-	// Register filesystem provider
+	// Register filesystem backup provider
 	err := backup.GlobalRegistry.RegisterFactory("filesystem", func() backup.Provider {
 		return filesystem.NewProvider(kubeClient, executor)
+	})
+	if err != nil {
+		return err
+	}
+
+	// Register filesystem restore provider
+	err = restore.GlobalRegistry.RegisterFactory("filesystem", func() restore.Provider {
+		return filesystem.NewRestoreProvider(kubeClient, executor)
 	})
 	if err != nil {
 		return err
