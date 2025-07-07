@@ -1,6 +1,6 @@
 # cli-recover
 
-Kubernetes 환경을 위한 통합 백업/복원 도구. Pod 파일시스템, 데이터베이스, 오브젝트 스토리지를 지원합니다.
+Kubernetes 환경을 위한 백업/복원 도구. 현재 Pod 파일시스템 백업을 지원하며, 데이터베이스와 오브젝트 스토리지 지원은 향후 추가 예정입니다.
 
 ## 설치
 
@@ -34,49 +34,47 @@ cli-recover --version    # 버전 확인
 cli-recover --help       # 도움말
 ```
 
-### 대화형 모드 (TUI) - 권장
+### 대화형 모드 (TUI)
 ```bash
-cli-recover              # k9s 스타일 풀스크린 TUI 실행
+cli-recover              # 간단한 텍스트 기반 TUI 실행
 ```
 
-### 명령어 패턴
+### 명령어 구조
 ```bash
-cli-recover [action] [target] [resource] [options]
+cli-recover [command] [subcommand] [arguments] [flags]
 ```
 
 ### 백업 예시
 
 #### Pod 파일시스템
 ```bash
-cli-recover backup pod nginx-app /data --namespace prod --split-size 1G
-```
+# 기본 백업 (gzip 압축)
+cli-recover backup filesystem nginx-app /data --namespace prod
 
-#### MongoDB
-```bash
-# 자동 스트리밍 (대용량 안전)
-cli-recover backup mongodb mongo-primary --all-databases
+# 압축 옵션 지정
+cli-recover backup filesystem nginx-app /data --compression bzip2
 
-# 특정 데이터베이스
-cli-recover backup mongodb mongo-primary --database myapp,sessions
-```
+# 특정 파일 제외
+cli-recover backup filesystem nginx-app /data --exclude "*.log" --exclude "*.tmp"
 
-#### MinIO
-```bash
-# mc가 없어도 자동 처리
-cli-recover backup minio minio-server my-bucket --recursive
+# 출력 파일 지정
+cli-recover backup filesystem nginx-app /data -o backup-nginx.tar.gz
 ```
 
 ### 복원 예시
 ```bash
-cli-recover restore pod ./backup-20240107.tar nginx-app
-cli-recover restore mongodb ./dump.gz mongo-primary --drop
+# 파일시스템 복원
+cli-recover restore filesystem backup-20240107.tar.gz nginx-app --namespace prod
+
+# 특정 경로로 복원
+cli-recover restore filesystem backup.tar.gz nginx-app --target-path /restore
 ```
 
 ### 주요 기능
-- **자동 전략 선택**: 데이터 크기에 따라 최적 백업 방법 자동 선택
-- **Port Forward 관리**: 필요시 자동으로 포트 포워딩 설정
-- **오프라인 지원**: 인터넷 없는 환경에서도 작동 (오프라인 빌드)
-- **Bitnami 차트 호환**: Bitnami MongoDB, MinIO 등 자동 인식
+- **파일시스템 백업**: Pod 내부 파일/디렉토리를 tar 아카이브로 백업
+- **다양한 압축 지원**: gzip, bzip2, xz 압축 옵션
+- **진행률 표시**: 실시간 백업 진행 상황 모니터링
+- **간편한 TUI**: 대화형 인터페이스로 쉬운 백업 작업
 
 ### 필수 요구사항
 - `kubectl` 설치 및 클러스터 연결
