@@ -19,6 +19,9 @@ type Provider struct {
 	progressCh chan backup.Progress
 }
 
+// Ensure Provider implements backup.Provider interface
+var _ backup.Provider = (*Provider)(nil)
+
 // NewProvider creates a new filesystem backup provider
 func NewProvider(kubeClient kubernetes.KubeClient, executor kubernetes.CommandExecutor) *Provider {
 	return &Provider{
