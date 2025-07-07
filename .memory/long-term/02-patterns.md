@@ -386,3 +386,51 @@ func (s *CleanupService) CleanOlderThan(duration time.Duration) error {
     return nil
 }
 ```
+
+## TUI CLI Wrapper Pattern
+```go
+// TUI가 CLI 명령을 실행하는 패턴
+func (b *BackupFlow) executeBackup() {
+    args := []string{"backup", "filesystem", b.pod, b.path}
+    args = append(args, "--namespace", b.namespace)
+    args = append(args, "--output", b.output)
+    
+    cmd, err := b.app.ExecuteCLI(args...)
+    stdout, _ := cmd.StdoutPipe()
+    stderr, _ := cmd.StderrPipe()
+    
+    cmd.Start()
+    
+    // 실시간 출력 스트리밍
+    go func() {
+        scanner := bufio.NewScanner(stdout)
+        for scanner.Scan() {
+            b.updateProgress(scanner.Text())
+        }
+    }()
+}
+```
+
+## tview Widget Pattern
+```go
+// 재사용 가능한 컴포넌트
+type ProgressView struct {
+    textView *tview.TextView
+    title    string
+    done     bool
+}
+
+func (p *ProgressView) GetView() tview.Primitive {
+    p.textView.SetBorder(true).SetTitle(p.title)
+    return p.textView
+}
+
+// 키보드 입력 처리
+table.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+    if event.Key() == tcell.KeyEscape {
+        app.ShowPreviousPage()
+        return nil
+    }
+    return event
+})
+```

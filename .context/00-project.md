@@ -8,14 +8,16 @@
 - **현재 버전**: v0.2.0 (dev)
 
 ## 현재 상태 (2025-01-07)
-- **단계**: CLI-first 아키텍처로 전환 중
+- **단계**: Phase 4 TUI 구현 완료
 - **브랜치**: feature/tui-backup
-- **진행률**: 핵심 백업 기능 완료, 복원 기능 구현 중
+- **진행률**: Phase 1-4 완료, 실사용 피드백 대기
 - **완료 항목**:
-  - Filesystem 백업/복원 provider
-  - 메타데이터 저장 시스템
-  - List 명령 (백업 목록)
-  - Provider registry 패턴
+  - Filesystem 백업/복원 provider ✅
+  - 메타데이터 저장 시스템 ✅
+  - List 명령 (백업 목록) ✅
+  - Provider registry 패턴 ✅
+  - 로그 파일 시스템 ✅
+  - TUI 구현 (tview) ✅
 
 ## 목표 및 제약사항
 
