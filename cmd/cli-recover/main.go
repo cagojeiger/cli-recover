@@ -52,11 +52,14 @@ func main() {
 	// Add global debug flag
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug output")
 
-	// Add backup command with subcommands
-	var backupCmd = &cobra.Command{
-		Use:   "backup",
-		Short: "Backup resources from Kubernetes",
-		Long: `Backup various types of resources from Kubernetes pods.
+	// Add new provider-based backup command (recommended)
+	rootCmd.AddCommand(newBackupCommand())
+	
+	// Add legacy backup command structure for transition period
+	var backupOldCmd = &cobra.Command{
+		Use:   "backup-old",
+		Short: "Legacy backup command structure (deprecated)",
+		Long: `Legacy backup command structure. Please use 'cli-recover backup' instead.
 		
 Available backup types:
   filesystem - Backup files and directories from pod filesystem`,
@@ -67,11 +70,11 @@ Available backup types:
 	}
 	
 	// Add subcommands for different backup types
-	backupCmd.AddCommand(newFilesystemBackupCmd())
+	backupOldCmd.AddCommand(newFilesystemBackupCmd())
 	
-	rootCmd.AddCommand(backupCmd)
+	rootCmd.AddCommand(backupOldCmd)
 	
-	// Legacy backup command for backward compatibility
+	// Legacy single command for backward compatibility
 	var legacyBackupCmd = &cobra.Command{
 		Use:    "backup-legacy [pod] [path]",
 		Hidden: true, // Hide from help
