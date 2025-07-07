@@ -100,3 +100,35 @@ checksums:
 # Display current version
 version:
 	@echo "Current version: $(VERSION)"
+
+# TDD Development workflow
+.PHONY: tdd test-unit test-integration lint dev-tools
+
+test-unit:
+	@echo "Running unit tests..."
+	$(GOTEST) -v -short ./...
+
+test-integration:
+	@echo "Running integration tests..."
+	$(GOTEST) -v -run Integration ./...
+
+lint:
+	@echo "Running linter..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run; \
+	else \
+		echo "golangci-lint not installed. Run 'make dev-tools' to install."; \
+	fi
+
+dev-tools:
+	@echo "Installing development tools..."
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# TDD watch mode (requires entr)
+tdd:
+	@echo "Starting TDD watch mode..."
+	@if command -v entr >/dev/null 2>&1; then \
+		find . -name "*.go" | entr -c go test -v ./...; \
+	else \
+		echo "entr not installed. Install it with: brew install entr (macOS) or apt-get install entr (Linux)"; \
+	fi
