@@ -1,222 +1,64 @@
-# CLI Phase 1 스프린트
+# 현재 스프린트: CLI 고도화 및 코드 정리
 
 ## 스프린트 정보
 - **시작일**: 2025-01-07
-- **종료일**: 2025-01-14 (1주)
-- **목표**: CLI 핵심 기능 완성
+- **현재일**: 2025-01-07
+- **목표**: 코드 정리 및 테스트 커버리지 개선
 
-## 스프린트 목표
-- 3가지 백업 타입 (filesystem, minio, mongodb) CLI 지원
-- 표준화된 명령 체계 구축
-- 일관된 진행률 및 에러 처리
+## 완료된 작업 (2025-01-07)
+- ✅ TUI 빌드 에러 수정 및 UI 단순화
+- ✅ CLI restore 명령 통합 완료
+- ✅ List 명령 구현 (백업 목록 조회)
+- ✅ 메타데이터 저장 시스템 통합
+- ✅ 테스트 커버리지 분석 (42.8% TUI 제외)
+- ✅ AI 메모리 시스템 구축 (.memory/)
+- ✅ 컨텍스트 엔지니어링 디렉토리 생성
+- ✅ 코드 중복 제거 (backup_filesystem.go 제거)
+- ✅ adapters 테스트 보강 (74.6% → 77.4%)
+- ✅ 전체 테스트 커버리지 58.4% 달성
 
-## 작업 항목
+## 현재 스프린트 목표
+- Status 명령 구현으로 Phase 1 완료
+- 프로젝트 문서화 및 정리
+- TUI 리팩토링 계획 수립
 
-### 1. CLI 명령 체계 표준화 (1일)
-- [ ] cobra 또는 urfave/cli 프레임워크 선택
-- [ ] 명령 구조 설계
-  ```bash
-  cli-recover backup <type> <pod> <path> [options]
-  cli-recover restore <type> <pod> <backup-file> [options]
-  cli-recover list backups
-  cli-recover status <job-id>
-  ```
-- [ ] 공통 플래그 정의 (--namespace, --output, --verbose 등)
-- [ ] 도움말 시스템 구현
+## 남은 작업 항목
 
-### 2. Filesystem Provider 안정화 (1일)
-- [ ] 현재 backup_filesystem.go 리팩토링
-- [ ] BackupProvider 인터페이스 정의
-- [ ] 진행률 스트리밍 개선
-- [ ] 에러 처리 표준화
-- [ ] 단위 테스트 작성
+### 1. Status 명령 구현 (Phase 4로 연기)
+- Status 명령은 Job 히스토리와 함께 구현이 더 효율적
+- 당장 필수 기능이 아니므로 후순위로 조정
 
-### 3. MinIO Provider 구현 (2일)
-- [ ] MinIO BackupProvider 구조체 구현
-- [ ] S3 명령어 빌더 (`mc mirror` 또는 `aws s3 sync`)
-- [ ] 크기 추정 로직
-- [ ] 진행률 파싱
-- [ ] MinIO 연결 테스트
-- [ ] 통합 테스트
+### 2. 테스트 커버리지 개선 (부분 완료)
+- [x] adapters 테스트 추가 완료 (77.4%)
+- [ ] cmd/cli-recover 패키지 테스트 필요 (현재 0%)
+- [ ] internal/infrastructure/kubernetes 테스트 추가 (현재 24.4%)
+- [x] 전체 58.4% 달성 (목표 60%에 근접)
 
-### 4. MongoDB Provider 구현 (2일)
-- [ ] MongoDB BackupProvider 구조체 구현
-- [ ] mongodump 명령어 빌더
-- [ ] 컬렉션별 진행률 추적
-- [ ] 압축 옵션 지원
-- [ ] MongoDB 연결 테스트
-- [ ] 통합 테스트
+### 3. 문서화 (0.5일)
+- [ ] README.md 업데이트
+- [ ] CLI 사용법 문서
+- [ ] Provider 추가 가이드
+- [ ] 아키텍처 다이어그램
 
-### 5. 공통 기능 구현 (1일)
-- [ ] 통합 진행률 인터페이스
-  ```go
-  type Progress struct {
-      Current   int64
-      Total     int64
-      Speed     float64
-      ETA       time.Duration
-      Message   string
-  }
-  ```
-- [ ] 에러 타입 정의 및 핸들링
-- [ ] 로깅 시스템 (logrus 또는 zap)
-- [ ] 설정 파일 지원 기초
+### 4. TUI 리팩토링 계획 (0.5일)
+- [ ] 현재 TUI 코드 분석
+- [ ] 컴포넌트 분리 계획
+- [ ] CLI 통합 방안 설계
+- [ ] 테스트 전략 수립
 
-## 일일 작업 계획
-
-### Day 1 (화)
-- CLI 프레임워크 선택 및 기본 구조 구현
-- 명령어 라우팅 시스템 구축
-
-### Day 2 (수)
-- Filesystem provider 리팩토링
-- BackupProvider 인터페이스 확정
-
-### Day 3-4 (목-금)
-- MinIO provider 구현
-- S3 통합 테스트
-
-### Day 5-6 (월-화)
-- MongoDB provider 구현
-- mongodump 통합 테스트
-
-### Day 7 (수)
-- 공통 기능 통합
-- 전체 테스트 및 문서화
-
-## BackupProvider 인터페이스
-
-```go
-// internal/domain/backup/provider.go
-package backup
-
-import (
-    "context"
-    "io"
-)
-
-type Provider interface {
-    // 기본 정보
-    Name() string
-    Description() string
-    
-    // 백업 실행
-    Execute(ctx context.Context, opts Options) error
-    
-    // 크기 추정
-    EstimateSize(opts Options) (int64, error)
-    
-    // 진행률 스트림
-    StreamProgress() <-chan Progress
-    
-    // 옵션 검증
-    ValidateOptions(opts Options) error
-}
-
-type Options struct {
-    Namespace  string
-    PodName    string
-    SourcePath string
-    OutputFile string
-    Compress   bool
-    Exclude    []string
-    // Provider별 추가 옵션
-    Extra      map[string]interface{}
-}
-
-type Progress struct {
-    Current   int64
-    Total     int64
-    Speed     float64  // bytes per second
-    ETA       string
-    Message   string
-}
-```
-
-## 디렉토리 구조
-
-```
-cmd/cli-recover/
-├── main.go
-├── commands/
-│   ├── backup.go
-│   ├── restore.go
-│   ├── list.go
-│   └── status.go
-└── handlers/
-    ├── filesystem.go
-    ├── minio.go
-    └── mongodb.go
-
-internal/
-├── domain/
-│   └── backup/
-│       ├── provider.go      # 인터페이스
-│       ├── options.go       # 옵션 구조체
-│       └── progress.go      # 진행률 타입
-├── providers/
-│   ├── filesystem/
-│   │   └── filesystem.go
-│   ├── minio/
-│   │   └── minio.go
-│   └── mongodb/
-│       └── mongodb.go
-└── kubernetes/
-    └── client.go            # kubectl 래퍼
-```
+## 기술 부채 정리
+- [ ] 중복 파일 제거 (backup_filesystem.go vs provider)
+- [ ] 에러 타입 통일
+- [ ] 로깅 시스템 표준화
+- [ ] 설정 파일 구조 정의
 
 ## 성공 지표
-- [ ] 3가지 백업 타입 모두 CLI로 실행 가능
-- [ ] 각 provider별 단위 테스트 작성
-- [ ] 통합 테스트 통과
-- [ ] 일관된 진행률 표시
-- [ ] 표준화된 에러 메시지
-- [ ] 기본 사용 문서 작성
-
-## 위험 요소
-1. **MinIO/MongoDB 환경 설정**
-   - Docker Compose로 테스트 환경 구축
-   - Kind 클러스터에 테스트 Pod 배포
-
-2. **진행률 파싱 복잡도**
-   - 각 도구마다 다른 출력 형식
-   - 정규식 기반 파싱 필요
-
-3. **에러 처리 일관성**
-   - 각 provider별 에러 타입 통일
-   - 사용자 친화적 메시지 변환
-
-## 테스트 계획
-
-### 단위 테스트
-```go
-// filesystem_test.go
-func TestFilesystemProvider_EstimateSize(t *testing.T) {
-    // kubectl exec로 du 명령 실행 테스트
-}
-
-func TestFilesystemProvider_Execute(t *testing.T) {
-    // tar 명령 실행 및 진행률 파싱 테스트
-}
-```
-
-### 통합 테스트
-```bash
-# 테스트 환경 설정
-kind create cluster --name test-cluster
-kubectl apply -f test/fixtures/test-pods.yaml
-
-# CLI 테스트 실행
-go test ./test/integration/...
-```
-
-## 참고사항
-- 기존 filesystem 백업이 계속 동작하도록 주의
-- 과도한 추상화 지양 (YAGNI 원칙)
-- 실용적이고 단순한 구현 우선
+- Status 명령으로 작업 상태 조회 가능
+- 테스트 커버리지 60% 달성
+- 완전한 CLI 문서화
+- TUI 리팩토링 로드맵 확정
 
 ## 다음 스프린트 예고
-- Phase 2: 아키텍처 정리
-  - 도메인 레이어 분리
-  - 의존성 주입
-  - 플러그인 레지스트리
+- Phase 3: CLI 고도화 완료
+- Phase 4: TUI 통합 시작
+- Provider 확장 준비

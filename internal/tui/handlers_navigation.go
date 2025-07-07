@@ -59,7 +59,7 @@ func HandleKey(m Model, key string) Model {
 			m.selected = 0
 			// Clear any active job details view
 			m.jobDetailView = false
-			debugLog("Navigated to home from %s", m.screen)
+			debugLog("Navigated to home from %v", m.screen)
 		}
 		return m
 	}

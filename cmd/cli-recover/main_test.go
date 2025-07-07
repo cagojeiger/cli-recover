@@ -355,20 +355,3 @@ func TestMainFunction(t *testing.T) {
 	}
 }
 
-// Test command creation and structure
-func TestCommandStructure(t *testing.T) {
-	// Test that newFilesystemBackupCmd creates a valid command
-	cmd := newFilesystemBackupCmd()
-	
-	// Verify command can be executed (even if it fails due to missing args)
-	err := cmd.Execute()
-	if err == nil {
-		t.Error("Expected error when executing command without args")
-	}
-	
-	// Test with valid args but in test environment
-	cmd.SetArgs([]string{"test-pod", "/data", "--dry-run"})
-	// This will fail because we're not mocking the runner properly,
-	// but it tests that the command structure is correct
-	_ = cmd.Execute()
-}

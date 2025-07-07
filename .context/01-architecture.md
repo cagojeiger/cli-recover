@@ -237,3 +237,51 @@ Business Logic
 - 스크립트 자동화 지원
 - CI/CD 파이프라인 통합 가능
 - 테스트 커버리지 80% 이상
+
+## 2025-01-07 현재 구현 상태
+
+### 완료된 아키텍처 요소
+- **Domain Layer**:
+  - backup/restore provider 인터페이스
+  - Registry 패턴 구현
+  - Metadata store 인터페이스
+- **Infrastructure Layer**:
+  - Kubernetes client 추상화
+  - Command executor 패턴
+  - Filesystem provider 구현
+- **Application Layer**:
+  - BackupAdapter (CLI → Domain)
+  - RestoreAdapter (CLI → Domain)
+  - ListAdapter (메타데이터 조회)
+
+### 현재 디렉토리 구조
+```
+cli-recover/
+├── cmd/cli-recover/
+│   ├── adapters/          # Application layer
+│   │   ├── backup_adapter.go
+│   │   ├── restore_adapter.go
+│   │   └── list_adapter.go
+│   ├── backup_new.go      # CLI commands
+│   ├── restore_new.go
+│   └── list_new.go
+├── internal/
+│   ├── domain/           # Domain layer
+│   │   ├── backup/
+│   │   ├── restore/
+│   │   └── metadata/
+│   ├── infrastructure/   # Infrastructure layer
+│   │   └── kubernetes/
+│   └── providers/        # Provider implementations
+│       └── filesystem/
+└── .memory/             # AI memory system
+    ├── short-term/
+    └── long-term/
+```
+
+### 아키텍처 준수 평가
+- ✅ 레이어 분리 완료
+- ✅ 인터페이스 기반 설계
+- ✅ 의존성 역전 원칙
+- ✅ Provider 플러그인 패턴
+- ⚠️ TUI 레이어는 아직 리팩토링 필요

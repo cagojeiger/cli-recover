@@ -354,4 +354,126 @@ func (h *ErrorHandler) Handle(err error) tea.Cmd {
         }
     }
 }
+
+## 2025-01-07 추가 패턴
+
+### Provider Registry Pattern
+```go
+type Registry struct {
+    factories map[string]func() Provider
+    mu        sync.RWMutex
+}
+
+func (r *Registry) RegisterFactory(name string, factory func() Provider) error {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+    
+    if _, exists := r.factories[name]; exists {
+        return fmt.Errorf("provider %s already registered", name)
+    }
+    
+    r.factories[name] = factory
+    return nil
+}
 ```
+**사용 예**:
+- 백업 provider 등록
+- 복원 provider 등록
+- 동적 provider 로딩
+
+### Adapter Pattern for CLI
+```go
+type BackupAdapter struct {
+    registry *backup.Registry
+}
+
+func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, args []string) error {
+    // 1. Provider 생성
+    provider, err := a.registry.Create(providerName)
+    
+    // 2. 옵션 빌드
+    opts, err := a.buildOptions(providerName, cmd, args)
+    
+    // 3. 실행
+    return provider.Execute(context.Background(), opts)
+}
+```
+**장점**:
+- CLI와 도메인 로직 분리
+- 테스트 용이
+- 다양한 CLI 프레임워크 지원 가능
+
+### Metadata Store Pattern
+```go
+type Store interface {
+    Save(metadata *Metadata) error
+    Get(id string) (*Metadata, error)
+    List() ([]*Metadata, error)
+    Delete(id string) error
+}
+
+type FileStore struct {
+    baseDir string
+    mu      sync.RWMutex
+}
+```
+**특징**:
+- 인터페이스 기반
+- 파일 시스템 구현
+- 향후 DB로 교체 가능
+
+### Progress Monitoring Pattern
+```go
+func (a *Adapter) monitorProgress(provider Provider, done <-chan bool) {
+    progressCh := provider.StreamProgress()
+    ticker := time.NewTicker(500 * time.Millisecond)
+    defer ticker.Stop()
+    
+    for {
+        select {
+        case <-done:
+            return
+        case progress := <-progressCh:
+            // Update display
+        case <-ticker.C:
+            // Refresh display
+        }
+    }
+}
+```
+**용도**:
+- 비동기 진행률 표시
+- 실시간 업데이트
+- 리소스 효율적
+
+### Domain Model Separation
+```go
+// Domain layer
+internal/domain/
+├── backup/
+│   ├── provider.go
+│   ├── types.go
+│   └── registry.go
+├── restore/
+│   ├── provider.go
+│   ├── types.go
+│   └── registry.go
+└── metadata/
+    └── store.go
+
+// Infrastructure layer
+internal/infrastructure/
+└── kubernetes/
+    ├── client.go
+    └── executor.go
+
+// Application layer
+cmd/cli-recover/adapters/
+├── backup_adapter.go
+├── restore_adapter.go
+└── list_adapter.go
+```
+**이점**:
+- 명확한 계층 분리
+- 의존성 방향 제어
+- 도메인 로직 보호

@@ -55,54 +55,14 @@ func main() {
 	// Add new provider-based backup command (recommended)
 	rootCmd.AddCommand(newBackupCommand())
 	
-	// Add legacy backup command structure for transition period
-	var backupOldCmd = &cobra.Command{
-		Use:   "backup-old",
-		Short: "Legacy backup command structure (deprecated)",
-		Long: `Legacy backup command structure. Please use 'cli-recover backup' instead.
-		
-Available backup types:
-  filesystem - Backup files and directories from pod filesystem`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// If no subcommand is provided, show help
-			return cmd.Help()
-		},
-	}
+	// Add new provider-based restore command
+	rootCmd.AddCommand(newRestoreCommand())
 	
-	// Add subcommands for different backup types
-	backupOldCmd.AddCommand(newFilesystemBackupCmd())
-	
-	rootCmd.AddCommand(backupOldCmd)
-	
-	// Legacy single command for backward compatibility
-	var legacyBackupCmd = &cobra.Command{
-		Use:    "backup-legacy [pod] [path]",
-		Hidden: true, // Hide from help
-		Short:  "Legacy backup command (deprecated)",
-		Args:   cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("This command is deprecated. Please use 'cli-recover backup filesystem' instead.\n")
-			return runFilesystemBackup(cmd, args)
-		},
-	}
-	
-	// Add flags to legacy command
-	legacyBackupCmd.Flags().StringP("namespace", "n", "default", "Kubernetes namespace")
-	legacyBackupCmd.Flags().StringP("compression", "c", "gzip", "Compression type (gzip, bzip2, xz, none)")
-	legacyBackupCmd.Flags().StringSliceP("exclude", "e", []string{}, "Exclude patterns (can be used multiple times)")
-	legacyBackupCmd.Flags().BoolP("exclude-vcs", "", false, "Exclude version control systems (.git, .svn, etc.)")
-	legacyBackupCmd.Flags().BoolP("verbose", "v", false, "Verbose output")
-	legacyBackupCmd.Flags().BoolP("totals", "t", false, "Show transfer totals")
-	legacyBackupCmd.Flags().BoolP("preserve-perms", "p", false, "Preserve file permissions")
-	legacyBackupCmd.Flags().StringP("container", "", "", "Container name (for multi-container pods)")
-	legacyBackupCmd.Flags().StringP("output", "o", "", "Output file path (auto-generated if not specified)")
-	legacyBackupCmd.Flags().BoolP("dry-run", "", false, "Show what would be executed without running")
-	
-	rootCmd.AddCommand(legacyBackupCmd)
+	// Add list command
+	rootCmd.AddCommand(newListCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
-

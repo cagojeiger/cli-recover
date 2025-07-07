@@ -45,3 +45,4 @@ checksums.txt
 # Test backup files
 backup-*
 *.tar.gz
+backup/*

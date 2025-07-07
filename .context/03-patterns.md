@@ -246,3 +246,130 @@ func NewBackupService(
     }
 }
 ```
+
+## 2025-01-07 현재 적용 패턴
+
+### Provider Registry 패턴
+```go
+// 실제 구현
+type Registry struct {
+    factories map[string]ProviderFactory
+    mu        sync.RWMutex
+}
+
+// 글로벌 레지스트리 사용
+backup.GlobalRegistry.RegisterFactory("filesystem", factory)
+restore.GlobalRegistry.RegisterFactory("filesystem", factory)
+```
+
+### Adapter 패턴 (CLI 통합)
+```go
+// CLI → Domain 브릿지
+type BackupAdapter struct {
+    registry *backup.Registry
+}
+
+func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, args []string) error {
+    provider := a.registry.Create(providerName)
+    opts := a.buildOptions(cmd, args)
+    return provider.Execute(ctx, opts)
+}
+```
+
+### Progress Streaming 패턴
+```go
+// 비동기 진행률 처리
+func monitorProgress(provider Provider, done <-chan bool) {
+    progressCh := provider.StreamProgress()
+    ticker := time.NewTicker(500 * time.Millisecond)
+    
+    for {
+        select {
+        case <-done:
+            return
+        case progress := <-progressCh:
+            updateDisplay(progress)
+        }
+    }
+}
+```
+
+### Metadata Store 인터페이스
+```go
+// 저장소 추상화
+type Store interface {
+    Save(metadata *Metadata) error
+    Get(id string) (*Metadata, error)
+    List() ([]*Metadata, error)
+    Delete(id string) error
+}
+
+// 파일 시스템 구현
+type FileStore struct {
+    baseDir string
+    mu      sync.RWMutex
+}
+```
+
+### TDD 패턴
+```go
+// Mock 기반 테스트
+type MockProvider struct {
+    mock.Mock
+}
+
+func TestAdapter_Execute(t *testing.T) {
+    // Given
+    mockProvider := new(MockProvider)
+    mockProvider.On("Execute", mock.Anything, opts).Return(nil)
+    
+    // When
+    err := adapter.Execute(cmd, args)
+    
+    // Then
+    assert.NoError(t, err)
+    mockProvider.AssertExpectations(t)
+}
+```
+
+### 안전한 리팩토링 패턴
+```go
+// 1. 호환성 테스트 먼저 작성
+func TestBackupCompatibility(t *testing.T) {
+    oldCmd := newFilesystemBackupCmd()
+    newCmd := newBackupCommand()
+    
+    // 기능 동일성 검증
+    assert.Equal(t, oldCmd.Use, newCmd.Use)
+    // 모든 플래그 검증
+    for _, flag := range oldFlags {
+        assert.NotNil(t, newCmd.Flags().Lookup(flag))
+    }
+}
+
+// 2. 테스트 통과 후 안전하게 제거
+// 3. 점진적 마이그레이션
+```
+
+### 테스트 커버리지 개선 패턴
+```go
+// 누락된 함수 찾기
+func TestNewRestoreAdapter(t *testing.T) {
+    // 생성자 테스트
+    adapter := NewRestoreAdapter(registry)
+    assert.NotNil(t, adapter)
+}
+
+// Edge case 테스트
+func TestSanitizeTargetPath(t *testing.T) {
+    tests := []struct {
+        name     string
+        input    string
+        expected string
+    }{
+        {"empty path", "", "/"},
+        {"with spaces", "/my data", "/my data"},
+        // 실제 동작 기반 테스트
+    }
+}
+```

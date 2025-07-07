@@ -2,7 +2,10 @@ package adapters
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -10,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
+	"github.com/cagojeiger/cli-recover/internal/domain/metadata"
+	"github.com/cagojeiger/cli-recover/internal/domain/restore"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
 	"github.com/cagojeiger/cli-recover/internal/providers"
 )
@@ -106,6 +111,14 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	var size int64
 	if fileInfo, err := os.Stat(opts.OutputFile); err == nil {
 		size = fileInfo.Size()
+	}
+	
+	// Save metadata
+	if err := a.saveMetadata(providerName, opts, size, startTime, time.Now()); err != nil {
+		if debug {
+			fmt.Printf("Debug: Failed to save metadata: %v\n", err)
+		}
+		// Don't fail the backup operation if metadata save fails
 	}
 	
 	fmt.Fprintf(os.Stderr, "\r\033[K") // Clear progress line
@@ -285,4 +298,61 @@ func humanizeBytes(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// saveMetadata saves backup metadata to the metadata store
+func (a *BackupAdapter) saveMetadata(providerName string, opts backup.Options, size int64, startTime, endTime time.Time) error {
+	// Calculate checksum of the backup file
+	checksum, err := calculateFileChecksum(opts.OutputFile)
+	if err != nil {
+		return fmt.Errorf("failed to calculate checksum: %w", err)
+	}
+	
+	// Create metadata
+	backupMetadata := &restore.Metadata{
+		Type:        providerName,
+		Namespace:   opts.Namespace,
+		PodName:     opts.PodName,
+		SourcePath:  opts.SourcePath,
+		BackupFile:  opts.OutputFile,
+		Size:        size,
+		Checksum:    checksum,
+		CreatedAt:   startTime,
+		CompletedAt: endTime,
+		Status:      "completed",
+		ProviderInfo: map[string]interface{}{
+			"container": opts.Container,
+			"exclude":   opts.Exclude,
+			"compress":  opts.Compress,
+		},
+	}
+	
+	// Add compression info
+	if compression, ok := opts.Extra["compression"].(string); ok {
+		backupMetadata.Compression = compression
+	}
+	
+	// Save to metadata store
+	metadataStore := metadata.DefaultStore
+	if metadataStore != nil {
+		return metadataStore.Save(backupMetadata)
+	}
+	
+	return nil
+}
+
+// calculateFileChecksum calculates SHA256 checksum of a file
+func calculateFileChecksum(filepath string) (string, error) {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+	
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }

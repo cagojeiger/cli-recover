@@ -133,3 +133,49 @@ run:
 - `go fmt`: 코드 포맷팅
 - `go vet`: 버그 검출
 - `gocyclo`: 순환 복잡도 측정
+
+## 2025-01-07 현재 사용 중인 기술
+
+### 핵심 의존성
+- **Go 1.21+**: 프로그래밍 언어
+- **Cobra**: CLI 프레임워크
+- **Bubble Tea**: TUI 프레임워크
+- **client-go**: Kubernetes API 클라이언트
+- **testify**: 테스트 assertion 라이브러리
+
+### CLI 아키텍처
+```go
+// Cobra 명령 구조
+cli-recover
+├── backup
+│   └── filesystem
+├── restore
+│   └── filesystem
+└── list
+    └── backups
+```
+
+### 테스트 전략
+- **단위 테스트**: Provider, Registry, Store
+- **통합 테스트**: CLI 명령 엔드투엔드
+- **Mock 사용**: Kubernetes client, Command executor
+- **커버리지 목표**: 80% (TUI 제외)
+
+### 메타데이터 저장
+- **파일 기반**: ~/.cli-recover/metadata/
+- **JSON 형식**: 직렬화/역직렬화
+- **SHA256 체크섬**: 무결성 검증
+
+### 진행률 표시
+- **채널 기반**: StreamProgress() <-chan Progress
+- **실시간 업데이트**: 500ms 간격
+- **ETA 계산**: 처리량 기반
+
+### 빌드 시스템
+```makefile
+# 현재 Makefile 타겟
+test         # 전체 테스트
+test-coverage # 커버리지 (TUI 제외)
+build        # 바이너리 빌드
+lint         # golangci-lint
+```
