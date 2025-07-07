@@ -13,15 +13,18 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
+	"github.com/cagojeiger/cli-recover/internal/domain/logger"
 	"github.com/cagojeiger/cli-recover/internal/domain/metadata"
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
+	infLogger "github.com/cagojeiger/cli-recover/internal/infrastructure/logger"
 	"github.com/cagojeiger/cli-recover/internal/providers"
 )
 
 // BackupAdapter adapts CLI commands to Provider interface
 type BackupAdapter struct {
 	registry *backup.Registry
+	logger   logger.Logger
 }
 
 // NewBackupAdapter creates a new backup adapter
@@ -30,13 +33,17 @@ func NewBackupAdapter() *BackupAdapter {
 	executor := kubernetes.NewOSCommandExecutor()
 	kubeClient := kubernetes.NewKubectlClient(executor)
 	
+	// Get logger
+	log := infLogger.GetGlobalLogger()
+	
 	// Register all providers
 	if err := providers.RegisterProviders(kubeClient, executor); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to register providers: %v\n", err)
+		log.Error("Failed to register providers", logger.F("error", err))
 	}
 	
 	return &BackupAdapter{
 		registry: backup.GlobalRegistry,
+		logger:   log,
 	}
 }
 
@@ -65,22 +72,23 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	// Check dry-run
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	if dryRun {
-		fmt.Printf("Dry run - would execute %s backup\n", providerName)
-		fmt.Printf("Options: %+v\n", opts)
+		a.logger.Info("Dry run - would execute backup", 
+			logger.F("provider", providerName),
+			logger.F("options", opts))
 		return nil
 	}
 
 	// Estimate size if possible
-	fmt.Fprintf(os.Stderr, "[INFO] Estimating backup size...\n")
+	a.logger.Info("Estimating backup size...")
 	estimatedSize, err := provider.EstimateSize(opts)
 	if err != nil {
 		if debug {
-			fmt.Printf("Debug: Size estimation failed: %v\n", err)
+			a.logger.Debug("Size estimation failed", logger.F("error", err))
 		}
-		fmt.Fprintf(os.Stderr, "[INFO] Size estimation failed, progress percentage will not be available\n")
+		a.logger.Info("Size estimation failed, progress percentage will not be available")
 		estimatedSize = 0
 	} else {
-		fmt.Fprintf(os.Stderr, "[INFO] Estimated size: %s\n", humanizeBytes(estimatedSize))
+		a.logger.Info("Estimated size", logger.F("size", humanizeBytes(estimatedSize)))
 	}
 
 	// Start progress monitoring
@@ -91,8 +99,9 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	ctx := context.Background()
 	startTime := time.Now()
 	
-	fmt.Fprintf(os.Stderr, "[START] Starting %s backup\n", providerName)
-	fmt.Fprintf(os.Stderr, "[INFO] Output file: %s\n", opts.OutputFile)
+	a.logger.Info("Starting backup", 
+		logger.F("provider", providerName),
+		logger.F("output_file", opts.OutputFile))
 	
 	// Execute backup - provider handles file writing
 	err = provider.Execute(ctx, opts)
@@ -116,15 +125,15 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	// Save metadata
 	if err := a.saveMetadata(providerName, opts, size, startTime, time.Now()); err != nil {
 		if debug {
-			fmt.Printf("Debug: Failed to save metadata: %v\n", err)
+			a.logger.Debug("Failed to save metadata", logger.F("error", err))
 		}
 		// Don't fail the backup operation if metadata save fails
 	}
 	
-	fmt.Fprintf(os.Stderr, "\r\033[K") // Clear progress line
-	fmt.Fprintf(os.Stderr, "[DONE] Backup completed: %s (%s in %s)\n", 
-		opts.OutputFile, humanizeBytes(size), elapsed.Round(time.Second))
-	fmt.Printf("Backup completed successfully: %s (%s)\n", opts.OutputFile, humanizeBytes(size))
+	a.logger.Info("Backup completed successfully",
+		logger.F("output_file", opts.OutputFile),
+		logger.F("size", humanizeBytes(size)),
+		logger.F("duration", elapsed.Round(time.Second).String()))
 	
 	return nil
 }

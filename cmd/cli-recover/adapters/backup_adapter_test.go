@@ -10,7 +10,22 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
+	"github.com/cagojeiger/cli-recover/internal/domain/logger"
 )
+
+// NoOpLogger for testing
+type NoOpLogger struct{}
+
+func (n *NoOpLogger) Debug(msg string, fields ...logger.Field) {}
+func (n *NoOpLogger) Info(msg string, fields ...logger.Field) {}
+func (n *NoOpLogger) Warn(msg string, fields ...logger.Field) {}
+func (n *NoOpLogger) Error(msg string, fields ...logger.Field) {}
+func (n *NoOpLogger) Fatal(msg string, fields ...logger.Field) {}
+func (n *NoOpLogger) WithContext(ctx context.Context) logger.Logger { return n }
+func (n *NoOpLogger) WithField(key string, value interface{}) logger.Logger { return n }
+func (n *NoOpLogger) WithFields(fields ...logger.Field) logger.Logger { return n }
+func (n *NoOpLogger) SetLevel(level logger.Level) {}
+func (n *NoOpLogger) GetLevel() logger.Level { return logger.InfoLevel }
 
 // MockProvider for testing
 type MockProvider struct {
@@ -74,6 +89,7 @@ func TestBackupAdapter_ExecuteBackup(t *testing.T) {
 	// Create adapter with test registry
 	adapter := &BackupAdapter{
 		registry: testRegistry,
+		logger:   &NoOpLogger{},
 	}
 	
 	// Create test command

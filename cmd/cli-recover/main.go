@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/logger"
 	"github.com/cagojeiger/cli-recover/internal/runner"
 	"github.com/cagojeiger/cli-recover/internal/tui"
 )
@@ -20,6 +21,35 @@ func main() {
 		Short:   "Kubernetes integrated backup and restore tool",
 		Long:    `CLI-Recover provides backup and restore capabilities for Kubernetes environments including pod filesystems, databases, and object storage.`,
 		Version: version,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// Initialize logger from flags
+			logLevel, _ := cmd.Flags().GetString("log-level")
+			logFile, _ := cmd.Flags().GetString("log-file")
+			logFormat, _ := cmd.Flags().GetString("log-format")
+			
+			cfg := logger.DefaultConfig()
+			if logLevel != "" {
+				cfg.Level = logLevel
+			}
+			if logFile != "" {
+				cfg.Output = "both"
+				cfg.FilePath = logFile
+			}
+			if logFormat == "json" {
+				cfg.JSONFormat = true
+			}
+			
+			// Set logger level based on debug flag
+			debug, _ := cmd.Flags().GetBool("debug")
+			if debug && cfg.Level == "info" {
+				cfg.Level = "debug"
+			}
+			
+			// Initialize global logger
+			if err := logger.InitializeFromConfig(cfg); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
+			}
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			// Get debug flag for TUI mode
 			debug, _ := cmd.Flags().GetBool("debug")
@@ -49,8 +79,11 @@ func main() {
 	// Customize version template
 	rootCmd.SetVersionTemplate("cli-recover version {{.Version}}\n")
 	
-	// Add global debug flag
+	// Add global flags
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug output")
+	rootCmd.PersistentFlags().String("log-level", "info", "Log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().String("log-file", "", "Log file path (logs to console if not specified)")
+	rootCmd.PersistentFlags().String("log-format", "text", "Log format (text, json)")
 
 	// Add new provider-based backup command (recommended)
 	rootCmd.AddCommand(newBackupCommand())

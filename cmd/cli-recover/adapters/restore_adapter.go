@@ -10,13 +10,16 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cagojeiger/cli-recover/internal/domain/logger"
 	"github.com/cagojeiger/cli-recover/internal/domain/metadata"
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
+	infLogger "github.com/cagojeiger/cli-recover/internal/infrastructure/logger"
 )
 
 // RestoreAdapter adapts CLI commands to Restore Provider interface
 type RestoreAdapter struct {
 	registry RestoreRegistry
+	logger   logger.Logger
 }
 
 // RestoreRegistry defines the interface for restore provider registry
@@ -28,6 +31,7 @@ type RestoreRegistry interface {
 func NewRestoreAdapter(registry RestoreRegistry) *RestoreAdapter {
 	return &RestoreAdapter{
 		registry: registry,
+		logger:   infLogger.GetGlobalLogger(),
 	}
 }
 
@@ -68,22 +72,23 @@ func (a *RestoreAdapter) ExecuteRestore(providerName string, cmd *cobra.Command,
 	// Check dry-run
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	if dryRun {
-		fmt.Printf("Dry run - would execute %s restore\n", providerName)
-		fmt.Printf("Options: %+v\n", opts)
+		a.logger.Info("Dry run - would execute restore",
+			logger.F("provider", providerName),
+			logger.F("options", opts))
 		return nil
 	}
 
 	// Estimate size if possible
-	fmt.Fprintf(os.Stderr, "[INFO] Analyzing backup file...\n")
+	a.logger.Info("Analyzing backup file...")
 	estimatedSize, err := provider.EstimateSize(opts.BackupFile)
 	if err != nil {
 		if debug {
-			fmt.Printf("Debug: Size estimation failed: %v\n", err)
+			a.logger.Debug("Size estimation failed", logger.F("error", err))
 		}
-		fmt.Fprintf(os.Stderr, "[INFO] Size estimation failed, progress percentage will not be available\n")
+		a.logger.Info("Size estimation failed, progress percentage will not be available")
 		estimatedSize = 0
 	} else {
-		fmt.Fprintf(os.Stderr, "[INFO] Estimated size: %s\n", humanizeBytes(estimatedSize))
+		a.logger.Info("Estimated size", logger.F("size", humanizeBytes(estimatedSize)))
 	}
 
 	// Start progress monitoring
@@ -94,8 +99,10 @@ func (a *RestoreAdapter) ExecuteRestore(providerName string, cmd *cobra.Command,
 	ctx := context.Background()
 	startTime := time.Now()
 
-	fmt.Fprintf(os.Stderr, "[START] Starting %s restore\n", providerName)
-	fmt.Fprintf(os.Stderr, "[INFO] Target: %s:%s\n", opts.PodName, opts.TargetPath)
+	a.logger.Info("Starting restore",
+		logger.F("provider", providerName),
+		logger.F("pod", opts.PodName),
+		logger.F("target_path", opts.TargetPath))
 
 	// Execute restore
 	result, err := provider.Execute(ctx, opts)
@@ -110,17 +117,17 @@ func (a *RestoreAdapter) ExecuteRestore(providerName string, cmd *cobra.Command,
 	// Final report
 	elapsed := time.Since(startTime)
 
-	fmt.Fprintf(os.Stderr, "\r\033[K") // Clear progress line
-	fmt.Fprintf(os.Stderr, "[DONE] Restore completed: %s (%d files, %s in %s)\n",
-		result.RestoredPath, result.FileCount, humanizeBytes(result.BytesWritten), elapsed.Round(time.Second))
+	// Log completion
+	a.logger.Info("Restore completed successfully",
+		logger.F("restored_path", result.RestoredPath),
+		logger.F("file_count", result.FileCount),
+		logger.F("bytes_written", humanizeBytes(result.BytesWritten)),
+		logger.F("duration", elapsed.Round(time.Second).String()))
 
-	// Print warnings if any
+	// Log warnings if any
 	for _, warning := range result.Warnings {
-		fmt.Printf("Warning: %s\n", warning)
+		a.logger.Warn("Restore warning", logger.F("warning", warning))
 	}
-
-	fmt.Printf("Restore completed successfully: %s (%d files, %s)\n", 
-		result.RestoredPath, result.FileCount, humanizeBytes(result.BytesWritten))
 
 	return nil
 }
