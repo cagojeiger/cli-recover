@@ -1,21 +1,74 @@
-# Working Context
+# 현재 작업 컨텍스트
 
-## Environment
-- Go 1.24.3
-- Branch: feature/tui-backup
-- Coverage: 44.3% (cmd: 24.7%)
+## 전략 전환 ✨
+- **TUI 중심 → CLI 우선 개발로 전환** (2025-01-07)
+- 이유: 동작하는 CLI가 이미 있고, 더 실용적
+- 원칙: "Make it work → Make it right → Make it pretty"
 
-## Recent Changes
-- MongoDB/MinIO 제거 완료
-- 테스트 커버리지 개선 (6.8% → 24.7%)
-- TUI 비동기 실행 필요 확인
+## 현재 동작 중
+- filesystem 백업 CLI 완전 동작 ✓
+  ```bash
+  ./cli-recover backup filesystem <pod> <path> --namespace <ns>
+  ```
+- kubectl exec + tar 통합 완료
+- 진행률 모니터링 구현
+- 크기 추정 & ETA 계산
 
-## Key Files
-- internal/tui/executor.go (블로킹 이슈)
-- internal/tui/model.go (상태 관리)
-- cmd/cli-recover/*_test.go (테스트)
+## 완료된 작업
+- CLI-First 전략 결정 ✓
+- 전략적 결정사항 문서화 ✓
+- CLI 중심 로드맵 재작성 ✓
+- 아키텍처 패턴 설계 (Hexagonal + Plugin) ✓
 
-## Technical Debt
-- TUI 패키지 테스트 제외
-- StreamingExecutor 블로킹
-- 일부 함수 50줄 초과
+## 참조 문서
+- `.memory/long-term/04-strategic-decisions.md`: CLI-First 전략 결정
+- `.planning/00-roadmap.md`: CLI 중심 개발 로드맵
+- `.planning/03-architecture-patterns.md`: 아키텍처 설계
+- `.memory/long-term/03-architecture-decisions.md`: 아키텍처 근거
+
+## 다음 작업 (CLI Phase 1)
+
+### 1. CLI 명령 체계 표준화
+```bash
+cli-recover backup <type> <pod> <path> [options]
+cli-recover restore <type> <pod> <backup-file> [options]
+cli-recover list backups
+cli-recover status <job-id>
+```
+
+### 2. Provider 구현
+- [ ] filesystem provider 안정화
+- [ ] minio provider 구현
+- [ ] mongodb provider 구현
+
+### 3. 공통 기능
+- [ ] 통합 진행률 처리
+- [ ] 에러 처리 표준화
+- [ ] 로깅 시스템
+
+## 핵심 파일들
+
+### CLI 구조 (현재)
+- `cmd/cli-recover/main.go`: 진입점
+- `cmd/cli-recover/backup_filesystem.go`: filesystem 백업 구현
+
+### 리팩토링 대상
+- 명령 체계를 cobra 등으로 구조화
+- Provider 패턴으로 백업 타입 추상화
+- 도메인 레이어 분리
+
+### 재사용 가능한 자산
+- kubectl 실행 로직
+- 진행률 계산 알고리즘
+- 파일 크기 추정 로직
+- 에러 처리 패턴
+
+## 중요 결정사항
+- **CLI 우선**: 모든 기능을 CLI로 먼저 구현
+- **TUI는 래퍼**: CLI 위의 얇은 레이어로
+- **플러그인 패턴**: BackupProvider로 확장성
+- **점진적 개발**: 동작하는 것부터 시작
+
+## 브랜치 상태
+- 현재: feature/tui-backup
+- CLI 중심 개발로 방향 전환됨

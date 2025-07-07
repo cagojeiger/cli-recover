@@ -1,39 +1,27 @@
-# Project Context
+# TUI 리팩토링 프로젝트
 
-## Purpose
-- K8s Pod 파일시스템 백업 TUI 도구
-- kubectl exec 복잡성 해결
-- 직관적 인터페이스 + 교육적 가치
+## 목표
+- kubectl 기반 Kubernetes Pod 접근 로직 보존 (절대 불변)
+- 컴포넌트 기반 아키텍처로 전환
+- 메모리 효율성 개선 (Ring Buffer 도입)
+- TDD 방식 적용 (비-UI 로직 우선)
+- 백업 타입별 독립성 보장 (filesystem, minio, mongodb)
+- 의존성 역전 원칙(DIP) 적용
 
-## Current State
-- MVP 완성 (명령어 생성만)
-- 테스트 커버리지: 44.3%
-- 주요 이슈: TUI 비동기 실행 필요
+## 제약사항
+- Bubble Tea 프레임워크 유지 (마이그레이션 비용 > 이익)
+- goroutine 사용 금지 (Bubble Tea 제약)
+- 기존 CLI 인터페이스 호환성 유지
+- 복잡도 70 이하 유지 (CLAUDE.md 기준)
 
-## Working Features
-- 네임스페이스/Pod 선택
-- 파일시스템 브라우저
-- 백업 옵션 설정
-- kubectl 명령어 생성
-- 명령어 미리보기
+## 성공 기준
+- 메모리 사용량 50% 감소
+- 테스트 커버리지 80% 이상
+- 새 백업 타입 추가 시 기존 코드 수정 최소화
+- UI 응답성 개선 (차분 렌더링)
 
-## Missing Features
-- 실제 백업 실행
-- 진행률 표시
-- 백그라운드 실행
-- 에러 복구
-- 설정 파일
-
-## Core Values
-- **단순함**: Occam's Razor 준수
-- **UX**: 직관적 키보드 네비게이션
-- **교육**: kubectl 명령어 학습
-- **품질**: 90%+ 테스트 목표
-
-## Constraints
-- Go 1.21+
-- kubectl 필수
-- K8s 클러스터 접근
-
-## Current Focus
-- TUI 비동기 실행 (StreamingExecutor 블로킹 해결)
+## 비즈니스 가치
+- 대용량 백업 지원 (메모리 안정성)
+- 유지보수 비용 감소 (테스트 커버리지)
+- 확장성 향상 (플러그인 아키텍처)
+- 사용자 경험 개선 (반응형 UI)

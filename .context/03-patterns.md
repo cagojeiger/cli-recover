@@ -1,91 +1,248 @@
-# Patterns
+# 코딩 패턴 및 컨벤션
 
-## Testing
-- **Golden Files**: testdata/kubectl/*.golden
-- **Mock Runner**: 명령 실행 모킹
-- **Table-Driven**: 테스트 케이스 배열
+## 아키텍처 패턴
 
-## Architecture
-- **Interface Design**: Runner, Executor 인터페이스
-- **Command Builder**: 타입 안전 명령 구성
-- **Elm Architecture**: Model/Update/View (Bubble Tea)
-
-## Bubble Tea Patterns
-
-### Core Rules
-- **Never use goroutines**: Bubble Tea가 동시성 관리
-- **Use tea.Cmd for I/O**: 모든 I/O는 비동기로
-- **Keep Update/View fast**: 블로킹 작업 금지
-- **Message-based communication**: 상태 변경은 메시지로만
-
-### Correct Patterns
+### 헥사고날 아키텍처 (Ports & Adapters)
 ```go
-// ✅ 올바른 비동기 작업
-func doAsyncWork() tea.Cmd {
-    return func() tea.Msg {
-        result := longRunningOperation()
-        return resultMsg{result}
+// Port (도메인에서 정의)
+type BackupRepository interface {
+    Save(job *BackupJob) error
+    FindByID(id string) (*BackupJob, error)
+    List() ([]*BackupJob, error)
+}
+
+// Adapter (인프라에서 구현)
+type FileBackupRepository struct {
+    basePath string
+}
+
+func (r *FileBackupRepository) Save(job *BackupJob) error {
+    // 파일 시스템에 저장
+}
+```
+
+### Component 패턴 (UI)
+```go
+type Component interface {
+    // Bubble Tea 인터페이스 준수
+    Init() tea.Cmd
+    Update(msg tea.Msg) (Component, tea.Cmd)
+    View() string
+    
+    // 컴포넌트 라이프사이클
+    Focus() tea.Cmd
+    Blur() tea.Cmd
+    SetSize(width, height int)
+}
+
+// 예시: 리스트 컴포넌트
+type ListComponent[T any] struct {
+    items    []T
+    selected int
+    focused  bool
+    renderer func(T, bool) string
+}
+```
+
+### Repository 패턴
+```go
+// 도메인 모델과 영속성 분리
+type JobRepository interface {
+    Create(job *BackupJob) error
+    Update(job *BackupJob) error
+    Delete(id string) error
+    FindByID(id string) (*BackupJob, error)
+    FindAll() ([]*BackupJob, error)
+    FindByStatus(status JobStatus) ([]*BackupJob, error)
+}
+```
+
+### Command 패턴
+```go
+// 사용자 액션을 명령으로 캡슐화
+type Command interface {
+    Execute(ctx context.Context) error
+    Undo() error
+    CanExecute() bool
+}
+
+type CreateBackupCommand struct {
+    service BackupService
+    request BackupRequest
+}
+```
+
+### Builder 패턴
+```go
+// 복잡한 객체 생성을 단계별로
+type BackupJobBuilder struct {
+    job *BackupJob
+}
+
+func NewBackupJobBuilder() *BackupJobBuilder {
+    return &BackupJobBuilder{
+        job: &BackupJob{},
     }
 }
 
-// ✅ exec.Command 모니터링
-func executeCommand(args []string) tea.Cmd {
-    return func() tea.Msg {
-        cmd := exec.Command(args[0], args[1:]...)
-        stdout, _ := cmd.StdoutPipe()
-        
-        cmd.Start()
-        scanner := bufio.NewScanner(stdout)
-        for scanner.Scan() {
-            // Program.Send()로 진행상황 전송
-            program.Send(outputMsg{scanner.Text()})
-        }
-        
-        err := cmd.Wait()
-        return doneMsg{err}
+func (b *BackupJobBuilder) WithNamespace(ns string) *BackupJobBuilder {
+    b.job.Namespace = ns
+    return b
+}
+
+func (b *BackupJobBuilder) Build() (*BackupJob, error) {
+    // 유효성 검사 후 반환
+}
+```
+
+### Ring Buffer 패턴
+```go
+// 메모리 효율적인 순환 버퍼
+type RingBuffer struct {
+    data     []string
+    size     int
+    writePos int
+    readPos  int
+    mu       sync.RWMutex
+}
+
+func (rb *RingBuffer) Write(line string) {
+    rb.mu.Lock()
+    defer rb.mu.Unlock()
+    
+    rb.data[rb.writePos] = line
+    rb.writePos = (rb.writePos + 1) % rb.size
+}
+```
+
+### Factory 패턴
+```go
+// 백업 타입별 생성 로직 캡슐화
+type BackupTypeFactory interface {
+    Create(typeName string) (BackupType, error)
+}
+
+type DefaultBackupTypeFactory struct {
+    registry map[string]func() BackupType
+}
+
+func (f *DefaultBackupTypeFactory) Register(name string, creator func() BackupType) {
+    f.registry[name] = creator
+}
+```
+
+### Strategy 패턴
+```go
+// 알고리즘 교체 가능
+type CompressionStrategy interface {
+    Compress(data []byte) ([]byte, error)
+    Extension() string
+}
+
+type GzipStrategy struct{}
+type BzipStrategy struct{}
+type NoCompressionStrategy struct{}
+```
+
+### Observer 패턴 (이벤트 기반)
+```go
+// 상태 변화 알림
+type EventBus interface {
+    Subscribe(eventType EventType, handler EventHandler)
+    Publish(event Event)
+}
+
+type EventHandler func(event Event)
+
+type Event struct {
+    Type      EventType
+    Timestamp time.Time
+    Data      interface{}
+}
+```
+
+## 코딩 컨벤션
+
+### 에러 처리
+```go
+// 도메인 에러 정의
+type BackupError struct {
+    Code    ErrorCode
+    Message string
+    Cause   error
+}
+
+func (e BackupError) Error() string {
+    if e.Cause != nil {
+        return fmt.Sprintf("%s: %v", e.Message, e.Cause)
+    }
+    return e.Message
+}
+
+// 사용 예시
+if err := validatePath(path); err != nil {
+    return BackupError{
+        Code:    InvalidPath,
+        Message: "invalid backup path",
+        Cause:   err,
     }
 }
 ```
 
-### Anti-patterns
-```go
-// ❌ 절대 하면 안됨
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    go doSomething() // 금지!
-    time.Sleep(1 * time.Second) // 금지!
-    return m, nil
-}
+### 네이밍 규칙
+- 인터페이스: 동사+er (예: Reader, Writer, BackupExecutor)
+- 구현체: 형용사+인터페이스명 (예: FileBackupRepository)
+- 메서드: 동사로 시작 (예: CreateBackup, ValidateOptions)
+- 상수: 대문자 스네이크 케이스 (예: MAX_BUFFER_SIZE)
 
-// ❌ Init에서 고루틴 생성
-func (m Model) Init() tea.Cmd {
-    go m.startBackgroundTask() // 금지!
-    return nil
+### 테스트 작성
+```go
+// 테이블 주도 테스트
+func TestRingBuffer_Write(t *testing.T) {
+    tests := []struct {
+        name     string
+        size     int
+        writes   []string
+        expected []string
+    }{
+        {
+            name:     "normal write",
+            size:     3,
+            writes:   []string{"a", "b", "c"},
+            expected: []string{"a", "b", "c"},
+        },
+        {
+            name:     "overflow write",
+            size:     3,
+            writes:   []string{"a", "b", "c", "d"},
+            expected: []string{"b", "c", "d"},
+        },
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            rb := NewRingBuffer(tt.size)
+            for _, w := range tt.writes {
+                rb.Write(w)
+            }
+            assert.Equal(t, tt.expected, rb.GetAll())
+        })
+    }
 }
 ```
 
-### Command Patterns
-- **tea.Batch**: 여러 명령 동시 실행
-- **tea.Sequence**: 순차 실행
-- **tea.Tick/Every**: 타이머 작업
-- **Program.Send()**: 외부에서 메시지 전송
-
-### Best Practices
-- 명령은 함수를 반환하는 함수로 구현
-- 채널 사용 시 tea.Cmd 내부에서만
-- 긴 작업은 별도 메시지로 진행상황 전송
-- Context는 tea.Cmd에 전달하여 취소 처리
-
-## Code Organization
-- **Handler Separation**: action, navigation, helpers
-- **Screen States**: iota 상수로 화면 관리
-- **Internal Packages**: API 경계 명확화
-
-## Error Handling
-- **Error Wrapping**: fmt.Errorf("context: %w", err)
-- **User Messages**: 기술 에러 → 친화적 메시지
-
-## Standards
-- 함수 < 50줄
-- 파일 < 500줄
-- 인터페이스: -er 접미사
-- 테스트: Test- 접두사
+### 의존성 주입
+```go
+// 생성자에서 의존성 주입
+func NewBackupService(
+    repo BackupRepository,
+    executor CommandExecutor,
+    logger Logger,
+) *BackupService {
+    return &BackupService{
+        repo:     repo,
+        executor: executor,
+        logger:   logger,
+    }
+}
+```

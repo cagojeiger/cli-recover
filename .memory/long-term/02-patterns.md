@@ -1,0 +1,357 @@
+# 재사용 가능한 패턴
+
+## UI 컴포넌트 패턴
+
+### 1. Generic List Component
+```go
+type ListComponent[T any] struct {
+    items      []T
+    selected   int
+    focused    bool
+    height     int
+    renderer   func(item T, selected bool) string
+    onSelect   func(item T) tea.Cmd
+    filter     string
+}
+
+func (l *ListComponent[T]) Update(msg tea.Msg) (*ListComponent[T], tea.Cmd) {
+    switch msg := msg.(type) {
+    case tea.KeyMsg:
+        switch msg.String() {
+        case "up", "k":
+            if l.selected > 0 {
+                l.selected--
+            }
+        case "down", "j":
+            if l.selected < len(l.items)-1 {
+                l.selected++
+            }
+        case "enter":
+            if l.onSelect != nil && l.selected < len(l.items) {
+                return l, l.onSelect(l.items[l.selected])
+            }
+        }
+    }
+    return l, nil
+}
+
+func (l *ListComponent[T]) View() string {
+    var b strings.Builder
+    start := 0
+    end := len(l.items)
+    
+    // 스크롤링 처리
+    if l.height > 0 && len(l.items) > l.height {
+        // 선택된 항목을 중앙에 유지
+        if l.selected >= l.height/2 {
+            start = l.selected - l.height/2
+            end = start + l.height
+        }
+    }
+    
+    for i := start; i < end && i < len(l.items); i++ {
+        b.WriteString(l.renderer(l.items[i], i == l.selected))
+        b.WriteString("\n")
+    }
+    
+    return b.String()
+}
+```
+
+### 2. Form Component
+```go
+type FormField struct {
+    Label       string
+    Value       string
+    Type        FieldType // text, password, select, checkbox
+    Options     []string  // for select
+    Validator   func(string) error
+    Required    bool
+}
+
+type FormComponent struct {
+    fields   []FormField
+    selected int
+    errors   map[int]string
+}
+
+func (f *FormComponent) Validate() bool {
+    f.errors = make(map[int]string)
+    valid := true
+    
+    for i, field := range f.fields {
+        if field.Required && field.Value == "" {
+            f.errors[i] = "This field is required"
+            valid = false
+        } else if field.Validator != nil {
+            if err := field.Validator(field.Value); err != nil {
+                f.errors[i] = err.Error()
+                valid = false
+            }
+        }
+    }
+    
+    return valid
+}
+```
+
+### 3. Table Component
+```go
+type Column struct {
+    Title string
+    Width int
+    Align Alignment // Left, Right, Center
+}
+
+type TableComponent[T any] struct {
+    columns  []Column
+    rows     []T
+    renderer func(row T, col int) string
+    selected int
+    sorted   int // column index for sorting
+}
+
+func (t *TableComponent[T]) View() string {
+    var b strings.Builder
+    
+    // Header
+    for _, col := range t.columns {
+        b.WriteString(padString(col.Title, col.Width, col.Align))
+        b.WriteString(" ")
+    }
+    b.WriteString("\n")
+    
+    // Separator
+    for _, col := range t.columns {
+        b.WriteString(strings.Repeat("─", col.Width))
+        b.WriteString(" ")
+    }
+    b.WriteString("\n")
+    
+    // Rows
+    for i, row := range t.rows {
+        for j, col := range t.columns {
+            content := t.renderer(row, j)
+            if i == t.selected {
+                content = highlightStyle.Render(content)
+            }
+            b.WriteString(padString(content, col.Width, col.Align))
+            b.WriteString(" ")
+        }
+        b.WriteString("\n")
+    }
+    
+    return b.String()
+}
+```
+
+## 상태 관리 패턴
+
+### 1. State Machine
+```go
+type State int
+
+const (
+    StateIdle State = iota
+    StateLoading
+    StateError
+    StateSuccess
+)
+
+type StateMachine struct {
+    current     State
+    transitions map[State][]State
+}
+
+func (sm *StateMachine) CanTransition(to State) bool {
+    allowed, ok := sm.transitions[sm.current]
+    if !ok {
+        return false
+    }
+    
+    for _, state := range allowed {
+        if state == to {
+            return true
+        }
+    }
+    return false
+}
+```
+
+### 2. Event Bus
+```go
+type EventType string
+
+type Event struct {
+    Type      EventType
+    Timestamp time.Time
+    Data      interface{}
+}
+
+type EventBus struct {
+    subscribers map[EventType][]chan Event
+    mu          sync.RWMutex
+}
+
+func (eb *EventBus) Subscribe(eventType EventType) <-chan Event {
+    eb.mu.Lock()
+    defer eb.mu.Unlock()
+    
+    ch := make(chan Event, 10)
+    eb.subscribers[eventType] = append(eb.subscribers[eventType], ch)
+    return ch
+}
+
+func (eb *EventBus) Publish(event Event) {
+    eb.mu.RLock()
+    defer eb.mu.RUnlock()
+    
+    for _, ch := range eb.subscribers[event.Type] {
+        select {
+        case ch <- event:
+        default:
+            // 채널이 가득 찬 경우 스킵
+        }
+    }
+}
+```
+
+## 비즈니스 로직 패턴
+
+### 1. Service Layer
+```go
+type BackupService struct {
+    repo      BackupRepository
+    executor  CommandExecutor
+    validator BackupValidator
+}
+
+func (s *BackupService) CreateBackup(ctx context.Context, req BackupRequest) (*BackupJob, error) {
+    // 1. 검증
+    if err := s.validator.Validate(req); err != nil {
+        return nil, fmt.Errorf("validation failed: %w", err)
+    }
+    
+    // 2. 엔티티 생성
+    job := &BackupJob{
+        ID:        generateID(),
+        Status:    JobStatusPending,
+        CreatedAt: time.Now(),
+    }
+    
+    // 3. 저장
+    if err := s.repo.Save(job); err != nil {
+        return nil, fmt.Errorf("failed to save job: %w", err)
+    }
+    
+    // 4. 실행
+    go s.executeJob(ctx, job)
+    
+    return job, nil
+}
+```
+
+### 2. Repository with Cache
+```go
+type CachedRepository struct {
+    base  Repository
+    cache map[string]*CacheEntry
+    mu    sync.RWMutex
+    ttl   time.Duration
+}
+
+type CacheEntry struct {
+    data      interface{}
+    expiresAt time.Time
+}
+
+func (r *CachedRepository) Get(id string) (interface{}, error) {
+    // 캐시 확인
+    r.mu.RLock()
+    if entry, ok := r.cache[id]; ok && entry.expiresAt.After(time.Now()) {
+        r.mu.RUnlock()
+        return entry.data, nil
+    }
+    r.mu.RUnlock()
+    
+    // 캐시 미스: DB에서 가져오기
+    data, err := r.base.Get(id)
+    if err != nil {
+        return nil, err
+    }
+    
+    // 캐시 업데이트
+    r.mu.Lock()
+    r.cache[id] = &CacheEntry{
+        data:      data,
+        expiresAt: time.Now().Add(r.ttl),
+    }
+    r.mu.Unlock()
+    
+    return data, nil
+}
+```
+
+## 에러 처리 패턴
+
+### 1. Error Types
+```go
+type ErrorCode string
+
+const (
+    ErrNotFound      ErrorCode = "NOT_FOUND"
+    ErrInvalidInput  ErrorCode = "INVALID_INPUT"
+    ErrUnauthorized  ErrorCode = "UNAUTHORIZED"
+    ErrInternal      ErrorCode = "INTERNAL"
+)
+
+type AppError struct {
+    Code      ErrorCode
+    Message   string
+    Details   map[string]interface{}
+    Cause     error
+    Timestamp time.Time
+}
+
+func (e AppError) Error() string {
+    if e.Cause != nil {
+        return fmt.Sprintf("[%s] %s: %v", e.Code, e.Message, e.Cause)
+    }
+    return fmt.Sprintf("[%s] %s", e.Code, e.Message)
+}
+```
+
+### 2. Error Handler
+```go
+type ErrorHandler struct {
+    logger Logger
+}
+
+func (h *ErrorHandler) Handle(err error) tea.Cmd {
+    var appErr AppError
+    if errors.As(err, &appErr) {
+        h.logger.Error("Application error", 
+            "code", appErr.Code,
+            "message", appErr.Message,
+            "details", appErr.Details,
+        )
+        
+        // UI에 에러 메시지 전달
+        return func() tea.Msg {
+            return ErrorMsg{Error: appErr}
+        }
+    }
+    
+    // 예상치 못한 에러
+    h.logger.Error("Unexpected error", "error", err)
+    return func() tea.Msg {
+        return ErrorMsg{
+            Error: AppError{
+                Code:    ErrInternal,
+                Message: "An unexpected error occurred",
+                Cause:   err,
+            },
+        }
+    }
+}
+```

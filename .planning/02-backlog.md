@@ -1,152 +1,172 @@
-# Product Backlog
+# 백로그 (우선순위 순)
 
-## Epic: Production Readiness
+## 높은 우선순위 (Phase 1 이후 즉시)
 
-### User Story: Actual Backup Execution
-**As a** DevOps engineer
-**I want** the tool to actually perform backups, not just generate commands
-**So that** I can automate backup processes without manual command execution
+### 1. 프로그레스바 완전 제거
+**이유**: 복잡한 파싱 로직이 유지보수 부담
+**작업**:
+- [ ] parseProgress 함수 삭제 (100줄)
+- [ ] makeProgressBar 함수 삭제 (15줄)
+- [ ] BackupJob의 progress 필드 제거
+- [ ] UI를 단순 상태 표시로 변경
+**예상 시간**: 1일
 
-**Acceptance Criteria**:
-- Execute generated tar commands automatically
-- Stream backup data to specified output files
-- Show progress indicators for large backups
-- Handle network interruptions gracefully
-- Provide backup completion confirmation
+### 2. Job 히스토리 파일 저장
+**이유**: 재시작 후에도 작업 이력 확인 필요
+**작업**:
+- [ ] ~/.cli-recover/history/ 디렉토리 구조
+- [ ] JSON 형식으로 Job 저장
+- [ ] 시작 시 히스토리 로드
+- [ ] 오래된 히스토리 자동 정리
+**예상 시간**: 2일
 
-**Priority**: High
-**Effort**: Large (8-13 points)
+### 3. 로그 시스템 구현
+**이유**: 디버깅 및 문제 추적
+**작업**:
+- [ ] 구조화된 로거 인터페이스
+- [ ] 파일 기반 로깅 (~/.cli-recover/logs/)
+- [ ] 로그 로테이션
+- [ ] 로그 레벨 설정
+**예상 시간**: 2일
 
-### User Story: Configuration Management
-**As a** system administrator  
-**I want** to save and reuse backup configurations
-**So that** I can standardize backup procedures across teams
+## 중간 우선순위 (Phase 2-3)
 
-**Acceptance Criteria**:
-- Save backup options to configuration file
-- Load predefined backup profiles
-- Support YAML/JSON configuration formats
-- Validate configuration on load
-- Support environment variable overrides
+### 4. 단축키 커스터마이징
+**이유**: 사용자별 선호 단축키 다름
+**작업**:
+- [ ] 단축키 매핑 구조체
+- [ ] config.yaml에서 로드
+- [ ] 기본값 제공
+- [ ] 충돌 검사
+**예상 시간**: 3일
 
-**Priority**: Medium
-**Effort**: Medium (5-8 points)
+### 5. 백업 스케줄링
+**이유**: 정기 백업 자동화 요구
+**작업**:
+- [ ] cron 표현식 파서
+- [ ] 스케줄 관리자
+- [ ] 백그라운드 실행 모드
+- [ ] 알림 시스템
+**예상 시간**: 1주
 
-## Epic: Enhanced User Experience
+### 6. 백업 검증
+**이유**: 백업 무결성 확인
+**작업**:
+- [ ] 체크섬 생성/검증
+- [ ] 테스트 복원
+- [ ] 검증 리포트
+**예상 시간**: 3일
 
-### User Story: Progress Indicators
-**As a** user
-**I want** to see backup progress in real-time
-**So that** I know the operation is working and estimate completion time
+### 7. 압축 알고리즘 추가
+**이유**: 다양한 압축 옵션 요구
+**작업**:
+- [ ] lz4 지원
+- [ ] zstd 지원
+- [ ] 압축률/속도 비교
+**예상 시간**: 2일
 
-**Acceptance Criteria**:
-- Progress bar for backup operations
-- File count and size statistics
-- Transfer rate display
-- Estimated time remaining
-- Cancelable operations
+## 낮은 우선순위 (Phase 4)
 
-**Priority**: Medium
-**Effort**: Medium (3-5 points)
+### 8. 테마 시스템
+**이유**: 사용자 취향 반영
+**작업**:
+- [ ] 색상 테마 구조체
+- [ ] 기본 테마 (light/dark)
+- [ ] 커스텀 테마 지원
+- [ ] 실시간 테마 전환
+**예상 시간**: 3일
 
-### User Story: Error Recovery
-**As a** user
-**I want** clear error messages and recovery options
-**So that** I can resolve issues without technical expertise
+### 9. 플러그인 로더
+**이유**: 써드파티 백업 타입 지원
+**작업**:
+- [ ] 플러그인 인터페이스 정의
+- [ ] 동적 로딩 메커니즘
+- [ ] 플러그인 검증
+- [ ] 플러그인 마켓플레이스
+**예상 시간**: 2주
 
-**Acceptance Criteria**:
-- Human-readable error messages
-- Suggested resolution steps
-- Automatic retry for transient failures
-- Graceful handling of permission issues
-- Log files for troubleshooting
+### 10. 웹 UI
+**이유**: 원격 관리 요구
+**작업**:
+- [ ] REST API 서버
+- [ ] React/Vue 프론트엔드
+- [ ] WebSocket 실시간 업데이트
+- [ ] 인증/권한 관리
+**예상 시간**: 1개월
 
-**Priority**: High
-**Effort**: Medium (5-8 points)
+### 11. 클라우드 스토리지 지원
+**이유**: 원격 백업 저장소
+**작업**:
+- [ ] AWS S3 지원
+- [ ] Google Cloud Storage
+- [ ] Azure Blob Storage
+- [ ] 멀티파트 업로드
+**예상 시간**: 2주
 
-## Epic: Advanced Features
+### 12. 백업 암호화
+**이유**: 보안 요구사항
+**작업**:
+- [ ] AES-256 암호화
+- [ ] 키 관리 시스템
+- [ ] 암호화 백업 복원
+**예상 시간**: 1주
 
-### User Story: Multiple Output Formats
-**As a** backup administrator
-**I want** to choose different backup formats
-**So that** I can integrate with various storage systems
+## 아이디어 (미래)
 
-**Acceptance Criteria**:
-- Support tar.gz, tar.bz2, tar.xz formats
-- Direct upload to cloud storage (S3, GCS, Azure)
-- Streaming to stdout for piping
-- Compression level selection
-- Encryption options
+### 13. AI 기반 백업 최적화
+- 백업 패턴 분석
+- 최적 백업 시간 제안
+- 중복 제거 제안
 
-**Priority**: Low
-**Effort**: Large (8-13 points)
+### 14. 분산 백업
+- 여러 노드에 백업 분산
+- P2P 백업 네트워크
+- 블록체인 기반 무결성
 
-### User Story: Backup Scheduling
-**As a** DevOps engineer
-**I want** to schedule regular backups
-**So that** data protection is automated
+### 15. 백업 시각화
+- 백업 트렌드 그래프
+- 스토리지 사용량 차트
+- 백업 성공률 대시보드
 
-**Acceptance Criteria**:
-- Cron-like scheduling syntax
-- Multiple backup profiles per schedule
-- Email notifications on completion/failure
-- Rotation policies for old backups
-- Integration with existing schedulers
+## 기술 부채
 
-**Priority**: Low
-**Effort**: Large (13+ points)
+### 16. Model struct 분해
+**현재**: 115+ 필드의 God Object
+**목표**: 역할별 작은 구조체들
+**작업**:
+- [ ] UIState 분리
+- [ ] BusinessState 분리
+- [ ] NavigationState 분리
+**예상 시간**: 1주
 
-## Epic: Developer Experience
+### 17. 통합 테스트 강화
+**현재**: 단위 테스트 위주
+**목표**: E2E 시나리오 커버
+**작업**:
+- [ ] teatest 시나리오
+- [ ] 실제 kubectl 모킹
+- [ ] 성능 테스트
+**예상 시간**: 1주
 
-### User Story: Plugin System
-**As a** developer
-**I want** to extend the tool with custom functionality
-**So that** I can adapt it to specific organizational needs
+### 18. 문서화
+**현재**: README만 존재
+**목표**: 완전한 문서
+**작업**:
+- [ ] API 문서
+- [ ] 아키텍처 문서
+- [ ] 플러그인 개발 가이드
+- [ ] 사용자 매뉴얼
+**예상 시간**: 2주
 
-**Acceptance Criteria**:
-- Plugin interface definition
-- Plugin discovery mechanism
-- Configuration for plugin parameters
-- Documentation for plugin development
-- Example plugins for common use cases
+## 우선순위 결정 기준
+1. **사용자 영향도**: 얼마나 많은 사용자가 혜택을 보는가?
+2. **구현 난이도**: 투입 대비 효과가 좋은가?
+3. **의존성**: 다른 기능의 전제조건인가?
+4. **위험도**: 기존 기능을 깨뜨릴 가능성이 있는가?
 
-**Priority**: Very Low
-**Effort**: Extra Large (13+ points)
-
-## Technical Debt
-
-### Code Quality Improvements
-- [ ] Add golangci-lint configuration
-- [ ] Implement structured logging
-- [ ] Add metrics collection
-- [ ] Performance benchmarking
-- [ ] Security audit
-
-### Documentation
-- [ ] API documentation generation
-- [ ] User manual creation
-- [ ] Video tutorial recording
-- [ ] FAQ compilation
-- [ ] Troubleshooting guide
-
-### Infrastructure
-- [ ] CI/CD pipeline optimization
-- [ ] Release automation
-- [ ] Cross-platform builds
-- [ ] Package distribution (Homebrew, apt, etc.)
-- [ ] Docker image creation
-
-## Ideas & Research
-
-### Future Considerations
-- Integration with backup verification tools
-- Support for database-specific backup methods
-- GUI version using same backend
-- Web interface for team collaboration
-- Integration with monitoring systems (Prometheus, etc.)
-
-### Technology Research
-- Alternative TUI frameworks evaluation
-- Kubernetes operator possibility
-- Performance optimization opportunities
-- Security best practices review
+## 예상 일정
+- **즉시 시작 가능**: 1-3번 항목 (1주)
+- **Phase 2 이후**: 4-7번 항목 (3주)
+- **Phase 3 이후**: 8-12번 항목 (2개월)
+- **장기 계획**: 13-15번 항목 (미정)
+- **지속적 개선**: 16-18번 항목 (분기별)
