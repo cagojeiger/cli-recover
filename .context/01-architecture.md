@@ -16,7 +16,8 @@ internal/
 │   ├── backup/         # 백업 도메인
 │   ├── restore/        # 복원 도메인
 │   ├── metadata/       # 메타데이터
-│   └── logger/         # 로거 인터페이스
+│   ├── logger/         # 로거 인터페이스
+│   └── log/            # 작업 이력 도메인
 ├── infrastructure/      # 외부 시스템 연동
 │   ├── kubernetes/     # K8s 클라이언트
 │   ├── logger/         # 로거 구현체
@@ -114,27 +115,32 @@ Event (tea.Msg) → Update → New State → View
 - Component 인터페이스로 새 UI 요소 추가
 - Middleware 패턴으로 공통 기능 추가 (로깅, 모니터링)
 
-## 향후 구현 계획 (Phase 3 진행중)
+## Phase 3 완료: 로그 파일 시스템
 
-### Phase 3: 백그라운드 모드 (1주)
-1. **Job 도메인 모델**
-   - internal/domain/job/ 패키지
-   - Job 엔티티 (PID 트래킹)
-   - JobRepository 인터페이스
+### 구현 내용 (복잡도 30/100)
+1. **Log 도메인 모델**
+   - internal/domain/log/ 패키지
+   - Log 엔티티 (작업 이력)
+   - LogRepository 인터페이스
+   - 파일 기반 저장소
 
-2. **백그라운드 실행**
-   - --background 플래그
-   - exec.Command 자기 재실행
-   - PID 파일 관리
+2. **CLI 명령어**
+   - logs list: 작업 이력 조회
+   - logs show: 로그 상세 보기
+   - logs tail: 로그 마지막 부분 보기
+   - logs clean: 오래된 로그 정리
 
-3. **Status 명령**
-   - Job 목록 조회
-   - 실시간 모니터링
+3. **통합 기능**
+   - 백업/복구 시 자동 로그 생성
+   - 작업별 고유 ID 부여
+   - 상태 추적 (running, completed, failed)
 
-4. **파일 관리**
-   - cleanup 명령
-   - 보관 정책
-   - ~/.cli-recover/ 조직화
+4. **파일 구조**
+   ```
+   ~/.cli-recover/logs/
+   ├── metadata/    # JSON 메타데이터
+   └── files/       # 실제 로그 파일
+   ```
 
 ### Phase 4: TUI 재구현 (2주)
 - CLI 래퍼 방식
@@ -281,15 +287,15 @@ type RestoreProvider interface {
 }
 ```
 
-### JobRepository (Phase 3)
+### LogRepository (Phase 3 구현됨)
 ```go
-type JobRepository interface {
-    Save(job *Job) error
-    Get(id string) (*Job, error)
-    GetByPID(pid int) (*Job, error)
-    List() ([]*Job, error)
-    Update(job *Job) error
+type LogRepository interface {
+    Save(log *Log) error
+    Get(id string) (*Log, error)
+    List(filter ListFilter) ([]*Log, error)
+    Update(log *Log) error
     Delete(id string) error
+    GetLatest(filter ListFilter) (*Log, error)
 }
 ```
 
@@ -301,8 +307,8 @@ type JobRepository interface {
 - ✅ 새 provider 추가 < 200 LOC
 - ✅ 테스트 커버리지 53.0%
 
-### Phase 3 목표
-- [ ] 백그라운드 실행 동작
-- [ ] Job 상태 추적 가능
-- [ ] 파일 자동 정리
-- [ ] 테스트 커버리지 80%
+### Phase 3 달성
+- ✅ 작업 이력 영구 보관
+- ✅ 로그 파일 자동 생성
+- ✅ 오래된 로그 정리 기능
+- ✅ 복잡도 30/100 유지

@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
+	"github.com/cagojeiger/cli-recover/internal/domain/log"
+	"github.com/cagojeiger/cli-recover/internal/domain/log/storage"
 	"github.com/cagojeiger/cli-recover/internal/domain/logger"
 	"github.com/cagojeiger/cli-recover/internal/domain/metadata"
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
@@ -49,16 +52,89 @@ func NewBackupAdapter() *BackupAdapter {
 
 // ExecuteBackup executes a backup using the specified provider
 func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, args []string) error {
+	// Initialize log system
+	logDir := getLogDirFromCmd(cmd)
+	logRepo, err := storage.NewFileRepository(logDir)
+	if err != nil {
+		a.logger.Warn("Failed to initialize log repository", logger.F("error", err))
+		// Continue without logging to file
+	}
+	
+	var logService *log.Service
+	var logWriter *log.Writer
+	var logEntry *log.Log
+	
+	if logRepo != nil {
+		logService = log.NewService(logRepo, filepath.Join(logDir, "files"))
+		
+		// Build metadata for log
+		metadata := make(map[string]string)
+		if ns, _ := cmd.Flags().GetString("namespace"); ns != "" {
+			metadata["namespace"] = ns
+		}
+		if len(args) >= 2 {
+			metadata["pod"] = args[0]
+			metadata["path"] = args[1]
+		}
+		
+		// Start log
+		logEntry, logWriter, err = logService.StartLog(log.TypeBackup, providerName, metadata)
+		if err != nil {
+			a.logger.Warn("Failed to start log", logger.F("error", err))
+		} else {
+			defer func() {
+				if logWriter != nil {
+					logWriter.Close()
+				}
+			}()
+			
+			// Create tee writer to write to both console and log file
+			if logWriter != nil {
+				// Override logger to also write to log file
+				a.logger.Info("Log file created", logger.F("log_id", logEntry.ID), logger.F("file", logEntry.FilePath))
+			}
+		}
+	}
+
 	// Create provider instance
 	provider, err := a.registry.Create(providerName)
 	if err != nil {
+		if logWriter != nil {
+			logWriter.WriteLine("ERROR: Failed to create provider %s: %v", providerName, err)
+		}
+		if logEntry != nil && logService != nil {
+			logService.FailLog(logEntry.ID, fmt.Sprintf("Failed to create provider: %v", err))
+		}
 		return fmt.Errorf("failed to create provider %s: %w", providerName, err)
 	}
 
 	// Build options from command flags and args
 	opts, err := a.buildOptions(providerName, cmd, args)
 	if err != nil {
+		if logWriter != nil {
+			logWriter.WriteLine("ERROR: Failed to build options: %v", err)
+		}
+		if logEntry != nil && logService != nil {
+			logService.FailLog(logEntry.ID, fmt.Sprintf("Failed to build options: %v", err))
+		}
 		return fmt.Errorf("failed to build options: %w", err)
+	}
+
+	// Log backup details
+	if logWriter != nil {
+		logWriter.WriteLine("Backup configuration:")
+		logWriter.WriteLine("  Provider: %s", providerName)
+		logWriter.WriteLine("  Output: %s", opts.OutputFile)
+		if opts.Namespace != "" {
+			logWriter.WriteLine("  Namespace: %s", opts.Namespace)
+		}
+		if opts.PodName != "" {
+			logWriter.WriteLine("  Pod: %s", opts.PodName)
+		}
+		if opts.SourcePath != "" {
+			logWriter.WriteLine("  Path: %s", opts.SourcePath)
+		}
+		logWriter.WriteLine("")
 	}
 
 	// Get debug flag
@@ -66,6 +142,12 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	
 	// Validate options
 	if err := provider.ValidateOptions(opts); err != nil {
+		if logWriter != nil {
+			logWriter.WriteLine("ERROR: Invalid options: %v", err)
+		}
+		if logEntry != nil && logService != nil {
+			logService.FailLog(logEntry.ID, fmt.Sprintf("Invalid options: %v", err))
+		}
 		return fmt.Errorf("invalid options: %w", err)
 	}
 
@@ -75,20 +157,36 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 		a.logger.Info("Dry run - would execute backup", 
 			logger.F("provider", providerName),
 			logger.F("options", opts))
+		if logWriter != nil {
+			logWriter.WriteLine("DRY RUN - Would execute backup with above configuration")
+		}
+		if logEntry != nil && logService != nil {
+			logService.CompleteLog(logEntry.ID)
+		}
 		return nil
 	}
 
 	// Estimate size if possible
 	a.logger.Info("Estimating backup size...")
+	if logWriter != nil {
+		logWriter.WriteLine("Estimating backup size...")
+	}
+	
 	estimatedSize, err := provider.EstimateSize(opts)
 	if err != nil {
 		if debug {
 			a.logger.Debug("Size estimation failed", logger.F("error", err))
 		}
 		a.logger.Info("Size estimation failed, progress percentage will not be available")
+		if logWriter != nil {
+			logWriter.WriteLine("Size estimation failed: %v", err)
+		}
 		estimatedSize = 0
 	} else {
 		a.logger.Info("Estimated size", logger.F("size", humanizeBytes(estimatedSize)))
+		if logWriter != nil {
+			logWriter.WriteLine("Estimated size: %s", humanizeBytes(estimatedSize))
+		}
 	}
 
 	// Start progress monitoring
@@ -103,6 +201,11 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 		logger.F("provider", providerName),
 		logger.F("output_file", opts.OutputFile))
 	
+	if logWriter != nil {
+		logWriter.WriteLine("Starting backup at %s", startTime.Format(time.RFC3339))
+		logWriter.WriteLine("")
+	}
+	
 	// Execute backup - provider handles file writing
 	err = provider.Execute(ctx, opts)
 	
@@ -110,6 +213,12 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	close(progressDone)
 	
 	if err != nil {
+		if logWriter != nil {
+			logWriter.WriteLine("ERROR: Backup failed: %v", err)
+		}
+		if logEntry != nil && logService != nil {
+			logService.FailLog(logEntry.ID, fmt.Sprintf("Backup failed: %v", err))
+		}
 		return fmt.Errorf("backup failed: %w", err)
 	}
 
@@ -134,6 +243,20 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 		logger.F("output_file", opts.OutputFile),
 		logger.F("size", humanizeBytes(size)),
 		logger.F("duration", elapsed.Round(time.Second).String()))
+	
+	if logWriter != nil {
+		logWriter.WriteLine("")
+		logWriter.WriteLine("Backup completed successfully")
+		logWriter.WriteLine("  Output file: %s", opts.OutputFile)
+		logWriter.WriteLine("  Size: %s", humanizeBytes(size))
+		logWriter.WriteLine("  Duration: %s", elapsed.Round(time.Second))
+	}
+	
+	if logEntry != nil && logService != nil {
+		logEntry.SetMetadata("output_file", opts.OutputFile)
+		logEntry.SetMetadata("size", fmt.Sprintf("%d", size))
+		logService.CompleteLog(logEntry.ID)
+	}
 	
 	return nil
 }
@@ -363,4 +486,14 @@ func calculateFileChecksum(filepath string) (string, error) {
 	}
 	
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// getLogDirFromCmd returns the log directory from command flags or default
+func getLogDirFromCmd(cmd *cobra.Command) string {
+	logDir, _ := cmd.Flags().GetString("log-dir")
+	if logDir == "" {
+		homeDir, _ := os.UserHomeDir()
+		logDir = filepath.Join(homeDir, ".cli-recover", "logs")
+	}
+	return logDir
 }

@@ -1,9 +1,9 @@
-# 현재 작업: Phase 3 - 백그라운드 모드 구현
+# 현재 작업: 실사용 피드백 수집
 
 ## 작업 시작
 - 날짜: 2025-01-07
-- 목표: Phase 3 백그라운드 실행 모드 및 파일 관리 시스템
-- 이전 작업: 헥사고날 아키텍처 정리 완료
+- 목표: 현재 구현된 기능으로 실제 사용 후 필요한 기능 파악
+- 이전 작업: 로그 파일 시스템 구현 완료
 
 ## 완료된 작업
 ### 1. 헥사고날 아키텍처 정리 ✅
@@ -22,36 +22,44 @@
 - 커버리지: 53.0% (TUI 제거로 감소)
 - 실제 비즈니스 로직 커버리지는 유지
 
+### 4. Phase 3 방향 전환 ✅
+- 복잡한 백그라운드 시스템 롤백 (복잡도 80 → 취소)
+- 단순한 로그 파일 시스템 구현 (복잡도 30)
+- Claude.md Occam's Razor 원칙 준수
+
+### 5. 로그 파일 시스템 구현 ✅
+- internal/domain/log/ 도메인 모델
+- 파일 기반 저장소 (JSON 메타데이터)
+- CLI 명령어: logs list, show, tail, clean
+- 백업 시 자동 로그 생성 통합
+
+## 현재 기능
+### 백업/복구
+- filesystem provider 완성
+- 바이너리 안전 스트리밍
+- 진행률 모니터링
+
+### 로그 시스템
+- 모든 작업 이력 영구 보관
+- 작업별 상세 로그 파일
+- CLI로 이력 조회 가능
+
+### 메타데이터
+- 백업 정보 저장 (크기, 체크섬 등)
+- restore 명령으로 메타데이터 기반 복원
+
 ## 진행 예정
-### 1. Job 도메인 모델
-- [ ] internal/domain/job/ 패키지 생성
-- [ ] Job 엔티티 (ID, PID, Status, StartTime, EndTime)
-- [ ] JobRepository 인터페이스
-- [ ] JobStatus enum (pending, running, completed, failed)
+### 1. 실사용 테스트
+- 실제 Kubernetes 환경에서 테스트
+- 사용성 피드백 수집
+- 필요한 기능 파악
 
-### 2. 백그라운드 실행 인프라
-- [ ] internal/infrastructure/process/ 패키지
-- [ ] ProcessExecutor 구현
-- [ ] PID 파일 관리 (~/.cli-recover/jobs/)
-- [ ] 시그널 핸들링
-
-### 3. JobService 애플리케이션 레이어
-- [ ] internal/application/service/ 패키지
-- [ ] JobService 구현
-- [ ] FileJobRepository 구현
-
-### 4. CLI 통합
-- [ ] backup 명령에 --background 플래그
-- [ ] status 명령 구현
-- [ ] --watch 옵션
-
-### 5. 파일 관리 시스템
-- [ ] cleanup 명령
-- [ ] 보관 정책 설정
-- [ ] Dry-run 모드
+### 2. 필요시 추가 기능
+- 사용자 요구사항 기반
+- 복잡도 30-40 유지
+- Occam's Razor 원칙 준수
 
 ## 목표
-- 백그라운드 실행 가능
-- Job 상태 추적
-- 파일 자동 정리
-- 테스트 커버리지 80%
+- 실용적이고 단순한 도구
+- 필요한 기능만 구현
+- 과도한 엔지니어링 방지

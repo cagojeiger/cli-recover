@@ -61,6 +61,7 @@ func newProviderBackupCmd(providerName string) *cobra.Command {
 		cmd.Flags().StringP("container", "", "", "Container name (for multi-container pods)")
 		cmd.Flags().StringP("output", "o", "", "Output file path (auto-generated if not specified)")
 		cmd.Flags().BoolP("dry-run", "", false, "Show what would be executed without running")
+		cmd.Flags().String("log-dir", "", "Directory to store logs (default: ~/.cli-recover/logs)")
 		
 	case "minio":
 		cmd = &cobra.Command{
