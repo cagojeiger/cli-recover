@@ -72,27 +72,43 @@ Infrastructure (kubectl, filesystem)
 - filesystem, minio, mongodb 등 provider 구현
 - 새로운 백업 타입 추가 용이
 
-## 개발 우선순위
+## 개발 우선순위 (2025-01-07 수정)
 
-### Phase 1: CLI 핵심 (1주)
-1. 명령 체계 정리
-2. 3가지 백업 타입 구현
-3. 공통 기능 (진행률, 에러 처리)
+### 전략 수정
+- **MinIO/MongoDB Provider를 Phase 5로 이동**
+- **이유**: 
+  1. 외부 의존성이 크고 테스트 복잡
+  2. Filesystem만으로 아키텍처 검증 완료
+  3. TUI 완성 후 구현하면 한번에 CLI/TUI 지원
+- **집중**: Restore/List/Status 등 핵심 기능 우선
 
-### Phase 2: 아키텍처 (1주)
-1. 도메인 레이어 분리
-2. 플러그인 패턴 적용
-3. 테스트 커버리지 확보
+### Phase 1: CLI 핵심 (수정됨)
+1. ✅ Filesystem backup provider
+2. 🆕 Restore 기능 구현
+3. 🆕 List/Status 명령
+4. 🆕 메타데이터 시스템
 
-### Phase 3: CLI 고도화 (2주)
-1. restore 명령
-2. list/status 명령
-3. 설정 관리
+### Phase 2: 아키텍처 (대부분 완료)
+1. ✅ 도메인 레이어 분리
+2. ✅ 플러그인 패턴 적용
+3. 🆕 RestoreProvider 인터페이스
+4. 🆕 메타데이터 도메인
 
-### Phase 4: TUI 통합 (2주)
+### Phase 3: CLI 고도화 (그대로)
+1. 설정 파일 지원
+2. 구조화된 로깅
+3. 고급 옵션들
+
+### Phase 4: TUI 통합 (그대로)
 1. CLI 명령 래핑
 2. 인터랙티브 UI
 3. 실시간 모니터링
+
+### Phase 5: Provider 확장 (새로 추가)
+1. MinIO Provider
+2. MongoDB Provider
+3. PostgreSQL Provider
+4. MySQL Provider
 
 ## 위험 관리
 

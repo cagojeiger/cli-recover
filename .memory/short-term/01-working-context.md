@@ -51,25 +51,27 @@
 - `.memory/long-term/03-architecture-decisions.md`: 아키텍처 근거
 - `.planning/05-cli-phase1-progress.md`: 진행 상황 추적 ✨ NEW
 
-## 다음 작업 (CLI Phase 1)
+## 다음 작업 (수정된 계획)
 
-### 1. CLI 명령 체계 표준화
+### 1. Restore 기능 구현 🆕
 ```bash
-cli-recover backup <type> <pod> <path> [options]
-cli-recover restore <type> <pod> <backup-file> [options]
-cli-recover list backups
+cli-recover restore filesystem <pod> <backup-file> [options]
+```
+- RestoreProvider 인터페이스 설계
+- Filesystem restore 구현
+- 진행률 추적
+
+### 2. List/Status 명령 🆕
+```bash
+cli-recover list backups [--namespace <ns>]
 cli-recover status <job-id>
 ```
+- 메타데이터 저장 시스템
+- 백업 이력 관리
 
-### 2. Provider 구현
-- [ ] filesystem provider 안정화
-- [ ] minio provider 구현
-- [ ] mongodb provider 구현
-
-### 3. 공통 기능
-- [ ] 통합 진행률 처리
-- [ ] 에러 처리 표준화
-- [ ] 로깅 시스템
+### 3. Provider 확장 (Phase 5로 이동) ⏭️
+- MinIO/MongoDB는 TUI 완성 후 구현
+- 복잡도 관리 및 효율성을 위한 결정
 
 ## 핵심 파일들
 
