@@ -1,31 +1,36 @@
 # 현재 작업 상태
 
 ## 진행 중인 작업
-- TUI 아키텍처 리팩토링 계획 수립
-- CLAUDE.md 기반 문서화 진행
+- CLI Phase 1 구현 (TDD 방식)
+- 문서 업데이트 및 동기화
 
 ## 완료된 작업
-- [x] 백업 실행 버그 수정 (cli-recover 중복 제거)
-- [x] UI 중복 제거 (Controls, 타이틀)
-- [x] Progress 파싱 단순화
-- [x] Job Manager 네비게이션 개선
-- [x] 전체 명령어 표시 수정
+- [x] CLI-First 전략 전환 결정 (2025-01-07)
+- [x] 기존 코드 legacy 디렉토리로 백업
+- [x] 도메인 타입 구현 (Progress, Options, BackupError)
+- [x] BackupProvider 인터페이스 정의
+- [x] Kubernetes 추상화 계층 구현
+  - KubeClient 인터페이스
+  - CommandExecutor 인터페이스
+  - KubectlClient 구현
+  - OSCommandExecutor 구현
+- [x] Filesystem Provider 구현
+  - TDD 방식으로 전체 기능 구현
+  - 진행률 스트리밍
+  - tar 명령 빌드 및 실행
 
 ## 다음 단계
-- [ ] Ring Buffer 구현 (TDD)
-- [ ] 비즈니스 로직 분리
-- [ ] 컴포넌트 추출 시작
+- [ ] 문서 동기화 완료
+- [ ] Git 상태 정리
+- [ ] CLI 프레임워크 통합 (cobra/urfave)
+- [ ] MinIO Provider 구현
+- [ ] MongoDB Provider 구현
 
 ## 현재 브랜치
 - feature/tui-backup
 
-## 주요 이슈
-1. 메모리 누수: BackupJob.Output 무제한 증가
-2. God Object: Model struct 115+ 필드
-3. 테스트 부재: 30% 커버리지
-4. UI 반응성: 전체 화면 다시 그리기
-
-## 중요 결정사항
-- Bubble Tea 유지 (마이그레이션 비용 > 이익)
-- 점진적 리팩토링 접근
-- TDD 우선 적용 (비-UI 로직)
+## 주요 결정사항
+- CLI-First 개발 전략 채택
+- Hexagonal Architecture + Plugin Pattern
+- TDD 방식 구현
+- 단계별 커밋으로 진행 추적

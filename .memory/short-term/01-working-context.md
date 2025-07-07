@@ -14,17 +14,36 @@
 - 진행률 모니터링 구현
 - 크기 추정 & ETA 계산
 
-## 완료된 작업
+## 완료된 작업 (2025-01-07)
+### 전략 및 설계
 - CLI-First 전략 결정 ✓
 - 전략적 결정사항 문서화 ✓
 - CLI 중심 로드맵 재작성 ✓
 - 아키텍처 패턴 설계 (Hexagonal + Plugin) ✓
+
+### 구현 완료 (TDD 방식)
+- 도메인 타입 정의 (Progress, Options, BackupError) ✓
+- BackupProvider 인터페이스 ✓
+- Provider 레지스트리 시스템 ✓
+- Kubernetes 추상화 계층 ✓
+  - KubeClient, CommandExecutor 인터페이스
+  - KubectlClient (JSON 파싱)
+  - OSCommandExecutor
+- Filesystem Provider 완전 구현 ✓
+  - 모든 테스트 통과
+  - 진행률 스트리밍
+  - 압축/exclude 옵션
+
+## 진행 중인 작업
+- 문서 동기화 및 정리 🔄
+- Git 상태 검토 예정
 
 ## 참조 문서
 - `.memory/long-term/04-strategic-decisions.md`: CLI-First 전략 결정
 - `.planning/00-roadmap.md`: CLI 중심 개발 로드맵
 - `.planning/03-architecture-patterns.md`: 아키텍처 설계
 - `.memory/long-term/03-architecture-decisions.md`: 아키텍처 근거
+- `.planning/05-cli-phase1-progress.md`: 진행 상황 추적 ✨ NEW
 
 ## 다음 작업 (CLI Phase 1)
 
