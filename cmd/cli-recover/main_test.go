@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/runner"
 )
 
@@ -256,22 +258,189 @@ func TestNewListCommand(t *testing.T) {
 	assert.True(t, hasBackups, "list command should have backups subcommand")
 }
 
-func TestNewInitCommand(t *testing.T) {
+// Test restore command structure and functionality
+func TestRestoreCommandStructure(t *testing.T) {
+	cmd := newRestoreCommand()
+	
+	assert.Equal(t, "restore", cmd.Use)
+	assert.Equal(t, "Restore resources to Kubernetes", cmd.Short)
+	assert.Contains(t, cmd.Long, "Available restore types")
+	
+	// Check subcommands
+	subcommands := cmd.Commands()
+	assert.Len(t, subcommands, 1) // Only filesystem is implemented
+	
+	filesystemCmd := subcommands[0]
+	assert.Contains(t, filesystemCmd.Use, "filesystem")
+}
+
+func TestNewProviderRestoreCmd_Filesystem(t *testing.T) {
+	cmd := newProviderRestoreCmd("filesystem")
+	
+	assert.Equal(t, "filesystem [pod] [backup-file]", cmd.Use)
+	assert.Equal(t, "Restore pod filesystem from backup", cmd.Short)
+	assert.Contains(t, cmd.Long, "tar backup")
+	
+	// Check required flags exist
+	flags := []string{"namespace", "target-path", "overwrite", "preserve-perms", "skip-paths", "container", "verbose", "dry-run"}
+	for _, flagName := range flags {
+		flag := cmd.Flags().Lookup(flagName)
+		assert.NotNil(t, flag, "Flag %s should exist", flagName)
+	}
+	
+	// Test default values
+	namespace, _ := cmd.Flags().GetString("namespace")
+	assert.Equal(t, "default", namespace)
+	
+	targetPath, _ := cmd.Flags().GetString("target-path")
+	assert.Equal(t, "/", targetPath)
+}
+
+func TestNewProviderRestoreCmd_MinIO(t *testing.T) {
+	cmd := newProviderRestoreCmd("minio")
+	
+	assert.Equal(t, "minio [bucket] [backup-dir]", cmd.Use)
+	assert.Equal(t, "Restore MinIO bucket from backup", cmd.Short)
+	
+	// Test that it returns not implemented error
+	err := cmd.RunE(cmd, []string{"test-bucket", "/backup/path"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "MinIO restore provider not yet implemented")
+}
+
+func TestNewProviderRestoreCmd_MongoDB(t *testing.T) {
+	cmd := newProviderRestoreCmd("mongodb")
+	
+	assert.Equal(t, "mongodb [database] [backup-file]", cmd.Use)
+	assert.Equal(t, "Restore MongoDB database from backup", cmd.Short)
+	
+	// Test that it returns not implemented error
+	err := cmd.RunE(cmd, []string{"test-db", "/backup/file"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "MongoDB restore provider not yet implemented")
+}
+
+func TestRestoreCommand_HelpWhenNoSubcommand(t *testing.T) {
+	cmd := newRestoreCommand()
+	
+	// Capture output
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	
+	// Execute without subcommand should show help
+	err := cmd.RunE(cmd, []string{})
+	assert.NoError(t, err) // Help() returns nil
+}
+
+// Test init command structure and functionality
+func TestInitCommandStructure(t *testing.T) {
 	cmd := newInitCommand()
 	
 	assert.Equal(t, "init", cmd.Use)
 	assert.Equal(t, "Initialize CLI configuration", cmd.Short)
-	assert.NotEmpty(t, cmd.Long)
+	assert.Contains(t, cmd.Long, "Initialize CLI-Recover configuration")
+	assert.Contains(t, cmd.Example, "cli-recover init")
 	
-	// Check that it has the expected flags
-	_, err := cmd.Flags().GetBool("show")
-	assert.NoError(t, err, "show flag should exist")
+	// Check flags exist
+	flags := []string{"show", "reset", "interactive"}
+	for _, flagName := range flags {
+		flag := cmd.Flags().Lookup(flagName)
+		assert.NotNil(t, flag, "Flag %s should exist", flagName)
+	}
+}
+
+func TestInitCommand_FlagDefaults(t *testing.T) {
+	cmd := newInitCommand()
 	
-	_, err = cmd.Flags().GetBool("reset")
-	assert.NoError(t, err, "reset flag should exist")
+	// Test default flag values
+	show, _ := cmd.Flags().GetBool("show")
+	assert.False(t, show)
 	
-	_, err = cmd.Flags().GetBool("interactive")
-	assert.NoError(t, err, "interactive flag should exist")
+	reset, _ := cmd.Flags().GetBool("reset")
+	assert.False(t, reset)
+	
+	interactive, _ := cmd.Flags().GetBool("interactive")
+	assert.False(t, interactive)
+}
+
+func TestCreateConfiguration_AlreadyExists(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	
+	// Create existing config file
+	err := os.WriteFile(configPath, []byte("existing config"), 0644)
+	require.NoError(t, err)
+	
+	// Capture output
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	
+	err = createConfiguration(configPath)
+	
+	w.Close()
+	os.Stdout = oldStdout
+	
+	output := make([]byte, 1024)
+	n, _ := r.Read(output)
+	
+	assert.NoError(t, err)
+	assert.Contains(t, string(output[:n]), "Configuration file already exists")
+}
+
+func TestPromptWithDefault(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		defaultValue string
+		expected     string
+	}{
+		{
+			name:         "empty input uses default",
+			input:        "",
+			defaultValue: "default_value",
+			expected:     "default_value",
+		},
+		{
+			name:         "non-empty input overrides default",
+			input:        "custom_value",
+			defaultValue: "default_value",
+			expected:     "custom_value",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Mock stdin
+			oldStdin := os.Stdin
+			r, w, _ := os.Pipe()
+			os.Stdin = r
+			
+			go func() {
+				defer w.Close()
+				if tt.input != "" {
+					w.Write([]byte(tt.input + "\n"))
+				} else {
+					w.Write([]byte("\n"))
+				}
+			}()
+			
+			// Capture stdout to avoid printing during test
+			oldStdout := os.Stdout
+			devNull, _ := os.Open("/dev/null")
+			os.Stdout = devNull
+			
+			result := promptWithDefault("test prompt", tt.defaultValue)
+			
+			// Restore stdin/stdout
+			os.Stdin = oldStdin
+			os.Stdout = oldStdout
+			devNull.Close()
+			
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
 func TestExpandPath(t *testing.T) {
@@ -316,6 +485,81 @@ func TestExpandPath(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Test backup command structure and functionality  
+func TestBackupCommandStructure(t *testing.T) {
+	cmd := newBackupCommand()
+	
+	assert.Equal(t, "backup", cmd.Use)
+	assert.Equal(t, "Backup resources from Kubernetes", cmd.Short)
+	assert.Contains(t, cmd.Long, "Available backup types")
+	
+	// Check subcommands
+	subcommands := cmd.Commands()
+	assert.Len(t, subcommands, 1) // Only filesystem is implemented
+	
+	filesystemCmd := subcommands[0]
+	assert.Contains(t, filesystemCmd.Use, "filesystem")
+}
+
+func TestNewProviderBackupCmd_Filesystem(t *testing.T) {
+	cmd := newProviderBackupCmd("filesystem")
+	
+	assert.Equal(t, "filesystem [pod] [path]", cmd.Use)
+	assert.Equal(t, "Backup pod filesystem", cmd.Short)
+	assert.Contains(t, cmd.Long, "tar")
+	
+	// Check required flags exist
+	flags := []string{"namespace", "compression", "exclude", "exclude-vcs", "verbose", "totals", "preserve-perms", "container", "output", "dry-run"}
+	for _, flagName := range flags {
+		flag := cmd.Flags().Lookup(flagName)
+		assert.NotNil(t, flag, "Flag %s should exist", flagName)
+	}
+	
+	// Test default values
+	namespace, _ := cmd.Flags().GetString("namespace")
+	assert.Equal(t, "default", namespace)
+	
+	compression, _ := cmd.Flags().GetString("compression")
+	assert.Equal(t, "gzip", compression)
+}
+
+func TestNewProviderBackupCmd_MinIO(t *testing.T) {
+	cmd := newProviderBackupCmd("minio")
+	
+	assert.Equal(t, "minio [bucket]", cmd.Use)
+	assert.Equal(t, "Backup MinIO bucket", cmd.Short)
+	
+	// Test that it returns not implemented error
+	err := cmd.RunE(cmd, []string{"test-bucket"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "MinIO backup provider not yet implemented")
+}
+
+func TestNewProviderBackupCmd_MongoDB(t *testing.T) {
+	cmd := newProviderBackupCmd("mongodb")
+	
+	assert.Equal(t, "mongodb [database]", cmd.Use)
+	assert.Equal(t, "Backup MongoDB database", cmd.Short)
+	
+	// Test that it returns not implemented error
+	err := cmd.RunE(cmd, []string{"test-db"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "MongoDB backup provider not yet implemented")
+}
+
+func TestBackupCommand_HelpWhenNoSubcommand(t *testing.T) {
+	cmd := newBackupCommand()
+	
+	// Capture output
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	
+	// Execute without subcommand should show help
+	err := cmd.RunE(cmd, []string{})
+	assert.NoError(t, err) // Help() returns nil
 }
 
 func TestCommandExecution(t *testing.T) {
@@ -368,6 +612,24 @@ func TestCommandExecution(t *testing.T) {
 		{
 			name:        "init help",
 			args:        []string{"init", "--help"},
+			expectError: false,
+			expectUsage: true,
+		},
+		{
+			name:        "backup filesystem help",
+			args:        []string{"backup", "filesystem", "--help"},
+			expectError: false,
+			expectUsage: true,
+		},
+		{
+			name:        "restore filesystem help",
+			args:        []string{"restore", "filesystem", "--help"},
+			expectError: false,
+			expectUsage: true,
+		},
+		{
+			name:        "list backups help",
+			args:        []string{"list", "backups", "--help"},
 			expectError: false,
 			expectUsage: true,
 		},

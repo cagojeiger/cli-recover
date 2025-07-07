@@ -121,3 +121,30 @@ func TestCommandExecutor_Stream(t *testing.T) {
 	assert.Nil(t, <-errCh) // No error
 	executor.AssertExpectations(t)
 }
+
+func TestMockKubeClient_GetContainers(t *testing.T) {
+	mockClient := new(MockKubeClient)
+	ctx := context.Background()
+	
+	expectedContainers := []string{"nginx", "sidecar"}
+	mockClient.On("GetContainers", ctx, "default", "test-pod").Return(expectedContainers, nil)
+	
+	containers, err := mockClient.GetContainers(ctx, "default", "test-pod")
+	
+	assert.NoError(t, err)
+	assert.Equal(t, expectedContainers, containers)
+	mockClient.AssertExpectations(t)
+}
+
+func TestMockKubeClient_ExecCommand(t *testing.T) {
+	mockClient := new(MockKubeClient)
+	ctx := context.Background()
+	
+	command := []string{"echo", "hello"}
+	mockClient.On("ExecCommand", ctx, "default", "test-pod", "nginx", command).Return(nil)
+	
+	err := mockClient.ExecCommand(ctx, "default", "test-pod", "nginx", command)
+	
+	assert.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}

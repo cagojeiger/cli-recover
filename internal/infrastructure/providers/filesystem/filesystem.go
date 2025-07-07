@@ -76,23 +76,32 @@ func (p *Provider) Execute(ctx context.Context, opts backup.Options) error {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	// Build tar command
+	// Create output file
+	outputFile, err := os.Create(opts.OutputFile)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer outputFile.Close()
+
+	// Build tar command (without shell redirection)
 	tarCmd := p.buildTarCommand(opts)
 	
-	// Execute streaming tar command
-	outputCh, errorCh := p.executor.Stream(ctx, tarCmd)
+	// Execute tar command and capture stdout to file
+	stdout, err := p.executor.Execute(ctx, tarCmd)
+	if err != nil {
+		return fmt.Errorf("backup failed: %w", err)
+	}
 	
-	// Start progress monitoring
-	go p.monitorProgress(outputCh, opts)
+	// Write stdout to file
+	if _, err := outputFile.WriteString(stdout); err != nil {
+		return fmt.Errorf("failed to write backup data: %w", err)
+	}
 	
-	// Wait for command completion
-	select {
-	case err := <-errorCh:
-		if err != nil {
-			return fmt.Errorf("backup failed: %w", err)
-		}
-	case <-ctx.Done():
-		return fmt.Errorf("backup cancelled: %w", ctx.Err())
+	// Simulate progress for successful backup
+	p.progressCh <- backup.Progress{
+		Current: 1,
+		Total:   1,
+		Message: "Backup data written successfully",
 	}
 	
 	// Send completion progress
@@ -135,11 +144,8 @@ func (p *Provider) buildTarCommand(opts backup.Options) []string {
 	args = append(args, "-C", "/")
 	args = append(args, strings.TrimPrefix(opts.SourcePath, "/"))
 	
-	// Redirect stdout to file
-	cmd := kubernetes.BuildKubectlCommand(args...)
-	
-	// Append output redirection (this would be handled by the executor)
-	return append(cmd, ">", opts.OutputFile)
+	// Return kubectl command without shell redirection
+	return kubernetes.BuildKubectlCommand(args...)
 }
 
 // monitorProgress monitors tar output and updates progress
@@ -158,6 +164,7 @@ func (p *Provider) monitorProgress(outputCh <-chan string, opts backup.Options) 
 		}
 	}
 }
+
 
 // StreamProgress returns the progress channel
 func (p *Provider) StreamProgress() <-chan backup.Progress {
