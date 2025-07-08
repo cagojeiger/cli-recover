@@ -1,21 +1,35 @@
-# 현재 작업: Phase 3 계획 단계
+# 현재 작업: 진행률 보고 시스템 문서화
 
 ## 활성 작업
-- **Phase**: 3.10, 3.12 계획 완료
+- **작업**: 진행률 보고 원칙 및 가이드 문서화
 - **날짜**: 2025-01-08
-- **상태**: 문서화 완료, 구현 대기
-- **복잡도**: 3.10 (35/100), 3.12 (50/100)
+- **상태**: 문서화 완료
+- **복잡도**: +5/100 (기본 원칙)
 
 ## 완료된 문서화
-### docs/backup-integrity/
+
+### 진행률 보고 시스템 (2025-01-08)
+#### docs/progress-reporting/
+- ✅ 00-overview.md - 진행률 보고 개요 및 원칙
+- ✅ 01-implementation-guide.md - 상세 구현 가이드
+- ✅ 02-examples.md - 실제 사용 예시
+
+#### 프로젝트 문서 업데이트
+- ✅ .context/06-progress-reporting.md (기본 원칙)
+- ✅ .memory/long-term/01-learnings.md (진행률 통찰)
+- ✅ .planning/00-roadmap.md (Phase 3.10, 3.12에 추가)
+
+### 이전 문서화 (Phase 3.10, 3.12)
+#### docs/backup-integrity/
 - ✅ 00-overview.md - 백업 무결성 개요
 - ✅ 01-algorithm.md - 원자적 파일 쓰기 알고리즘
 - ✅ 02-tdd-implementation.md - TDD 구현 가이드
 
-### 프로젝트 문서 업데이트
-- ✅ .planning/03-phase-3.10-backup-integrity.md (TDD 단계 추가)
-- ✅ .context/04-backup-integrity.md (프로젝트 컨텍스트)
-- ✅ .memory/long-term/01-learnings.md (Phase 3.10 교훈)
+#### Phase 계획 문서
+- ✅ .planning/03-phase-3.10-backup-integrity.md
+- ✅ .planning/04-phase-3.12-tool-auto-download.md
+- ✅ .context/04-backup-integrity.md
+- ✅ .context/05-tool-dependency.md
 
 ## 핵심 설계 결정
 ### 1. 파일 손상 방지
