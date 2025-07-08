@@ -54,17 +54,21 @@ EVALUATION_CRITERIA:
 PURPOSE: Prevent unnecessary complexity
 ```
 
-### RULE_02: Planning Before Implementation
+### RULE_02: Planning Before Implementation (TDD-Enhanced)
 ```
 PRIORITY: P0 (Critical)
 TRIGGER: User requests implementation
 ACTION:
   - PAUSE before coding
   - CREATE detailed plan
+  - IDENTIFY first failing test to write
   - VERIFY understanding with user
+  - FOLLOW TDD cycle: Red → Green → Refactor
   - ONLY THEN proceed to implementation
-PURPOSE: Prevent misunderstood requirements
-EVALUATION: Plan exists before first line of code
+PURPOSE: Prevent misunderstood requirements and ensure test-driven development
+EVALUATION: 
+  - Plan exists before first line of code
+  - First commit is a failing test
 ```
 
 ### RULE_03: Documentation Standards
@@ -92,16 +96,20 @@ ACTION_IF_VIOLATED:
 PURPOSE: Maintain high code quality
 ```
 
-### RULE_05: Commit Convention
+### RULE_05: Commit Convention (TDD-Aware)
 ```
 PRIORITY: P2 (Medium)
 TRIGGER: Creating git commit
 ACTION:
   - USE format: type(scope): description
   - TYPES: [feat, fix, docs, style, refactor, test, chore]
+  - SPECIAL for TDD:
+    - "test: " for adding tests (Red phase)
+    - "feat: " for implementation (Green phase)
+    - "refactor: " for structure improvements (Refactor phase)
   - ADD emoji suffix: 🤖 Generated with Claude Code
   - CO-AUTHOR: Claude <noreply@anthropic.com>
-PURPOSE: Clear commit history
+PURPOSE: Clear commit history showing TDD progression
 ```
 
 ### RULE_06: CI/CD Verification
@@ -113,6 +121,70 @@ ACTION:
   - IF failed: gh run view <RUN_ID> --log-failed
   - FIX all failures before marking complete
 PURPOSE: Ensure code quality in pipeline
+```
+
+### RULE_07: Architecture Analysis with Tree
+```
+PRIORITY: P1 (High)
+TRIGGER:
+  - Architecture compliance verification
+  - Code structure analysis request
+  - Hexagonal architecture validation
+  - After major refactoring
+  - Project structure documentation
+ACTION:
+  - USE: tree command with appropriate depth
+  - APPLY ignore patterns: [node_modules, __pycache__, .git, vendor, dist, build]
+  - DEPTH: 3-4 levels for overview, unlimited for detailed analysis
+  - FOCUS on: internal/, cmd/, pkg/ directories for Go projects
+  - VERIFY: Dependency directions (Domain → Application → Infrastructure)
+COMMAND_EXAMPLES:
+  - Overview: tree -L 3 -I 'node_modules|__pycache__|.git'
+  - Hexagonal check: tree internal/ -L 4
+  - Full analysis: tree -a -I '.git' > project-structure.txt
+PURPOSE: Visual understanding of project structure and architecture compliance
+EVALUATION: 
+  - Clear separation of concerns visible
+  - No circular dependencies
+  - Hexagonal architecture layers properly organized
+HEXAGONAL_ARCHITECTURE_CHECK:
+  - Domain layer: No external dependencies
+  - Application layer: Only depends on Domain
+  - Infrastructure layer: Implements Domain interfaces
+  - Adapters properly separated from core business logic
+```
+
+### RULE_08: TDD & Tidy First Development
+```
+PRIORITY: P0 (Critical)
+TRIGGER:
+  - Writing new functionality
+  - Modifying existing behavior
+  - Code refactoring needed
+ACTION:
+  - RED: Write failing test first
+  - GREEN: Implement minimum code to pass
+  - REFACTOR: Improve structure only after tests pass
+  - SEPARATE changes:
+    - Structural: Renaming, extracting, moving (no behavior change)
+    - Behavioral: Adding/modifying functionality
+  - COMMIT separately: Never mix structural and behavioral changes
+TDD_CYCLE:
+  1. Write one failing test
+  2. Run test to see it fail
+  3. Write minimal code to pass
+  4. Run all tests
+  5. Refactor if needed
+  6. Repeat
+COMMIT_RULES:
+  - Only when ALL tests pass
+  - One logical change per commit
+  - Message format: "test: add test for X" or "feat: implement X" or "refactor: extract Y"
+PURPOSE: Maintain high code quality through disciplined development
+EVALUATION:
+  - Test coverage increases with each feature
+  - No mixed commits in history
+  - All tests passing before merge
 ```
 
 ## Directory Structure
