@@ -1,4 +1,4 @@
-package adapters
+package main
 
 import (
 	"context"
@@ -16,35 +16,18 @@ import (
 	infLogger "github.com/cagojeiger/cli-recover/internal/infrastructure/logger"
 )
 
-// RestoreAdapter adapts CLI commands to Restore Provider interface
-type RestoreAdapter struct {
-	registry RestoreRegistry
-	logger   logger.Logger
-}
-
-// RestoreRegistry defines the interface for restore provider registry
-type RestoreRegistry interface {
-	Create(name string) (restore.Provider, error)
-}
-
-// NewRestoreAdapter creates a new restore adapter
-func NewRestoreAdapter(registry RestoreRegistry) *RestoreAdapter {
-	return &RestoreAdapter{
-		registry: registry,
-		logger:   infLogger.GetGlobalLogger(),
-	}
-}
-
-// ExecuteRestore executes a restore using the specified provider
-func (a *RestoreAdapter) ExecuteRestore(providerName string, cmd *cobra.Command, args []string) error {
+// executeRestore contains the integrated restore logic from the adapter
+func executeRestore(providerName string, cmd *cobra.Command, args []string) error {
+	log := infLogger.GetGlobalLogger()
+	
 	// Build options from command flags and args
-	opts, err := a.buildOptions(providerName, cmd, args)
+	opts, err := buildRestoreOptions(providerName, cmd, args)
 	if err != nil {
 		return fmt.Errorf("failed to build options: %w", err)
 	}
 
 	// Create provider instance
-	provider, err := a.registry.Create(providerName)
+	provider, err := restore.GlobalRegistry.Create(providerName)
 	if err != nil {
 		return fmt.Errorf("failed to create provider %s: %w", providerName, err)
 	}
@@ -72,34 +55,34 @@ func (a *RestoreAdapter) ExecuteRestore(providerName string, cmd *cobra.Command,
 	// Check dry-run
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	if dryRun {
-		a.logger.Info("Dry run - would execute restore",
+		log.Info("Dry run - would execute restore",
 			logger.F("provider", providerName),
 			logger.F("options", opts))
 		return nil
 	}
 
 	// Estimate size if possible
-	a.logger.Info("Analyzing backup file...")
+	log.Info("Analyzing backup file...")
 	estimatedSize, err := provider.EstimateSize(opts.BackupFile)
 	if err != nil {
 		if debug {
-			a.logger.Debug("Size estimation failed", logger.F("error", err))
+			log.Debug("Size estimation failed", logger.F("error", err))
 		}
-		a.logger.Info("Size estimation failed, progress percentage will not be available")
+		log.Info("Size estimation failed, progress percentage will not be available")
 		estimatedSize = 0
 	} else {
-		a.logger.Info("Estimated size", logger.F("size", humanizeBytes(estimatedSize)))
+		log.Info("Estimated size", logger.F("size", humanizeBytes(estimatedSize)))
 	}
 
 	// Start progress monitoring
 	progressDone := make(chan bool)
-	go a.monitorProgress(provider, estimatedSize, progressDone, opts.Extra["verbose"].(bool))
+	go monitorRestoreProgress(provider, estimatedSize, progressDone, opts.Extra["verbose"].(bool))
 
 	// Execute restore with context
 	ctx := context.Background()
 	startTime := time.Now()
 
-	a.logger.Info("Starting restore",
+	log.Info("Starting restore",
 		logger.F("provider", providerName),
 		logger.F("pod", opts.PodName),
 		logger.F("target_path", opts.TargetPath))
@@ -118,7 +101,7 @@ func (a *RestoreAdapter) ExecuteRestore(providerName string, cmd *cobra.Command,
 	elapsed := time.Since(startTime)
 
 	// Log completion
-	a.logger.Info("Restore completed successfully",
+	log.Info("Restore completed successfully",
 		logger.F("restored_path", result.RestoredPath),
 		logger.F("file_count", result.FileCount),
 		logger.F("bytes_written", humanizeBytes(result.BytesWritten)),
@@ -126,14 +109,14 @@ func (a *RestoreAdapter) ExecuteRestore(providerName string, cmd *cobra.Command,
 
 	// Log warnings if any
 	for _, warning := range result.Warnings {
-		a.logger.Warn("Restore warning", logger.F("warning", warning))
+		log.Warn("Restore warning", logger.F("warning", warning))
 	}
 
 	return nil
 }
 
-// buildOptions builds restore options from command flags
-func (a *RestoreAdapter) buildOptions(providerName string, cmd *cobra.Command, args []string) (restore.Options, error) {
+// buildRestoreOptions builds restore options from command flags
+func buildRestoreOptions(providerName string, cmd *cobra.Command, args []string) (restore.Options, error) {
 	opts := restore.Options{
 		Extra: make(map[string]interface{}),
 	}
@@ -165,12 +148,6 @@ func (a *RestoreAdapter) buildOptions(providerName string, cmd *cobra.Command, a
 		// Store extra flags
 		opts.Extra["verbose"], _ = cmd.Flags().GetBool("verbose")
 
-	// TODO: Add MinIO options
-	// case "minio":
-
-	// TODO: Add MongoDB options  
-	// case "mongodb":
-
 	case "test":
 		// Test provider for unit tests
 		opts.PodName = "test-pod"
@@ -185,8 +162,8 @@ func (a *RestoreAdapter) buildOptions(providerName string, cmd *cobra.Command, a
 	return opts, nil
 }
 
-// monitorProgress monitors and displays restore progress
-func (a *RestoreAdapter) monitorProgress(provider restore.Provider, estimatedSize int64, done <-chan bool, verbose bool) {
+// monitorRestoreProgress monitors and displays restore progress
+func monitorRestoreProgress(provider restore.Provider, estimatedSize int64, done <-chan bool, verbose bool) {
 	progressCh := provider.StreamProgress()
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()

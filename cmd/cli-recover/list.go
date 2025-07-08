@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/cagojeiger/cli-recover/internal/application/adapters"
 )
 
 // newListCommand creates the list command
@@ -32,8 +31,7 @@ func newListBackupsCommand() *cobra.Command {
 		Short:   "List all backups",
 		Long:    `List all backups stored in the metadata repository`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			adapter := adapters.NewListAdapter()
-			return adapter.ExecuteList(cmd, args)
+			return executeList(cmd, args)
 		},
 	}
 	

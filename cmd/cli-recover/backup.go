@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/cagojeiger/cli-recover/internal/application/adapters"
 )
 
 // newBackupCommand creates the new backup command structure
@@ -45,8 +44,7 @@ func newProviderBackupCmd(providerName string) *cobra.Command {
 			Long:  `Backup files and directories from a pod's filesystem using tar`,
 			Args:  cobra.ExactArgs(2),
 			RunE: func(cmd *cobra.Command, args []string) error {
-				adapter := adapters.NewBackupAdapter()
-				return adapter.ExecuteBackup(providerName, cmd, args)
+				return executeBackup(providerName, cmd, args)
 			},
 		}
 		

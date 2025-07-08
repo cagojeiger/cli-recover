@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/cagojeiger/cli-recover/internal/application/adapters"
-	"github.com/cagojeiger/cli-recover/internal/domain/restore"
 )
 
 // newRestoreCommand creates the new restore command structure
@@ -46,8 +44,7 @@ func newProviderRestoreCmd(providerName string) *cobra.Command {
 			Long:  `Restore files and directories to a pod's filesystem from a tar backup`,
 			Args:  cobra.ExactArgs(2),
 			RunE: func(cmd *cobra.Command, args []string) error {
-				adapter := adapters.NewRestoreAdapter(restore.GlobalRegistry)
-				return adapter.ExecuteRestore(providerName, cmd, args)
+				return executeRestore(providerName, cmd, args)
 			},
 		}
 		

@@ -1,4 +1,4 @@
-package adapters
+package main
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
-	"github.com/cagojeiger/cli-recover/internal/domain/log"
+	domainLog "github.com/cagojeiger/cli-recover/internal/domain/log"
 	"github.com/cagojeiger/cli-recover/internal/domain/log/storage"
 	"github.com/cagojeiger/cli-recover/internal/domain/logger"
 	"github.com/cagojeiger/cli-recover/internal/domain/metadata"
@@ -24,14 +24,8 @@ import (
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/providers"
 )
 
-// BackupAdapter adapts CLI commands to Provider interface
-type BackupAdapter struct {
-	registry *backup.Registry
-	logger   logger.Logger
-}
-
-// NewBackupAdapter creates a new backup adapter
-func NewBackupAdapter() *BackupAdapter {
+// executeBackup contains the integrated backup logic from the adapter
+func executeBackup(providerName string, cmd *cobra.Command, args []string) error {
 	// Initialize kubernetes clients
 	executor := kubernetes.NewOSCommandExecutor()
 	kubeClient := kubernetes.NewKubectlClient(executor)
@@ -44,28 +38,22 @@ func NewBackupAdapter() *BackupAdapter {
 		log.Error("Failed to register providers", logger.F("error", err))
 	}
 	
-	return &BackupAdapter{
-		registry: backup.GlobalRegistry,
-		logger:   log,
-	}
-}
-
-// ExecuteBackup executes a backup using the specified provider
-func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, args []string) error {
+	registry := backup.GlobalRegistry
+	
 	// Initialize log system
 	logDir := getLogDirFromCmd(cmd)
 	logRepo, err := storage.NewFileRepository(logDir)
 	if err != nil {
-		a.logger.Warn("Failed to initialize log repository", logger.F("error", err))
+		log.Warn("Failed to initialize log repository", logger.F("error", err))
 		// Continue without logging to file
 	}
 	
-	var logService *log.Service
-	var logWriter *log.Writer
-	var logEntry *log.Log
+	var logService *domainLog.Service
+	var logWriter *domainLog.Writer
+	var logEntry *domainLog.Log
 	
 	if logRepo != nil {
-		logService = log.NewService(logRepo, filepath.Join(logDir, "files"))
+		logService = domainLog.NewService(logRepo, filepath.Join(logDir, "files"))
 		
 		// Build metadata for log
 		metadata := make(map[string]string)
@@ -78,9 +66,9 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 		}
 		
 		// Start log
-		logEntry, logWriter, err = logService.StartLog(log.TypeBackup, providerName, metadata)
+		logEntry, logWriter, err = logService.StartLog(domainLog.TypeBackup, providerName, metadata)
 		if err != nil {
-			a.logger.Warn("Failed to start log", logger.F("error", err))
+			log.Warn("Failed to start log", logger.F("error", err))
 		} else {
 			defer func() {
 				if logWriter != nil {
@@ -91,13 +79,13 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 			// Create tee writer to write to both console and log file
 			if logWriter != nil {
 				// Override logger to also write to log file
-				a.logger.Info("Log file created", logger.F("log_id", logEntry.ID), logger.F("file", logEntry.FilePath))
+				log.Info("Log file created", logger.F("log_id", logEntry.ID), logger.F("file", logEntry.FilePath))
 			}
 		}
 	}
 
 	// Create provider instance
-	provider, err := a.registry.Create(providerName)
+	provider, err := registry.Create(providerName)
 	if err != nil {
 		if logWriter != nil {
 			logWriter.WriteLine("ERROR: Failed to create provider %s: %v", providerName, err)
@@ -109,7 +97,7 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	}
 
 	// Build options from command flags and args
-	opts, err := a.buildOptions(providerName, cmd, args)
+	opts, err := buildBackupOptions(providerName, cmd, args)
 	if err != nil {
 		if logWriter != nil {
 			logWriter.WriteLine("ERROR: Failed to build options: %v", err)
@@ -154,7 +142,7 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	// Check dry-run
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	if dryRun {
-		a.logger.Info("Dry run - would execute backup", 
+		log.Info("Dry run - would execute backup", 
 			logger.F("provider", providerName),
 			logger.F("options", opts))
 		if logWriter != nil {
@@ -167,7 +155,7 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	}
 
 	// Estimate size if possible
-	a.logger.Info("Estimating backup size...")
+	log.Info("Estimating backup size...")
 	if logWriter != nil {
 		logWriter.WriteLine("Estimating backup size...")
 	}
@@ -175,15 +163,15 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	estimatedSize, err := provider.EstimateSize(opts)
 	if err != nil {
 		if debug {
-			a.logger.Debug("Size estimation failed", logger.F("error", err))
+			log.Debug("Size estimation failed", logger.F("error", err))
 		}
-		a.logger.Info("Size estimation failed, progress percentage will not be available")
+		log.Info("Size estimation failed, progress percentage will not be available")
 		if logWriter != nil {
 			logWriter.WriteLine("Size estimation failed: %v", err)
 		}
 		estimatedSize = 0
 	} else {
-		a.logger.Info("Estimated size", logger.F("size", humanizeBytes(estimatedSize)))
+		log.Info("Estimated size", logger.F("size", humanizeBytes(estimatedSize)))
 		if logWriter != nil {
 			logWriter.WriteLine("Estimated size: %s", humanizeBytes(estimatedSize))
 		}
@@ -191,13 +179,13 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 
 	// Start progress monitoring
 	progressDone := make(chan bool)
-	go a.monitorProgress(provider, estimatedSize, progressDone, opts.Extra["verbose"].(bool))
+	go monitorBackupProgress(provider, estimatedSize, progressDone, opts.Extra["verbose"].(bool))
 
 	// Execute backup with context
 	ctx := context.Background()
 	startTime := time.Now()
 	
-	a.logger.Info("Starting backup", 
+	log.Info("Starting backup", 
 		logger.F("provider", providerName),
 		logger.F("output_file", opts.OutputFile))
 	
@@ -232,14 +220,14 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	}
 	
 	// Save metadata
-	if err := a.saveMetadata(providerName, opts, size, startTime, time.Now()); err != nil {
+	if err := saveBackupMetadata(providerName, opts, size, startTime, time.Now()); err != nil {
 		if debug {
-			a.logger.Debug("Failed to save metadata", logger.F("error", err))
+			log.Debug("Failed to save metadata", logger.F("error", err))
 		}
 		// Don't fail the backup operation if metadata save fails
 	}
 	
-	a.logger.Info("Backup completed successfully",
+	log.Info("Backup completed successfully",
 		logger.F("output_file", opts.OutputFile),
 		logger.F("size", humanizeBytes(size)),
 		logger.F("duration", elapsed.Round(time.Second).String()))
@@ -261,8 +249,8 @@ func (a *BackupAdapter) ExecuteBackup(providerName string, cmd *cobra.Command, a
 	return nil
 }
 
-// buildOptions builds backup options from command flags
-func (a *BackupAdapter) buildOptions(providerName string, cmd *cobra.Command, args []string) (backup.Options, error) {
+// buildBackupOptions builds backup options from command flags
+func buildBackupOptions(providerName string, cmd *cobra.Command, args []string) (backup.Options, error) {
 	opts := backup.Options{
 		Extra: make(map[string]interface{}),
 	}
@@ -311,12 +299,6 @@ func (a *BackupAdapter) buildOptions(providerName string, cmd *cobra.Command, ar
 		opts.Extra["totals"], _ = cmd.Flags().GetBool("totals")
 		opts.Extra["preserve-perms"], _ = cmd.Flags().GetBool("preserve-perms")
 		
-	// TODO: Add MinIO options
-	// case "minio":
-	
-	// TODO: Add MongoDB options  
-	// case "mongodb":
-		
 	case "test":
 		// Test provider for unit tests
 		opts.PodName = "test-pod"
@@ -331,8 +313,8 @@ func (a *BackupAdapter) buildOptions(providerName string, cmd *cobra.Command, ar
 	return opts, nil
 }
 
-// monitorProgress monitors and displays backup progress
-func (a *BackupAdapter) monitorProgress(provider backup.Provider, estimatedSize int64, done <-chan bool, verbose bool) {
+// monitorBackupProgress monitors and displays backup progress
+func monitorBackupProgress(provider backup.Provider, estimatedSize int64, done <-chan bool, verbose bool) {
 	progressCh := provider.StreamProgress()
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -431,8 +413,8 @@ func humanizeBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-// saveMetadata saves backup metadata to the metadata store
-func (a *BackupAdapter) saveMetadata(providerName string, opts backup.Options, size int64, startTime, endTime time.Time) error {
+// saveBackupMetadata saves backup metadata to the metadata store
+func saveBackupMetadata(providerName string, opts backup.Options, size int64, startTime, endTime time.Time) error {
 	// Calculate checksum of the backup file
 	checksum, err := calculateFileChecksum(opts.OutputFile)
 	if err != nil {

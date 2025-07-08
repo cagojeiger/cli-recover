@@ -1,4 +1,4 @@
-package adapters
+package main
 
 import (
 	"encoding/json"
@@ -15,20 +15,10 @@ import (
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
 )
 
-// ListAdapter handles listing backup metadata
-type ListAdapter struct {
-	store metadata.Store
-}
-
-// NewListAdapter creates a new list adapter
-func NewListAdapter() *ListAdapter {
-	return &ListAdapter{
-		store: metadata.DefaultStore,
-	}
-}
-
-// ExecuteList executes the list command
-func (a *ListAdapter) ExecuteList(cmd *cobra.Command, args []string) error {
+// executeList contains the integrated list logic from the adapter
+func executeList(cmd *cobra.Command, args []string) error {
+	store := metadata.DefaultStore
+	
 	// Get flags
 	namespace, _ := cmd.Flags().GetString("namespace")
 	outputFormat, _ := cmd.Flags().GetString("output")
@@ -39,9 +29,9 @@ func (a *ListAdapter) ExecuteList(cmd *cobra.Command, args []string) error {
 	var err error
 
 	if namespace != "" {
-		metadataList, err = a.store.ListByNamespace(namespace)
+		metadataList, err = store.ListByNamespace(namespace)
 	} else {
-		metadataList, err = a.store.List()
+		metadataList, err = store.List()
 	}
 
 	if err != nil {
@@ -57,21 +47,21 @@ func (a *ListAdapter) ExecuteList(cmd *cobra.Command, args []string) error {
 	// Output based on format
 	switch outputFormat {
 	case "json":
-		return a.outputJSON(metadataList)
+		return outputJSON(metadataList)
 	case "yaml":
-		return a.outputYAML(metadataList)
+		return outputYAML(metadataList)
 	case "table":
 		if showDetails {
-			return a.outputDetails(metadataList)
+			return outputDetails(metadataList)
 		}
-		return a.outputTable(metadataList)
+		return outputTable(metadataList)
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFormat)
 	}
 }
 
 // outputTable outputs metadata in table format
-func (a *ListAdapter) outputTable(metadataList []*restore.Metadata) error {
+func outputTable(metadataList []*restore.Metadata) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	defer w.Flush()
 
@@ -87,7 +77,7 @@ func (a *ListAdapter) outputTable(metadataList []*restore.Metadata) error {
 			m.Namespace,
 			m.PodName,
 			m.SourcePath,
-			a.formatSize(m.Size),
+			formatSize(m.Size),
 			m.CreatedAt.Format("2006-01-02 15:04:05"),
 		)
 	}
@@ -103,7 +93,7 @@ func (a *ListAdapter) outputTable(metadataList []*restore.Metadata) error {
 }
 
 // outputDetails outputs detailed metadata information
-func (a *ListAdapter) outputDetails(metadataList []*restore.Metadata) error {
+func outputDetails(metadataList []*restore.Metadata) error {
 	for i, m := range metadataList {
 		if i > 0 {
 			fmt.Println(strings.Repeat("-", 60))
@@ -115,12 +105,12 @@ func (a *ListAdapter) outputDetails(metadataList []*restore.Metadata) error {
 		fmt.Printf("Pod:          %s\n", m.PodName)
 		fmt.Printf("Source Path:  %s\n", m.SourcePath)
 		fmt.Printf("Backup File:  %s\n", m.BackupFile)
-		fmt.Printf("Size:         %s\n", a.formatSize(m.Size))
+		fmt.Printf("Size:         %s\n", formatSize(m.Size))
 		fmt.Printf("Compression:  %s\n", m.Compression)
 		fmt.Printf("Status:       %s\n", m.Status)
 		fmt.Printf("Created:      %s\n", m.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Completed:    %s\n", m.CompletedAt.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Duration:     %s\n", a.formatDuration(m.CreatedAt, m.CompletedAt))
+		fmt.Printf("Duration:     %s\n", formatDuration(m.CreatedAt, m.CompletedAt))
 		
 		if m.Checksum != "" {
 			fmt.Printf("Checksum:     %s\n", m.Checksum)
@@ -139,21 +129,21 @@ func (a *ListAdapter) outputDetails(metadataList []*restore.Metadata) error {
 }
 
 // outputJSON outputs metadata in JSON format
-func (a *ListAdapter) outputJSON(metadataList []*restore.Metadata) error {
+func outputJSON(metadataList []*restore.Metadata) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(metadataList)
 }
 
 // outputYAML outputs metadata in YAML format
-func (a *ListAdapter) outputYAML(metadataList []*restore.Metadata) error {
+func outputYAML(metadataList []*restore.Metadata) error {
 	encoder := yaml.NewEncoder(os.Stdout)
 	defer encoder.Close()
 	return encoder.Encode(metadataList)
 }
 
 // formatSize formats bytes to human-readable format
-func (a *ListAdapter) formatSize(bytes int64) string {
+func formatSize(bytes int64) string {
 	const unit = 1024
 	if bytes < unit {
 		return fmt.Sprintf("%d B", bytes)
@@ -167,7 +157,7 @@ func (a *ListAdapter) formatSize(bytes int64) string {
 }
 
 // formatDuration formats duration between two times
-func (a *ListAdapter) formatDuration(start, end time.Time) string {
+func formatDuration(start, end time.Time) string {
 	duration := end.Sub(start)
 	return duration.Round(time.Second).String()
 }

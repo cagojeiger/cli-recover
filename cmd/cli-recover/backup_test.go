@@ -40,7 +40,7 @@ func TestBackupProviderCmd_Filesystem_Flags(t *testing.T) {
 	
 	compressionFlag := flags.Lookup("compression")
 	assert.NotNil(t, compressionFlag)
-	assert.Equal(t, "gzip", compressionFlag.DefValue)
+	assert.Equal(t, "none", compressionFlag.DefValue)
 	
 	excludeFlag := flags.Lookup("exclude")
 	assert.NotNil(t, excludeFlag)
