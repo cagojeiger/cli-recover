@@ -108,7 +108,7 @@ func TestLog_Duration(t *testing.T) {
 	l.Complete()
 	completedDuration := l.Duration()
 	assert.Greater(t, completedDuration, 100*time.Millisecond)
-	
+
 	// Duration should be fixed after completion
 	time.Sleep(50 * time.Millisecond)
 	assert.Equal(t, completedDuration, l.Duration())
@@ -130,7 +130,7 @@ func TestLog_GenerateLogPath(t *testing.T) {
 	require.NoError(t, err)
 
 	path := l.GenerateLogPath("/var/log/cli-recover")
-	
+
 	assert.Contains(t, path, "/var/log/cli-recover")
 	assert.Contains(t, path, "backup")
 	assert.Contains(t, path, "filesystem")

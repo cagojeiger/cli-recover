@@ -68,7 +68,7 @@ func (s *Service) CompleteLog(logID string) error {
 	}
 
 	log.Complete()
-	
+
 	if err := s.repository.Update(log); err != nil {
 		return fmt.Errorf("failed to update log: %w", err)
 	}
@@ -84,7 +84,7 @@ func (s *Service) FailLog(logID string, reason string) error {
 	}
 
 	log.Fail(reason)
-	
+
 	if err := s.repository.Update(log); err != nil {
 		return fmt.Errorf("failed to update log: %w", err)
 	}
@@ -147,7 +147,7 @@ func (s *Service) CleanupOldLogs(maxAge time.Duration) error {
 	filter := ListFilter{
 		EndDate: &cutoff,
 	}
-	
+
 	oldLogs, err := s.repository.List(filter)
 	if err != nil {
 		return fmt.Errorf("failed to list old logs: %w", err)
@@ -159,7 +159,7 @@ func (s *Service) CleanupOldLogs(maxAge time.Duration) error {
 		if log.FilePath != "" {
 			os.Remove(log.FilePath)
 		}
-		
+
 		// Remove metadata
 		if err := s.repository.Delete(log.ID); err != nil {
 			// Continue on error

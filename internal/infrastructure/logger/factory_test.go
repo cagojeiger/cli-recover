@@ -155,21 +155,21 @@ func TestMultiLogger(t *testing.T) {
 	// Create a multi logger with two console loggers for testing
 	l1 := NewConsoleLogger(logger.DebugLevel, false)
 	l2 := NewConsoleLogger(logger.InfoLevel, false)
-	
+
 	multi := NewMultiLogger(l1, l2)
-	
+
 	// Test initial level
 	multi.SetLevel(logger.WarnLevel)
 	if multi.GetLevel() != logger.WarnLevel {
 		t.Errorf("MultiLogger level = %v, want %v", multi.GetLevel(), logger.WarnLevel)
 	}
-	
+
 	// Test WithField
 	l3 := multi.WithField("key", "value")
 	if l3 == multi {
 		t.Error("WithField should return a new logger")
 	}
-	
+
 	// Test WithFields
 	l4 := multi.WithFields(logger.F("key1", "value1"), logger.F("key2", "value2"))
 	if l4 == multi {

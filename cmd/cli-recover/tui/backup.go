@@ -83,16 +83,16 @@ func (b *BackupFlow) getNamespaces() []string {
 
 func (b *BackupFlow) updatePodList() {
 	podDropDown := b.form.GetFormItem(1).(*tview.DropDown)
-	
+
 	pods := b.getPods()
 	if len(pods) == 0 {
 		pods = []string{"No pods found"}
 	}
-	
+
 	podDropDown.SetOptions(pods, func(option string, index int) {
 		b.pod = option
 	})
-	
+
 	if len(pods) > 0 {
 		b.pod = pods[0]
 		podDropDown.SetCurrentOption(0)

@@ -103,7 +103,7 @@ func TestWriter_WriteLine(t *testing.T) {
 	content, err := os.ReadFile(logPath)
 	assert.NoError(t, err)
 	lines := strings.Split(string(content), "\n")
-	
+
 	// Find the line with our content
 	found := false
 	for _, line := range lines {
@@ -162,7 +162,7 @@ func TestWriter_Concurrent(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		go func(id int) {
 			defer func() { done <- true }()
-			
+
 			for j := 0; j < 10; j++ {
 				err := writer.WriteLine("Goroutine %d, Line %d", id, j)
 				assert.NoError(t, err)
@@ -180,7 +180,7 @@ func TestWriter_Concurrent(t *testing.T) {
 	content, err := os.ReadFile(logPath)
 	assert.NoError(t, err)
 	lines := strings.Split(string(content), "\n")
-	
+
 	// Count actual log lines (excluding header/footer)
 	logLines := 0
 	for _, line := range lines {

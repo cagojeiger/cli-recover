@@ -74,12 +74,12 @@ func (r *RestoreFlow) setupForm() {
 
 func (r *RestoreFlow) getBackupFiles() []string {
 	var files []string
-	
+
 	entries, err := os.ReadDir(".")
 	if err != nil {
 		return files
 	}
-	
+
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			name := entry.Name()
@@ -88,7 +88,7 @@ func (r *RestoreFlow) getBackupFiles() []string {
 			}
 		}
 	}
-	
+
 	return files
 }
 
@@ -104,16 +104,16 @@ func (r *RestoreFlow) getNamespaces() []string {
 
 func (r *RestoreFlow) updatePodList() {
 	podDropDown := r.form.GetFormItem(2).(*tview.DropDown)
-	
+
 	pods := r.getPods()
 	if len(pods) == 0 {
 		pods = []string{"No pods found"}
 	}
-	
+
 	podDropDown.SetOptions(pods, func(option string, index int) {
 		r.pod = option
 	})
-	
+
 	if len(pods) > 0 {
 		r.pod = pods[0]
 		podDropDown.SetCurrentOption(0)

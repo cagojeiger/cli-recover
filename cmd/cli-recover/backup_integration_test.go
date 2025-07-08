@@ -23,17 +23,17 @@ type TestBackupExecutor struct {
 func (e *TestBackupExecutor) Execute(ctx context.Context, providerName string, opts backup.Options) error {
 	e.executed = true
 	e.options = opts
-	
+
 	// Simulate provider execution
 	if e.provider != nil {
 		return e.provider.Execute(ctx, opts)
 	}
-	
+
 	// Create dummy output file
 	if opts.OutputFile != "" {
 		return os.WriteFile(opts.OutputFile, []byte("test backup data"), 0644)
 	}
-	
+
 	return nil
 }
 
@@ -42,7 +42,7 @@ func TestBackupIntegration_FilesystemBackup(t *testing.T) {
 	// Create temp directory for test output
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "test-backup.tar.gz")
-	
+
 	// Test backup options building
 	opts := backup.Options{
 		Namespace:  "test-namespace",
@@ -52,12 +52,12 @@ func TestBackupIntegration_FilesystemBackup(t *testing.T) {
 		Compress:   true,
 		Extra:      make(map[string]interface{}),
 	}
-	
+
 	opts.Extra["compression"] = "gzip"
 	opts.Extra["verbose"] = false
 	opts.Extra["totals"] = true
 	opts.Extra["preserve-perms"] = true
-	
+
 	// Verify options are built correctly
 	assert.Equal(t, "test-namespace", opts.Namespace)
 	assert.Equal(t, "test-pod", opts.PodName)
@@ -71,7 +71,7 @@ func TestBackupIntegration_FilesystemBackup(t *testing.T) {
 func TestBackupIntegration_ExecuteWithMockProvider(t *testing.T) {
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "test-backup.tar")
-	
+
 	// Create a mock provider
 	mockProvider := &MockBackupProvider{
 		validateFunc: func(opts backup.Options) error {
@@ -86,7 +86,7 @@ func TestBackupIntegration_ExecuteWithMockProvider(t *testing.T) {
 		},
 		progressChan: make(chan backup.Progress, 1),
 	}
-	
+
 	// Test backup execution
 	ctx := context.Background()
 	opts := backup.Options{
@@ -96,19 +96,19 @@ func TestBackupIntegration_ExecuteWithMockProvider(t *testing.T) {
 		OutputFile: outputFile,
 		Extra:      map[string]interface{}{"verbose": false},
 	}
-	
+
 	// Validate options
 	err := mockProvider.ValidateOptions(opts)
 	require.NoError(t, err)
-	
+
 	// Execute backup
 	err = mockProvider.Execute(ctx, opts)
 	require.NoError(t, err)
-	
+
 	// Verify output file was created
 	_, err = os.Stat(outputFile)
 	require.NoError(t, err)
-	
+
 	// Verify file content
 	content, err := os.ReadFile(outputFile)
 	require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestBackupIntegration_ProgressMonitoring(t *testing.T) {
 	mockProvider := &MockBackupProvider{
 		progressChan: make(chan backup.Progress, 10),
 	}
-	
+
 	// Send some progress updates
 	go func() {
 		mockProvider.progressChan <- backup.Progress{
@@ -135,13 +135,13 @@ func TestBackupIntegration_ProgressMonitoring(t *testing.T) {
 		}
 		close(mockProvider.progressChan)
 	}()
-	
+
 	// Collect progress updates
 	var updates []backup.Progress
 	for progress := range mockProvider.StreamProgress() {
 		updates = append(updates, progress)
 	}
-	
+
 	assert.Len(t, updates, 2)
 	assert.Equal(t, int64(100), updates[0].Current)
 	assert.Equal(t, int64(500), updates[1].Current)
@@ -151,7 +151,7 @@ func TestBackupIntegration_ProgressMonitoring(t *testing.T) {
 func TestBackupIntegration_DryRun(t *testing.T) {
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "test-backup.tar")
-	
+
 	// Create options with dry-run
 	_ = backup.Options{
 		Namespace:  "default",
@@ -160,10 +160,10 @@ func TestBackupIntegration_DryRun(t *testing.T) {
 		OutputFile: outputFile,
 		Extra:      map[string]interface{}{"dry-run": true},
 	}
-	
+
 	// In dry-run mode, no file should be created
 	// This would be handled by the integrated logic checking dry-run flag
-	
+
 	// Verify no output file exists
 	_, err := os.Stat(outputFile)
 	assert.True(t, os.IsNotExist(err))
@@ -206,27 +206,27 @@ func (m *MockBackupProvider) StreamProgress() <-chan backup.Progress {
 func TestBackupIntegration_MetadataSaving(t *testing.T) {
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "test-backup.tar")
-	
+
 	// Create a test backup file
 	err := os.WriteFile(outputFile, []byte("test data"), 0644)
 	require.NoError(t, err)
-	
+
 	// Test metadata creation
 	startTime := time.Now()
 	endTime := startTime.Add(5 * time.Second)
-	
+
 	metadata := map[string]interface{}{
-		"type":        "filesystem",
-		"namespace":   "default",
-		"pod":         "test-pod",
-		"path":        "/data",
-		"backup_file": outputFile,
-		"size":        int64(len("test data")),
-		"created_at":  startTime,
+		"type":         "filesystem",
+		"namespace":    "default",
+		"pod":          "test-pod",
+		"path":         "/data",
+		"backup_file":  outputFile,
+		"size":         int64(len("test data")),
+		"created_at":   startTime,
 		"completed_at": endTime,
-		"status":      "completed",
+		"status":       "completed",
 	}
-	
+
 	// Verify metadata fields
 	assert.Equal(t, "filesystem", metadata["type"])
 	assert.Equal(t, "default", metadata["namespace"])
@@ -256,7 +256,7 @@ func TestBackupIntegration_ErrorHandling(t *testing.T) {
 			errorContains: "error",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockProvider := &MockBackupProvider{
@@ -273,13 +273,13 @@ func TestBackupIntegration_ErrorHandling(t *testing.T) {
 					return tt.providerError
 				},
 			}
-			
+
 			opts := backup.Options{
 				Namespace:  "default",
 				PodName:    "test-pod",
 				SourcePath: "/test",
 			}
-			
+
 			err := mockProvider.ValidateOptions(opts)
 			if tt.expectError && tt.name == "provider validation error" {
 				assert.Error(t, err)
@@ -348,21 +348,21 @@ func TestBackupIntegration_BuildOptionsFromFlags(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate building options from flags
 			opts := backup.Options{
 				Extra: make(map[string]interface{}),
 			}
-			
+
 			// Apply common flags
 			if ns, ok := tt.flags["namespace"]; ok {
 				opts.Namespace = ns.(string)
 			} else {
 				opts.Namespace = "default"
 			}
-			
+
 			// Provider-specific logic
 			switch tt.provider {
 			case "filesystem":
@@ -372,23 +372,23 @@ func TestBackupIntegration_BuildOptionsFromFlags(t *testing.T) {
 					}
 					t.Fatal("filesystem requires 2 args")
 				}
-				
+
 				opts.PodName = tt.args[0]
 				opts.SourcePath = tt.args[1]
-				
+
 				if compression, ok := tt.flags["compression"]; ok {
 					opts.Compress = compression.(string) == "gzip"
 					opts.Extra["compression"] = compression
 				}
-				
+
 				if exclude, ok := tt.flags["exclude"]; ok {
 					opts.Exclude = exclude.([]string)
 				}
-				
+
 				if container, ok := tt.flags["container"]; ok {
 					opts.Container = container.(string)
 				}
-				
+
 				if output, ok := tt.flags["output"]; ok {
 					opts.OutputFile = output.(string)
 				} else {
@@ -400,7 +400,7 @@ func TestBackupIntegration_BuildOptionsFromFlags(t *testing.T) {
 					sanitized := "var-log" // Simulated sanitization
 					opts.OutputFile = "backup-" + opts.Namespace + "-" + opts.PodName + "-" + sanitized + ext
 				}
-				
+
 				// Store extra flags
 				for k, v := range tt.flags {
 					if k == "verbose" || k == "preserve-perms" || k == "totals" {
@@ -408,7 +408,7 @@ func TestBackupIntegration_BuildOptionsFromFlags(t *testing.T) {
 					}
 				}
 			}
-			
+
 			if !tt.expectError && tt.validateOpts != nil {
 				tt.validateOpts(t, opts)
 			}

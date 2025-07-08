@@ -53,5 +53,4 @@
 //
 //	// Use in services
 //	service := NewBackupService(log)
-//
 package logger

@@ -18,7 +18,7 @@ import (
 // executeList contains the integrated list logic from the adapter
 func executeList(cmd *cobra.Command, args []string) error {
 	store := metadata.DefaultStore
-	
+
 	// Get flags
 	namespace, _ := cmd.Flags().GetString("namespace")
 	outputFormat, _ := cmd.Flags().GetString("output")
@@ -111,7 +111,7 @@ func outputDetails(metadataList []*restore.Metadata) error {
 		fmt.Printf("Created:      %s\n", m.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Completed:    %s\n", m.CompletedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Duration:     %s\n", formatDuration(m.CreatedAt, m.CompletedAt))
-		
+
 		if m.Checksum != "" {
 			fmt.Printf("Checksum:     %s\n", m.Checksum)
 		}

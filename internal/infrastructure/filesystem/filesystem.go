@@ -93,7 +93,7 @@ func (p *Provider) Execute(ctx context.Context, opts backup.Options) error {
 
 	// Build tar command with verbose enabled for progress monitoring
 	tarCmd := p.buildTarCommand(opts)
-	
+
 	// Execute streaming tar command with binary safety
 	stdout, stderr, wait, err := p.executor.StreamBinary(ctx, tarCmd)
 	if err != nil {
@@ -105,7 +105,7 @@ func (p *Provider) Execute(ctx context.Context, opts backup.Options) error {
 	// Use WaitGroup for proper synchronization
 	var wg sync.WaitGroup
 	var copyErr error
-	
+
 	// Stream stdout (binary tar data) directly to file
 	wg.Add(1)
 	go func() {
@@ -122,69 +122,69 @@ func (p *Provider) Execute(ctx context.Context, opts backup.Options) error {
 			}
 		}
 	}()
-	
+
 	// Monitor stderr for verbose progress information
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		p.monitorStderr(stderr, opts)
 	}()
-	
+
 	// Wait for all goroutines to complete
 	wg.Wait()
-	
+
 	// Wait for command completion
 	if waitErr := wait(); waitErr != nil {
 		return fmt.Errorf("backup command failed: %w", waitErr)
 	}
-	
+
 	// Check for copy errors
 	if copyErr != nil {
 		return copyErr
 	}
-	
+
 	// Send completion progress
 	p.progressCh <- backup.Progress{
 		Current: 100,
 		Total:   100,
 		Message: "Backup completed successfully",
 	}
-	
+
 	return nil
 }
 
 // buildTarCommand builds the kubectl exec tar command
 func (p *Provider) buildTarCommand(opts backup.Options) []string {
 	args := []string{"exec", "-n", opts.Namespace, opts.PodName}
-	
+
 	// Add container if specified and not empty
 	if opts.Extra != nil {
 		if container, ok := opts.Extra["container"].(string); ok && strings.TrimSpace(container) != "" {
 			args = append(args, "-c", container)
 		}
 	}
-	
+
 	args = append(args, "--", "tar")
-	
+
 	// Always enable verbose for progress monitoring, compression as requested
 	if opts.Compress {
 		args = append(args, "-czvf")
 	} else {
 		args = append(args, "-cvf")
 	}
-	
+
 	// Output to stdout
 	args = append(args, "-")
-	
+
 	// Add exclude patterns
 	for _, exclude := range opts.Exclude {
 		args = append(args, "--exclude="+exclude)
 	}
-	
+
 	// Add source path
 	args = append(args, "-C", "/")
 	args = append(args, strings.TrimPrefix(opts.SourcePath, "/"))
-	
+
 	// Return kubectl command without shell redirection
 	return kubernetes.BuildKubectlCommand(args...)
 }
@@ -196,16 +196,16 @@ func (p *Provider) monitorStderr(stderr io.Reader, opts backup.Options) {
 	verbosePattern := regexp.MustCompile(`^(.+)$`)
 	// Pattern for tar error messages
 	tarErrorPattern := regexp.MustCompile(`^tar: (.+)$`)
-	
+
 	// Create a buffered reader to read line by line
 	scanner := bufio.NewScanner(stderr)
-	
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
-		
+
 		// Check for tar error/warning messages first
 		if matches := tarErrorPattern.FindStringSubmatch(line); matches != nil {
 			p.progressCh <- backup.Progress{
@@ -246,13 +246,13 @@ func (p *Provider) streamWithProgress(outputCh <-chan string, outputFile *os.Fil
 	verbosePattern := regexp.MustCompile(`^([^/\s].*)/$|^([^/\s].*[^/])$`)
 	// Pattern for tar stderr messages
 	tarErrorPattern := regexp.MustCompile(`^tar: (.+)$`)
-	
+
 	for line := range outputCh {
 		// Write line to output file
 		if _, err := outputFile.WriteString(line + "\n"); err != nil {
 			return fmt.Errorf("failed to write to output file: %w", err)
 		}
-		
+
 		// Check for progress indicators
 		if verbosePattern.MatchString(line) {
 			fileCount++
@@ -270,7 +270,7 @@ func (p *Provider) streamWithProgress(outputCh <-chan string, outputFile *os.Fil
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -278,7 +278,7 @@ func (p *Provider) streamWithProgress(outputCh <-chan string, outputFile *os.Fil
 func (p *Provider) monitorProgress(outputCh <-chan string, opts backup.Options) {
 	fileCount := 0
 	tarPattern := regexp.MustCompile(`^tar: (.+)$`)
-	
+
 	for line := range outputCh {
 		if matches := tarPattern.FindStringSubmatch(line); matches != nil {
 			fileCount++
@@ -290,7 +290,6 @@ func (p *Provider) monitorProgress(outputCh <-chan string, opts backup.Options) 
 		}
 	}
 }
-
 
 // StreamProgress returns the progress channel
 func (p *Provider) StreamProgress() <-chan backup.Progress {

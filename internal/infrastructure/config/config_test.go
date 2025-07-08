@@ -7,7 +7,7 @@ import (
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	
+
 	// Check logger defaults
 	if cfg.Logger.Level != "info" {
 		t.Errorf("Expected logger level 'info', got %s", cfg.Logger.Level)
@@ -27,7 +27,7 @@ func TestDefaultConfig(t *testing.T) {
 	if !cfg.Logger.Console.Color {
 		t.Error("Expected console color to be enabled")
 	}
-	
+
 	// Check backup defaults
 	if cfg.Backup.DefaultCompression != "gzip" {
 		t.Errorf("Expected default compression 'gzip', got %s", cfg.Backup.DefaultCompression)
@@ -41,7 +41,7 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Backup.DefaultTimeout != 5*time.Minute {
 		t.Errorf("Expected default timeout 5m, got %v", cfg.Backup.DefaultTimeout)
 	}
-	
+
 	// Check metadata defaults
 	if cfg.Metadata.Format != "json" {
 		t.Errorf("Expected metadata format 'json', got %s", cfg.Metadata.Format)
@@ -160,7 +160,7 @@ func TestConfigError(t *testing.T) {
 		Value:   "test-value",
 		Message: "test message",
 	}
-	
+
 	expected := "config validation error: test.field=test-value - test message"
 	if err.Error() != expected {
 		t.Errorf("Expected error message '%s', got '%s'", expected, err.Error())

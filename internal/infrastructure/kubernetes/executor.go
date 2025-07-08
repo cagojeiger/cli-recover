@@ -25,7 +25,7 @@ func (e *OSCommandExecutor) Execute(ctx context.Context, command []string) (stri
 	}
 
 	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
-	
+
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -53,7 +53,7 @@ func (e *OSCommandExecutor) Stream(ctx context.Context, command []string) (<-cha
 		}
 
 		cmd := exec.CommandContext(ctx, command[0], command[1:]...)
-		
+
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
 			errorCh <- fmt.Errorf("failed to create stdout pipe: %w", err)
@@ -113,7 +113,7 @@ func (e *OSCommandExecutor) StreamBinary(ctx context.Context, command []string) 
 	}
 
 	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
-	
+
 	// Get pipes for stdout and stderr
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {

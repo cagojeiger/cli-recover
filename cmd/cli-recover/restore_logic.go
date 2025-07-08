@@ -13,21 +13,27 @@ import (
 	"github.com/cagojeiger/cli-recover/internal/domain/logger"
 	"github.com/cagojeiger/cli-recover/internal/domain/metadata"
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
 	infLogger "github.com/cagojeiger/cli-recover/internal/infrastructure/logger"
 )
 
 // executeRestore contains the integrated restore logic from the adapter
 func executeRestore(providerName string, cmd *cobra.Command, args []string) error {
 	log := infLogger.GetGlobalLogger()
-	
+
+	// Initialize kubernetes clients
+	executor := kubernetes.NewOSCommandExecutor()
+	kubeClient := kubernetes.NewKubectlClient(executor)
+
 	// Build options from command flags and args
 	opts, err := buildRestoreOptions(providerName, cmd, args)
 	if err != nil {
 		return fmt.Errorf("failed to build options: %w", err)
 	}
 
-	// Create provider instance
-	provider, err := restore.GlobalRegistry.Create(providerName)
+	// Create provider instance using factory
+	provider, err := infrastructure.CreateRestoreProvider(providerName, kubeClient, executor)
 	if err != nil {
 		return fmt.Errorf("failed to create provider %s: %w", providerName, err)
 	}

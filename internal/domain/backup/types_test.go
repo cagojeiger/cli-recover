@@ -211,9 +211,9 @@ func TestOptions_Validate_Success(t *testing.T) {
 			SourcePath: "/data",
 			OutputFile: "backup.tar.gz",
 		}
-		
+
 		err := options.Validate()
-		
+
 		assert.NoError(t, err)
 	})
 }
@@ -265,7 +265,7 @@ func TestOptions_Validate_MissingFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.options.Validate()
-			
+
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tt.errMsg)
 		})
@@ -274,9 +274,9 @@ func TestOptions_Validate_MissingFields(t *testing.T) {
 
 func TestBackupError_Wrap(t *testing.T) {
 	originalErr := assert.AnError
-	
+
 	err := backup.NewBackupError("operation failed", originalErr)
-	
+
 	assert.Equal(t, "operation failed", err.Message)
 	assert.Equal(t, originalErr, err.Cause)
 	assert.NotZero(t, err.Timestamp)
@@ -284,9 +284,9 @@ func TestBackupError_Wrap(t *testing.T) {
 
 func TestBackupError_Error(t *testing.T) {
 	tests := []struct {
-		name  string
-		err   backup.BackupError
-		want  string
+		name string
+		err  backup.BackupError
+		want string
 	}{
 		{
 			name: "error without cause",

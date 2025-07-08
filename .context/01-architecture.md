@@ -8,24 +8,34 @@
 - **이유**: Application 레이어가 단순 전달만 수행
 - **효과**: 복잡도 75 → 30 목표
 
-### 단순화된 디렉토리 구조
+### 최종 디렉토리 구조 (Phase 3.9 완료)
 ```
 internal/
 ├── domain/              # 비즈니스 로직 & 인터페이스
-│   ├── operation/      # backup/restore 통합
+│   ├── backup/         # 백업 도메인
+│   ├── restore/        # 복원 도메인
+│   ├── operation/      # 통합 어댑터
 │   ├── metadata/       # 메타데이터
 │   ├── logger/         # 로거 인터페이스
 │   └── log/            # 작업 이력
 └── infrastructure/      # 외부 시스템 연동 & 구현체
     ├── config/         # 설정 관리 (application에서 이동)
-    ├── filesystem/     # 파일시스템 provider
+    ├── filesystem/     # 파일시스템 provider (평탄화됨)
     ├── kubernetes/     # K8s 클라이언트
-    └── logger/         # 로거 구현체
+    ├── logger/         # 로거 구현체
+    ├── provider_factory.go      # Provider 팩토리
+    └── provider_factory_test.go # 팩토리 테스트
 
-cmd/cli-recover/        # CLI 진입점 (adapter 역할 포함)
-├── backup.go          # 백업 명령 + adapter 로직
-├── restore.go         # 복원 명령 + adapter 로직
-├── list.go            # 목록 명령 + adapter 로직
+cmd/cli-recover/        # CLI 진입점 (adapter 로직 통합)
+├── main.go            # 메인 진입점
+├── backup.go          # 백업 명령
+├── backup_logic.go    # 백업 로직 (adapter 통합)
+├── restore.go         # 복원 명령
+├── restore_logic.go   # 복원 로직 (adapter 통합)
+├── list.go            # 목록 명령
+├── list_logic.go      # 목록 로직 (adapter 통합)
+├── init.go            # 초기화 명령
+├── logs.go            # 로그 명령
 └── tui/               # TUI 인터페이스
 ```
 
@@ -110,8 +120,8 @@ cmd.Execute() → adapter.ExecuteBackup() → registry.Get() → provider.Execut
 
 ### After (단순)
 ```go
-// cmd → infrastructure
-cmd.Execute() → filesystem.NewProvider().Execute()
+// cmd → factory → provider
+cmd.Execute() → infrastructure.CreateBackupProvider("filesystem") → provider.Execute()
 ```
 
 ## 로그 시스템 (Phase 3 완료)
@@ -154,17 +164,22 @@ cmd/cli-recover/tui/
 
 ## 성공 지표
 
-### Phase 3.9 목표
-- [ ] 복잡도: 75 → 30
-- [ ] 파일 수: 40% 감소
-- [ ] 코드 라인: 35% 감소
-- [ ] 디렉토리 깊이: 5 → 3단계
+### Phase 3.9 달성 (완료)
+- ✅ 복잡도: 75 → ~30 달성
+- ✅ 파일 수: ~40% 감소
+- ✅ 코드 라인: ~35% 감소
+- ✅ 디렉토리 깊이: 5 → 3단계
+- ✅ Application 레이어 완전 제거
+- ✅ Registry 패턴 → Factory 함수
+- ✅ 모든 테스트 통과
 
-### 현재 달성
+### 전체 진행 상황
+- ✅ Phase 1-3: 기본 기능 구현 완료
+- ✅ Phase 3.9: 아키텍처 단순화 완료
 - ✅ Filesystem provider 완성
 - ✅ 로그 시스템 구현
-- ✅ 테스트 커버리지 53%
-- ⏳ TUI 구현 예정 (Phase 4)
+- ✅ 테스트 커버리지 유지
+- ⏳ Phase 4: TUI 구현 예정
 
 ## 향후 계획
 

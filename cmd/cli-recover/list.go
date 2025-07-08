@@ -15,11 +15,11 @@ func newListCommand() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	
+
 	// Add subcommands
 	cmd.AddCommand(newListBackupsCommand())
 	// TODO: Add more subcommands like 'list jobs', 'list restores', etc.
-	
+
 	return cmd
 }
 
@@ -34,11 +34,11 @@ func newListBackupsCommand() *cobra.Command {
 			return executeList(cmd, args)
 		},
 	}
-	
+
 	// Add flags
 	cmd.Flags().StringP("namespace", "n", "", "Filter by namespace")
 	cmd.Flags().StringP("output", "o", "table", "Output format (table, json, yaml)")
 	cmd.Flags().Bool("details", false, "Show detailed information")
-	
+
 	return cmd
 }

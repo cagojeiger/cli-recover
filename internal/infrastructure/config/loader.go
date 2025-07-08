@@ -26,46 +26,46 @@ func NewLoader(configPath string) *Loader {
 func (l *Loader) Load() (*Config, error) {
 	// Start with default config
 	cfg := DefaultConfig()
-	
+
 	// If config file doesn't exist, return default
 	if _, err := os.Stat(l.configPath); os.IsNotExist(err) {
 		return cfg, nil
 	}
-	
+
 	// Load from file
 	if err := l.loadFromFile(cfg); err != nil {
 		return nil, fmt.Errorf("failed to load config from %s: %w", l.configPath, err)
 	}
-	
+
 	// Override with environment variables
 	l.loadFromEnv(cfg)
-	
+
 	// Validate final configuration
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	
+
 	return cfg, nil
 }
 
 // LoadFromReader loads configuration from an io.Reader
 func (l *Loader) LoadFromReader(r io.Reader) (*Config, error) {
 	cfg := DefaultConfig()
-	
+
 	decoder := yaml.NewDecoder(r)
 	err := decoder.Decode(cfg)
 	if err != nil && err != io.EOF {
 		return nil, fmt.Errorf("failed to decode config: %w", err)
 	}
-	
+
 	// Expand paths
 	cfg.Logger.File.Path = expandPath(cfg.Logger.File.Path)
 	cfg.Metadata.Path = expandPath(cfg.Metadata.Path)
-	
+
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	
+
 	return cfg, nil
 }
 
@@ -76,16 +76,16 @@ func (l *Loader) loadFromFile(cfg *Config) error {
 		return err
 	}
 	defer file.Close()
-	
+
 	decoder := yaml.NewDecoder(file)
 	if err := decoder.Decode(cfg); err != nil {
 		return err
 	}
-	
+
 	// Expand paths
 	cfg.Logger.File.Path = expandPath(cfg.Logger.File.Path)
 	cfg.Metadata.Path = expandPath(cfg.Metadata.Path)
-	
+
 	return nil
 }
 
@@ -107,7 +107,7 @@ func (l *Loader) loadFromEnv(cfg *Config) {
 	if color := os.Getenv("CLI_RECOVER_LOG_COLOR"); color == "false" {
 		cfg.Logger.Console.Color = false
 	}
-	
+
 	// Backup settings
 	if compression := os.Getenv("CLI_RECOVER_COMPRESSION"); compression != "" {
 		cfg.Backup.DefaultCompression = compression
@@ -115,7 +115,7 @@ func (l *Loader) loadFromEnv(cfg *Config) {
 	if excludeVCS := os.Getenv("CLI_RECOVER_EXCLUDE_VCS"); excludeVCS == "false" {
 		cfg.Backup.ExcludeVCS = false
 	}
-	
+
 	// Metadata settings
 	if metadataPath := os.Getenv("CLI_RECOVER_METADATA_PATH"); metadataPath != "" {
 		cfg.Metadata.Path = expandPath(metadataPath)
@@ -127,7 +127,7 @@ func expandPath(path string) string {
 	if path == "" {
 		return path
 	}
-	
+
 	// Expand ~ to home directory
 	if strings.HasPrefix(path, "~/") {
 		homeDir, err := os.UserHomeDir()
@@ -135,14 +135,14 @@ func expandPath(path string) string {
 			path = filepath.Join(homeDir, path[2:])
 		}
 	}
-	
+
 	// Make absolute if relative
 	if !filepath.IsAbs(path) {
 		if absPath, err := filepath.Abs(path); err == nil {
 			path = absPath
 		}
 	}
-	
+
 	return path
 }
 

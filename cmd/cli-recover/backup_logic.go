@@ -19,9 +19,9 @@ import (
 	"github.com/cagojeiger/cli-recover/internal/domain/logger"
 	"github.com/cagojeiger/cli-recover/internal/domain/metadata"
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
 	infLogger "github.com/cagojeiger/cli-recover/internal/infrastructure/logger"
-	"github.com/cagojeiger/cli-recover/internal/infrastructure/providers"
 )
 
 // executeBackup contains the integrated backup logic from the adapter
@@ -29,17 +29,12 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 	// Initialize kubernetes clients
 	executor := kubernetes.NewOSCommandExecutor()
 	kubeClient := kubernetes.NewKubectlClient(executor)
-	
+
 	// Get logger
 	log := infLogger.GetGlobalLogger()
-	
-	// Register all providers
-	if err := providers.RegisterProviders(kubeClient, executor); err != nil {
-		log.Error("Failed to register providers", logger.F("error", err))
-	}
-	
-	registry := backup.GlobalRegistry
-	
+
+	// No need to register providers - we'll use factory directly
+
 	// Initialize log system
 	logDir := getLogDirFromCmd(cmd)
 	logRepo, err := storage.NewFileRepository(logDir)
@@ -47,14 +42,14 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 		log.Warn("Failed to initialize log repository", logger.F("error", err))
 		// Continue without logging to file
 	}
-	
+
 	var logService *domainLog.Service
 	var logWriter *domainLog.Writer
 	var logEntry *domainLog.Log
-	
+
 	if logRepo != nil {
 		logService = domainLog.NewService(logRepo, filepath.Join(logDir, "files"))
-		
+
 		// Build metadata for log
 		metadata := make(map[string]string)
 		if ns, _ := cmd.Flags().GetString("namespace"); ns != "" {
@@ -64,7 +59,7 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 			metadata["pod"] = args[0]
 			metadata["path"] = args[1]
 		}
-		
+
 		// Start log
 		logEntry, logWriter, err = logService.StartLog(domainLog.TypeBackup, providerName, metadata)
 		if err != nil {
@@ -75,7 +70,7 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 					logWriter.Close()
 				}
 			}()
-			
+
 			// Create tee writer to write to both console and log file
 			if logWriter != nil {
 				// Override logger to also write to log file
@@ -84,8 +79,8 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 		}
 	}
 
-	// Create provider instance
-	provider, err := registry.Create(providerName)
+	// Create provider instance using factory
+	provider, err := infrastructure.CreateBackupProvider(providerName, kubeClient, executor)
 	if err != nil {
 		if logWriter != nil {
 			logWriter.WriteLine("ERROR: Failed to create provider %s: %v", providerName, err)
@@ -127,7 +122,7 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 
 	// Get debug flag
 	debug, _ := cmd.Flags().GetBool("debug")
-	
+
 	// Validate options
 	if err := provider.ValidateOptions(opts); err != nil {
 		if logWriter != nil {
@@ -142,7 +137,7 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 	// Check dry-run
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	if dryRun {
-		log.Info("Dry run - would execute backup", 
+		log.Info("Dry run - would execute backup",
 			logger.F("provider", providerName),
 			logger.F("options", opts))
 		if logWriter != nil {
@@ -159,7 +154,7 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 	if logWriter != nil {
 		logWriter.WriteLine("Estimating backup size...")
 	}
-	
+
 	estimatedSize, err := provider.EstimateSize(opts)
 	if err != nil {
 		if debug {
@@ -184,22 +179,22 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 	// Execute backup with context
 	ctx := context.Background()
 	startTime := time.Now()
-	
-	log.Info("Starting backup", 
+
+	log.Info("Starting backup",
 		logger.F("provider", providerName),
 		logger.F("output_file", opts.OutputFile))
-	
+
 	if logWriter != nil {
 		logWriter.WriteLine("Starting backup at %s", startTime.Format(time.RFC3339))
 		logWriter.WriteLine("")
 	}
-	
+
 	// Execute backup - provider handles file writing
 	err = provider.Execute(ctx, opts)
-	
+
 	// Stop progress monitoring
 	close(progressDone)
-	
+
 	if err != nil {
 		if logWriter != nil {
 			logWriter.WriteLine("ERROR: Backup failed: %v", err)
@@ -212,13 +207,13 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 
 	// Final report
 	elapsed := time.Since(startTime)
-	
+
 	// Get file size if file exists
 	var size int64
 	if fileInfo, err := os.Stat(opts.OutputFile); err == nil {
 		size = fileInfo.Size()
 	}
-	
+
 	// Save metadata
 	if err := saveBackupMetadata(providerName, opts, size, startTime, time.Now()); err != nil {
 		if debug {
@@ -226,12 +221,12 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 		}
 		// Don't fail the backup operation if metadata save fails
 	}
-	
+
 	log.Info("Backup completed successfully",
 		logger.F("output_file", opts.OutputFile),
 		logger.F("size", humanizeBytes(size)),
 		logger.F("duration", elapsed.Round(time.Second).String()))
-	
+
 	if logWriter != nil {
 		logWriter.WriteLine("")
 		logWriter.WriteLine("Backup completed successfully")
@@ -239,13 +234,13 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 		logWriter.WriteLine("  Size: %s", humanizeBytes(size))
 		logWriter.WriteLine("  Duration: %s", elapsed.Round(time.Second))
 	}
-	
+
 	if logEntry != nil && logService != nil {
 		logEntry.SetMetadata("output_file", opts.OutputFile)
 		logEntry.SetMetadata("size", fmt.Sprintf("%d", size))
 		logService.CompleteLog(logEntry.ID)
 	}
-	
+
 	return nil
 }
 
@@ -257,7 +252,7 @@ func buildBackupOptions(providerName string, cmd *cobra.Command, args []string) 
 
 	// Common options
 	opts.Namespace, _ = cmd.Flags().GetString("namespace")
-	
+
 	// Provider-specific options
 	switch providerName {
 	case "filesystem":
@@ -266,7 +261,7 @@ func buildBackupOptions(providerName string, cmd *cobra.Command, args []string) 
 		}
 		opts.PodName = args[0]
 		opts.SourcePath = args[1]
-		
+
 		// Compression - only support none (.tar) and gzip (.tar.gz)
 		compression, _ := cmd.Flags().GetString("compression")
 		if compression != "none" && compression != "gzip" {
@@ -274,42 +269,42 @@ func buildBackupOptions(providerName string, cmd *cobra.Command, args []string) 
 		}
 		opts.Compress = compression == "gzip"
 		opts.Extra["compression"] = compression
-		
+
 		// Exclude patterns
 		opts.Exclude, _ = cmd.Flags().GetStringSlice("exclude")
 		excludeVCS, _ := cmd.Flags().GetBool("exclude-vcs")
 		if excludeVCS {
 			opts.Exclude = append(opts.Exclude, ".git", ".svn", ".hg", ".bzr")
 		}
-		
+
 		// Other options
 		opts.Container, _ = cmd.Flags().GetString("container")
 		opts.OutputFile, _ = cmd.Flags().GetString("output")
-		
+
 		// Generate output filename if not provided
 		if opts.OutputFile == "" {
 			ext := getFileExtension(compression)
-			opts.OutputFile = fmt.Sprintf("backup-%s-%s-%s%s", 
-				opts.Namespace, opts.PodName, 
+			opts.OutputFile = fmt.Sprintf("backup-%s-%s-%s%s",
+				opts.Namespace, opts.PodName,
 				sanitizePath(opts.SourcePath), ext)
 		}
-		
+
 		// Store extra flags
 		opts.Extra["verbose"], _ = cmd.Flags().GetBool("verbose")
 		opts.Extra["totals"], _ = cmd.Flags().GetBool("totals")
 		opts.Extra["preserve-perms"], _ = cmd.Flags().GetBool("preserve-perms")
-		
+
 	case "test":
 		// Test provider for unit tests
 		opts.PodName = "test-pod"
 		opts.SourcePath = "/test"
 		opts.OutputFile = "test-output.tar"
 		opts.Extra["verbose"] = false
-		
+
 	default:
 		return opts, fmt.Errorf("unknown provider: %s", providerName)
 	}
-	
+
 	return opts, nil
 }
 
@@ -318,10 +313,10 @@ func monitorBackupProgress(provider backup.Provider, estimatedSize int64, done <
 	progressCh := provider.StreamProgress()
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
-	
+
 	var lastProgress backup.Progress
 	startTime := time.Now()
-	
+
 	for {
 		select {
 		case <-done:
@@ -339,35 +334,35 @@ func monitorBackupProgress(provider backup.Provider, estimatedSize int64, done <
 			if !verbose && lastProgress.Total > 0 {
 				elapsed := time.Since(startTime)
 				throughput := float64(lastProgress.Current) / elapsed.Seconds()
-				
+
 				progressMsg := fmt.Sprintf("[PROGRESS] %s/%s (%s/s)",
 					humanizeBytes(lastProgress.Current),
 					humanizeBytes(lastProgress.Total),
 					humanizeBytes(int64(throughput)))
-				
+
 				// Add percentage and ETA
 				if estimatedSize > 0 || lastProgress.Total > 0 {
 					total := estimatedSize
 					if lastProgress.Total > 0 {
 						total = lastProgress.Total
 					}
-					
+
 					percentage := float64(lastProgress.Current) / float64(total) * 100
 					if percentage > 100 {
 						percentage = 100
 					}
-					
+
 					// Calculate ETA
 					if throughput > 0 {
 						remaining := total - lastProgress.Current
 						etaSeconds := float64(remaining) / throughput
 						eta := time.Duration(etaSeconds) * time.Second
-						
+
 						progressMsg += fmt.Sprintf(" - %.1f%% complete, ETA: %s",
 							percentage, eta.Round(time.Second))
 					}
 				}
-				
+
 				// Clear line and show progress
 				fmt.Fprintf(os.Stderr, "\r%s", progressMsg)
 			}
@@ -420,7 +415,7 @@ func saveBackupMetadata(providerName string, opts backup.Options, size int64, st
 	if err != nil {
 		return fmt.Errorf("failed to calculate checksum: %w", err)
 	}
-	
+
 	// Create metadata
 	backupMetadata := &restore.Metadata{
 		Type:        providerName,
@@ -439,18 +434,18 @@ func saveBackupMetadata(providerName string, opts backup.Options, size int64, st
 			"compress":  opts.Compress,
 		},
 	}
-	
+
 	// Add compression info
 	if compression, ok := opts.Extra["compression"].(string); ok {
 		backupMetadata.Compression = compression
 	}
-	
+
 	// Save to metadata store
 	metadataStore := metadata.DefaultStore
 	if metadataStore != nil {
 		return metadataStore.Save(backupMetadata)
 	}
-	
+
 	return nil
 }
 
@@ -461,12 +456,12 @@ func calculateFileChecksum(filepath string) (string, error) {
 		return "", err
 	}
 	defer file.Close()
-	
+
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
 		return "", err
 	}
-	
+
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 

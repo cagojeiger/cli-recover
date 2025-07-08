@@ -26,13 +26,13 @@ func (w *Writer) Write(cfg *Config) error {
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
-	
+
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(w.configPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
-	
+
 	// Create backup if file exists
 	if _, err := os.Stat(w.configPath); err == nil {
 		backupPath := w.configPath + ".backup"
@@ -40,21 +40,21 @@ func (w *Writer) Write(cfg *Config) error {
 			return fmt.Errorf("failed to create backup: %w", err)
 		}
 	}
-	
+
 	// Write configuration
 	file, err := os.Create(w.configPath)
 	if err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
 	}
 	defer file.Close()
-	
+
 	encoder := yaml.NewEncoder(file)
 	encoder.SetIndent(2)
-	
+
 	if err := encoder.Encode(cfg); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -65,17 +65,17 @@ func (w *Writer) createBackup(backupPath string) error {
 		return err
 	}
 	defer src.Close()
-	
+
 	dst, err := os.Create(backupPath)
 	if err != nil {
 		return err
 	}
 	defer dst.Close()
-	
+
 	if _, err := dst.ReadFrom(src); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -109,18 +109,18 @@ metadata:
   path: ~/.cli-recover/metadata  # Path to store backup metadata
   format: json                   # Storage format: json, yaml
 `
-	
+
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(w.configPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
-	
+
 	// Write the config file with comments
 	if err := os.WriteFile(w.configPath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
-	
+
 	return nil
 }
 

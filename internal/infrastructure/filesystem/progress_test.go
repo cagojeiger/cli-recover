@@ -11,30 +11,30 @@ func TestMonitorProgress(t *testing.T) {
 	provider := &Provider{
 		progressCh: make(chan backup.Progress, 10),
 	}
-	
+
 	// Create test output channel
 	outputCh := make(chan string)
 	opts := backup.Options{
 		SourcePath: "/data",
 	}
-	
+
 	// Start monitoring in goroutine
 	go provider.monitorProgress(outputCh, opts)
-	
+
 	// Send test data
 	outputCh <- "tar: data/file1.txt"
 	outputCh <- "tar: data/file2.txt"
 	outputCh <- "some other output"
 	outputCh <- "tar: data/dir/file3.txt"
 	close(outputCh)
-	
+
 	// Collect progress updates
 	var updates []backup.Progress
 	for i := 0; i < 3; i++ {
 		update := <-provider.progressCh
 		updates = append(updates, update)
 	}
-	
+
 	// Verify progress updates
 	assert.Len(t, updates, 3)
 	assert.Equal(t, int64(1), updates[0].Current)
@@ -47,7 +47,7 @@ func TestMonitorProgress(t *testing.T) {
 
 func TestBuildTarCommand(t *testing.T) {
 	provider := &Provider{}
-	
+
 	tests := []struct {
 		name     string
 		opts     backup.Options
@@ -62,7 +62,7 @@ func TestBuildTarCommand(t *testing.T) {
 				OutputFile: "backup.tar",
 				Compress:   false,
 			},
-			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
+			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 				"tar", "-cvf", "-", "-C", "/", "data"},
 		},
 		{
@@ -74,7 +74,7 @@ func TestBuildTarCommand(t *testing.T) {
 				OutputFile: "backup.tar.gz",
 				Compress:   true,
 			},
-			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
+			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 				"tar", "-czvf", "-", "-C", "/", "data"},
 		},
 		{
@@ -86,7 +86,7 @@ func TestBuildTarCommand(t *testing.T) {
 				OutputFile: "backup.tar",
 				Exclude:    []string{"*.log", "tmp/"},
 			},
-			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
+			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 				"tar", "-cvf", "-", "--exclude=*.log", "--exclude=tmp/", "-C", "/", "data"},
 		},
 		{
@@ -100,11 +100,11 @@ func TestBuildTarCommand(t *testing.T) {
 					"container": "app",
 				},
 			},
-			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "-c", "app", "--", 
+			expected: []string{"kubectl", "exec", "-n", "default", "test-pod", "-c", "app", "--",
 				"tar", "-cvf", "-", "-C", "/", "data"},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := provider.buildTarCommand(tt.opts)

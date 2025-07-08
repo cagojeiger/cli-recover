@@ -9,7 +9,7 @@ import (
 
 func TestExpandPath(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
-	
+
 	tests := []struct {
 		name     string
 		input    string
@@ -36,7 +36,7 @@ func TestExpandPath(t *testing.T) {
 			expected: "test/path", // Will be made absolute in actual expandPath
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := expandPath(tt.input)
@@ -67,13 +67,13 @@ metadata:
 `
 	loader := NewLoader("")
 	reader := strings.NewReader(yaml)
-	
+
 	cfg, err := loader.LoadFromReader(reader)
 	if err != nil {
 		t.Errorf("LoadFromReader() error = %v, expected no error", err)
 		return
 	}
-	
+
 	validateLoggerConfig(t, cfg)
 	validateBackupConfig(t, cfg)
 	validateMetadataConfig(t, cfg)
@@ -86,7 +86,7 @@ logger:
 `
 	loader := NewLoader("")
 	reader := strings.NewReader(yaml)
-	
+
 	_, err := loader.LoadFromReader(reader)
 	if err == nil {
 		t.Error("LoadFromReader() expected error for invalid YAML, got no error")
@@ -96,13 +96,13 @@ logger:
 func TestLoaderLoadFromReader_EmptyYAML(t *testing.T) {
 	loader := NewLoader("")
 	reader := strings.NewReader("")
-	
+
 	cfg, err := loader.LoadFromReader(reader)
 	if err != nil {
 		t.Errorf("LoadFromReader() error = %v, expected no error", err)
 		return
 	}
-	
+
 	// Should have default values
 	if cfg.Logger.Level != "info" {
 		t.Errorf("Expected default level 'info', got %s", cfg.Logger.Level)
@@ -142,16 +142,16 @@ func validateMetadataConfig(t *testing.T, cfg *Config) {
 func TestLoaderEnvironmentOverrides(t *testing.T) {
 	// Save current env vars
 	oldVars := map[string]string{
-		"CLI_RECOVER_LOG_LEVEL":      os.Getenv("CLI_RECOVER_LOG_LEVEL"),
-		"CLI_RECOVER_LOG_OUTPUT":     os.Getenv("CLI_RECOVER_LOG_OUTPUT"),
-		"CLI_RECOVER_LOG_FILE":       os.Getenv("CLI_RECOVER_LOG_FILE"),
-		"CLI_RECOVER_LOG_FORMAT":     os.Getenv("CLI_RECOVER_LOG_FORMAT"),
-		"CLI_RECOVER_LOG_COLOR":      os.Getenv("CLI_RECOVER_LOG_COLOR"),
-		"CLI_RECOVER_COMPRESSION":    os.Getenv("CLI_RECOVER_COMPRESSION"),
-		"CLI_RECOVER_EXCLUDE_VCS":    os.Getenv("CLI_RECOVER_EXCLUDE_VCS"),
-		"CLI_RECOVER_METADATA_PATH":  os.Getenv("CLI_RECOVER_METADATA_PATH"),
+		"CLI_RECOVER_LOG_LEVEL":     os.Getenv("CLI_RECOVER_LOG_LEVEL"),
+		"CLI_RECOVER_LOG_OUTPUT":    os.Getenv("CLI_RECOVER_LOG_OUTPUT"),
+		"CLI_RECOVER_LOG_FILE":      os.Getenv("CLI_RECOVER_LOG_FILE"),
+		"CLI_RECOVER_LOG_FORMAT":    os.Getenv("CLI_RECOVER_LOG_FORMAT"),
+		"CLI_RECOVER_LOG_COLOR":     os.Getenv("CLI_RECOVER_LOG_COLOR"),
+		"CLI_RECOVER_COMPRESSION":   os.Getenv("CLI_RECOVER_COMPRESSION"),
+		"CLI_RECOVER_EXCLUDE_VCS":   os.Getenv("CLI_RECOVER_EXCLUDE_VCS"),
+		"CLI_RECOVER_METADATA_PATH": os.Getenv("CLI_RECOVER_METADATA_PATH"),
 	}
-	
+
 	// Restore env vars after test
 	defer func() {
 		for k, v := range oldVars {
@@ -162,7 +162,7 @@ func TestLoaderEnvironmentOverrides(t *testing.T) {
 			}
 		}
 	}()
-	
+
 	// Set test env vars
 	os.Setenv("CLI_RECOVER_LOG_LEVEL", "error")
 	os.Setenv("CLI_RECOVER_LOG_OUTPUT", "both")
@@ -172,15 +172,15 @@ func TestLoaderEnvironmentOverrides(t *testing.T) {
 	os.Setenv("CLI_RECOVER_COMPRESSION", "xz")
 	os.Setenv("CLI_RECOVER_EXCLUDE_VCS", "false")
 	os.Setenv("CLI_RECOVER_METADATA_PATH", "/tmp/metadata")
-	
+
 	// Create a loader and load config
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
 	loader := NewLoader(configPath)
-	
+
 	cfg := DefaultConfig()
 	loader.loadFromEnv(cfg)
-	
+
 	// Check overrides
 	if cfg.Logger.Level != "error" {
 		t.Errorf("Expected log level 'error', got %s", cfg.Logger.Level)

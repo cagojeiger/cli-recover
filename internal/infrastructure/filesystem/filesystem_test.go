@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/filesystem"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
-	"github.com/cagojeiger/cli-recover/internal/infrastructure/providers/filesystem"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -39,10 +39,10 @@ func TestFilesystemProvider_ValidateOptions_Success(t *testing.T) {
 			SourcePath: "/data",
 			OutputFile: "backup.tar",
 		}
-		
+
 		provider := filesystem.NewProvider(nil, nil)
 		err := provider.ValidateOptions(opts)
-		
+
 		assert.NoError(t, err)
 	})
 }
@@ -95,7 +95,7 @@ func TestFilesystemProvider_ValidateOptions_MissingFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			provider := filesystem.NewProvider(nil, nil)
 			err := provider.ValidateOptions(tt.opts)
-			
+
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tt.errMsg)
 		})
@@ -119,7 +119,7 @@ func (m *MockCommandExecutor) Stream(ctx context.Context, command []string) (<-c
 
 func (m *MockCommandExecutor) StreamBinary(ctx context.Context, command []string) (stdout io.ReadCloser, stderr io.ReadCloser, wait func() error, err error) {
 	args := m.Called(ctx, command)
-	
+
 	// Handle nil values safely
 	if args.Get(0) != nil {
 		stdout = args.Get(0).(io.ReadCloser)
@@ -131,7 +131,7 @@ func (m *MockCommandExecutor) StreamBinary(ctx context.Context, command []string
 		wait = args.Get(2).(func() error)
 	}
 	err = args.Error(3)
-	
+
 	return
 }
 
@@ -151,18 +151,18 @@ func newMockReadCloser(data string) io.ReadCloser {
 func TestFilesystemProvider_EstimateSize(t *testing.T) {
 	mockExecutor := new(MockCommandExecutor)
 	provider := filesystem.NewProvider(nil, mockExecutor)
-	
+
 	opts := backup.Options{
 		Namespace:  "default",
 		PodName:    "test-pod",
 		SourcePath: "/data",
 	}
-	
+
 	// Mock du command execution
 	ctx := context.Background()
 	expectedCmd := kubernetes.BuildKubectlCommand("exec", "-n", "default", "test-pod", "--", "du", "-sb", "/data")
 	mockExecutor.On("Execute", ctx, expectedCmd).Return("1024000\t/data\n", nil)
-	
+
 	size, err := provider.EstimateSize(opts)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1024000), size)
@@ -174,10 +174,10 @@ func TestFilesystemProvider_Execute(t *testing.T) {
 	tempDir, err := ioutil.TempDir("", "test-backup")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
-	
+
 	mockExecutor := new(MockCommandExecutor)
 	provider := filesystem.NewProvider(nil, mockExecutor)
-	
+
 	outputFile := filepath.Join(tempDir, "backup.tar.gz")
 	opts := backup.Options{
 		Namespace:  "default",
@@ -186,33 +186,33 @@ func TestFilesystemProvider_Execute(t *testing.T) {
 		OutputFile: outputFile,
 		Compress:   true,
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Expected command (with verbose enabled for progress)
-	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 		"tar", "-czvf", "-", "-C", "/", "data"}
-	
+
 	// Mock tar output data
 	tarData := "mock tar data for testing"
 	stderrData := "file1.txt\nfile2.txt\nfile3.txt\n"
-	
+
 	// Create mock readers
 	mockStdout := newMockReadCloser(tarData)
 	mockStderr := newMockReadCloser(stderrData)
 	mockWait := func() error { return nil }
-	
+
 	// Mock StreamBinary for new implementation
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
-	
+
 	err = provider.Execute(ctx, opts)
 	assert.NoError(t, err)
-	
+
 	// Check that output file was created and contains data
 	data, err := os.ReadFile(outputFile)
 	assert.NoError(t, err, "Output file should be created")
 	assert.Equal(t, tarData, string(data), "Output file should contain tar data")
-	
+
 	// Check that progress channel has received updates
 	progressCh := provider.StreamProgress()
 	select {
@@ -223,14 +223,14 @@ func TestFilesystemProvider_Execute(t *testing.T) {
 		// No progress received immediately, but that's acceptable
 		// since progress might be buffered
 	}
-	
+
 	mockExecutor.AssertExpectations(t)
 }
 
 func TestFilesystemProvider_StreamProgress(t *testing.T) {
 	provider := filesystem.NewProvider(nil, nil)
 	progressCh := provider.StreamProgress()
-	
+
 	// Progress channel should be non-nil
 	assert.NotNil(t, progressCh)
 }
@@ -240,10 +240,10 @@ func TestFilesystemProvider_Execute_WithExcludes(t *testing.T) {
 	tempDir, err := ioutil.TempDir("", "test-backup")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
-	
+
 	mockExecutor := new(MockCommandExecutor)
 	provider := filesystem.NewProvider(nil, mockExecutor)
-	
+
 	outputFile := filepath.Join(tempDir, "backup.tar")
 	opts := backup.Options{
 		Namespace:  "default",
@@ -252,28 +252,28 @@ func TestFilesystemProvider_Execute_WithExcludes(t *testing.T) {
 		OutputFile: outputFile,
 		Exclude:    []string{"*.log", "tmp/"},
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Expected command with excludes and verbose
-	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 		"tar", "-cvf", "-", "--exclude=*.log", "--exclude=tmp/", "-C", "/", "data"}
-	
+
 	// Mock data
 	tarData := "mock tar archive data"
 	mockStdout := newMockReadCloser(tarData)
 	mockStderr := newMockReadCloser("")
 	mockWait := func() error { return nil }
-	
+
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
-	
+
 	err = provider.Execute(ctx, opts)
 	assert.NoError(t, err)
-	
+
 	// Check that output file was created
 	_, err = os.Stat(outputFile)
 	assert.NoError(t, err, "Output file should be created")
-	
+
 	mockExecutor.AssertExpectations(t)
 }
 
@@ -282,10 +282,10 @@ func TestFilesystemProvider_Execute_CommandFailure(t *testing.T) {
 	tempDir, err := ioutil.TempDir("", "test-backup")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
-	
+
 	mockExecutor := new(MockCommandExecutor)
 	provider := filesystem.NewProvider(nil, mockExecutor)
-	
+
 	outputFile := filepath.Join(tempDir, "backup.tar")
 	opts := backup.Options{
 		Namespace:  "default",
@@ -293,15 +293,15 @@ func TestFilesystemProvider_Execute_CommandFailure(t *testing.T) {
 		SourcePath: "/data",
 		OutputFile: outputFile,
 	}
-	
+
 	ctx := context.Background()
-	
-	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
+
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 		"tar", "-cvf", "-", "-C", "/", "data"}
-	
+
 	// Mock command failure
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(nil, nil, nil, assert.AnError)
-	
+
 	err = provider.Execute(ctx, opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to start backup command")
@@ -313,10 +313,10 @@ func TestFilesystemProvider_Execute_OutputDirectoryCreation(t *testing.T) {
 	tempDir, err := ioutil.TempDir("", "test-backup")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
-	
+
 	mockExecutor := new(MockCommandExecutor)
 	provider := filesystem.NewProvider(nil, mockExecutor)
-	
+
 	// Use nested directory that doesn't exist
 	outputFile := filepath.Join(tempDir, "nested", "dir", "backup.tar")
 	opts := backup.Options{
@@ -325,29 +325,29 @@ func TestFilesystemProvider_Execute_OutputDirectoryCreation(t *testing.T) {
 		SourcePath: "/data",
 		OutputFile: outputFile,
 	}
-	
+
 	ctx := context.Background()
-	
-	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--", 
+
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 		"tar", "-cvf", "-", "-C", "/", "data"}
-	
+
 	mockStdout := newMockReadCloser("")
 	mockStderr := newMockReadCloser("")
 	mockWait := func() error { return nil }
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
-	
+
 	err = provider.Execute(ctx, opts)
 	assert.NoError(t, err)
-	
+
 	// Check that nested directory was created
 	dir := filepath.Dir(outputFile)
 	_, err = os.Stat(dir)
 	assert.NoError(t, err, "Output directory should be created")
-	
+
 	// Check that output file was created
 	_, err = os.Stat(outputFile)
 	assert.NoError(t, err, "Output file should be created")
-	
+
 	mockExecutor.AssertExpectations(t)
 }
 
@@ -356,10 +356,10 @@ func TestFilesystemProvider_Execute_WithContainer(t *testing.T) {
 	tempDir, err := ioutil.TempDir("", "test-backup")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
-	
+
 	mockExecutor := new(MockCommandExecutor)
 	provider := filesystem.NewProvider(nil, mockExecutor)
-	
+
 	outputFile := filepath.Join(tempDir, "backup.tar")
 	opts := backup.Options{
 		Namespace:  "default",
@@ -370,35 +370,35 @@ func TestFilesystemProvider_Execute_WithContainer(t *testing.T) {
 			"container": "web-container",
 		},
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Expected command with container flag
-	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "-c", "web-container", "--", 
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "-c", "web-container", "--",
 		"tar", "-cvf", "-", "-C", "/", "data"}
-	
+
 	mockStdout := newMockReadCloser("")
 	mockStderr := newMockReadCloser("")
 	mockWait := func() error { return nil }
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
-	
+
 	err = provider.Execute(ctx, opts)
 	assert.NoError(t, err)
-	
+
 	// Check that output file was created
 	_, err = os.Stat(outputFile)
 	assert.NoError(t, err, "Output file should be created")
-	
+
 	mockExecutor.AssertExpectations(t)
 }
 
 func TestFilesystemProvider_BuildTarCommand_NoRedirection(t *testing.T) {
 	// This test verifies that the command structure is correct without shell redirection
 	// We test this indirectly through the command expectations in other tests
-	
-	expectedCmdBase := []string{"kubectl", "exec", "-n", "test-ns", "test-pod", "-c", "test-container", "--", 
+
+	expectedCmdBase := []string{"kubectl", "exec", "-n", "test-ns", "test-pod", "-c", "test-container", "--",
 		"tar", "-czf", "-", "--exclude=*.log", "-C", "/", "data"}
-	
+
 	// Verify the command doesn't contain shell redirection
 	for _, arg := range expectedCmdBase {
 		assert.NotEqual(t, ">", arg, "Command should not contain shell redirection operator")

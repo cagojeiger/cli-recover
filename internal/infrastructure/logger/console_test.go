@@ -23,10 +23,10 @@ func TestConsoleLogger_LogLevels(t *testing.T) {
 
 	// Test each log level
 	tests := []struct {
-		name     string
-		logFunc  func(string, ...logger.Field)
-		level    string
-		message  string
+		name    string
+		logFunc func(string, ...logger.Field)
+		level   string
+		message string
 	}{
 		{
 			name:    "debug",

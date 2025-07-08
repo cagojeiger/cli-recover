@@ -78,13 +78,13 @@ func (l *ListBackups) loadBackups() {
 				cell := tview.NewTableCell(fields[col]).
 					SetAlign(tview.AlignLeft).
 					SetExpansion(1)
-				
+
 				if col == 6 && fields[col] == "completed" {
 					cell.SetTextColor(tcell.ColorGreen)
 				} else if col == 6 && fields[col] == "failed" {
 					cell.SetTextColor(tcell.ColorRed)
 				}
-				
+
 				l.table.SetCell(row, col, cell)
 			}
 			row++

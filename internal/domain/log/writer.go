@@ -72,7 +72,7 @@ func (w *Writer) WriteLine(format string, args ...interface{}) error {
 
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	line := fmt.Sprintf("[%s] %s\n", timestamp, fmt.Sprintf(format, args...))
-	
+
 	_, err := w.file.WriteString(line)
 	return err
 }

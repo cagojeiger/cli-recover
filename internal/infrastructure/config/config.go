@@ -14,8 +14,8 @@ type Config struct {
 
 // LoggerConfig represents logger configuration
 type LoggerConfig struct {
-	Level   string           `yaml:"level"`   // debug, info, warn, error, fatal
-	Output  string           `yaml:"output"`  // console, file, both
+	Level   string           `yaml:"level"`  // debug, info, warn, error, fatal
+	Output  string           `yaml:"output"` // console, file, both
 	File    FileLoggerConfig `yaml:"file"`
 	Console ConsoleConfig    `yaml:"console"`
 }
@@ -35,7 +35,7 @@ type ConsoleConfig struct {
 
 // BackupConfig represents backup configuration
 type BackupConfig struct {
-	DefaultCompression   string        `yaml:"defaultCompression"`   // gzip, bzip2, xz, none
+	DefaultCompression  string        `yaml:"defaultCompression"`  // gzip, bzip2, xz, none
 	ExcludeVCS          bool          `yaml:"excludeVCS"`          // Exclude version control systems
 	PreservePermissions bool          `yaml:"preservePermissions"` // Preserve file permissions
 	DefaultTimeout      time.Duration `yaml:"defaultTimeout"`      // Default operation timeout
@@ -50,7 +50,7 @@ type MetadataConfig struct {
 // DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
 	homeDir := "~/.cli-recover"
-	
+
 	return &Config{
 		Logger: LoggerConfig{
 			Level:  "info",
@@ -66,7 +66,7 @@ func DefaultConfig() *Config {
 			},
 		},
 		Backup: BackupConfig{
-			DefaultCompression:   "gzip",
+			DefaultCompression:  "gzip",
 			ExcludeVCS:          true,
 			PreservePermissions: true,
 			DefaultTimeout:      5 * time.Minute,

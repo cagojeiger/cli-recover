@@ -26,10 +26,10 @@ const (
 
 // Log represents a log entry for an operation
 type Log struct {
-	ID        string    // Unique identifier (timestamp-based)
-	Type      Type      // backup or restore
-	Provider  string    // filesystem, minio, mongodb
-	Status    Status    // running, completed, failed
+	ID        string // Unique identifier (timestamp-based)
+	Type      Type   // backup or restore
+	Provider  string // filesystem, minio, mongodb
+	Status    Status // running, completed, failed
 	StartTime time.Time
 	EndTime   *time.Time
 	FilePath  string // Path to the log file

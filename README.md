@@ -104,8 +104,7 @@ internal/
 ├── infrastructure/      # 외부 시스템 연동
 │   ├── kubernetes/     # K8s 클라이언트
 │   ├── logger/         # 로거 구현체
-│   ├── providers/      # 백업 프로바이더
-│   └── runner/         # 명령 실행기
+│   └── providers/      # 백업 프로바이더
 └── application/        # 애플리케이션 서비스
     ├── adapters/       # CLI 어댑터
     └── config/         # 설정 관리
