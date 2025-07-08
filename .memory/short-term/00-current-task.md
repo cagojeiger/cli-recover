@@ -1,77 +1,65 @@
-# 현재 작업: Phase 4 완료 후 피드백 대기
+# 현재 작업: Phase 3.9 코드 단순화
 
-## 작업 완료
-- 날짜: 2025-01-07
-- 완료: Phase 4 TUI Implementation
-- 다음: 실사용 피드백 수집
+## 작업 시작
+- 날짜: 2025-01-08
+- Phase: 3.9 아키텍처 단순화
+- 목표: 복잡도 75 → 30
 
-## 완료된 작업
-### 1. 헥사고날 아키텍처 정리 ✅
-- TUI 완전 삭제 (backup/legacy-tui-20250107/)
-- 중복 디렉토리 제거
-- 패키지 올바른 레이어로 이동
-- _new suffix 파일명 정리
+## 진행중인 작업
+### Phase 3.9: Occam's Razor 적용
+- **목적**: 과도한 복잡성 제거
+- **접근**: 3계층 → 2계층 아키텍처
+- **원칙**: YAGNI, KISS, DRY
 
-### 2. 로거 시스템 확인 ✅
-- 이미 완전히 구현되어 있음
-- CLI 플래그 통합 완료
-- 테스트 커버리지 유지
+### 주요 변경사항
+1. **Application 레이어 제거**
+   - adapters → cmd 파일에 통합
+   - config → infrastructure로 이동
 
-### 3. 테스트 상태 ✅
-- 모든 테스트 통과
-- 커버리지: 53.0% (TUI 제거로 감소)
-- 실제 비즈니스 로직 커버리지는 유지
+2. **Domain 단순화**
+   - backup/restore → operation 통합
+   - Registry 패턴 제거
+   - 직접 provider 호출
 
-### 4. Phase 3 방향 전환 ✅
-- 복잡한 백그라운드 시스템 롤백 (복잡도 80 → 취소)
-- 단순한 로그 파일 시스템 구현 (복잡도 30)
-- Claude.md Occam's Razor 원칙 준수
+3. **미사용 코드 제거**
+   - minio/mongodb 스텁
+   - runner 패키지
+   - 중복 테스트
 
-### 5. 로그 파일 시스템 구현 ✅
-- internal/domain/log/ 도메인 모델
-- 파일 기반 저장소 (JSON 메타데이터)
-- CLI 명령어: logs list, show, tail, clean
-- 백업 시 자동 로그 생성 통합
+4. **구조 평탄화**
+   - providers 디렉토리 제거
+   - filesystem provider 직접 배치
 
-### 6. Phase 4 TUI 구현 ✅
-- tview 라이브러리 사용 (Bubble Tea 대신)
-- CLI 래퍼 방식 (~800줄, 7개 파일)
-- 복잡도 40/100 달성
-- 모든 주요 기능 TUI로 접근 가능
+## 이전 완료 작업
+### Phase 1-4 완료 ✅
+- Filesystem 백업/복원 구현
+- 메타데이터 시스템
+- 로그 파일 시스템
+- TUI 구현 (tview)
 
-## 현재 기능
-### 백업/복구
-- filesystem provider 완성
-- 바이너리 안전 스트리밍
-- 진행률 모니터링
+## 현재 상태
+### Context 업데이트 진행중
+- ✅ .context/00-project.md
+- ✅ .context/01-architecture.md
+- 🔄 .memory/short-term/*
+- ⏳ .memory/long-term/*
+- ⏳ .planning/*
+- ⏳ .checkpoint/*
 
-### 로그 시스템
-- 모든 작업 이력 영구 보관
-- 작업별 상세 로그 파일
-- CLI로 이력 조회 가능
+### 코드 작업 대기
+- Application 레이어 제거
+- Domain 통합
+- 미사용 코드 정리
+- 테스트 검증
 
-### 메타데이터
-- 백업 정보 저장 (크기, 체크섬 등)
-- restore 명령으로 메타데이터 기반 복원
+## 목표 메트릭
+- 복잡도: 75 → 30
+- 파일 수: -40%
+- 코드 라인: -35%
+- 디렉토리 깊이: 5 → 3
 
-### TUI (Terminal UI)
-- `cli-recover tui` 명령으로 실행
-- 메뉴 기반 네비게이션
-- 실시간 진행률 표시
-- 드롭다운 선택기 (namespace/pod)
-
-## 진행 예정
-### 1. 실사용 테스트
-- 실제 Kubernetes 환경에서 테스트
-- 사용성 피드백 수집
-- 필요한 기능 파악
-
-### 2. 필요시 추가 기능
-- 사용자 요구사항 기반
-- 복잡도 30-40 유지
-- Occam's Razor 원칙 준수
-
-## 목표
-- 실용적이고 단순한 도구
-- 필요한 기능만 구현
-- 과도한 엔지니어링 방지
+## 다음 단계
+1. Context 디렉토리 업데이트 완료
+2. 코드 단순화 실행
+3. 테스트 검증
+4. 문서 최종 업데이트

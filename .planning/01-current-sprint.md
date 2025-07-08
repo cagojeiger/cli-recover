@@ -1,71 +1,91 @@
-# 현재 스프린트: Phase 4 완료
+# 현재 스프린트: Phase 3.9 - 아키텍처 단순화
 
 ## 스프린트 정보
-- **시작일**: 2025-01-07
-- **종료일**: 2025-01-07
-- **목표**: Phase 3-4 완료 (로그 시스템 + TUI)
+- **시작**: 2025-01-08
+- **목표**: Occam's Razor 원칙 적용
+- **복잡도**: 75 → 30
 
-## 완료된 작업 (2025-01-07)
-- ✅ Phase 3 init 명령 구현 (설정 파일 초기화)
-- ✅ 구조화된 로깅 시스템 통합
-- ✅ 테스트 커버리지 61.1% 달성 (TUI 제외)
-- ✅ TUI 레거시 완전 삭제
-- ✅ Bubble Tea 의존성 제거
-- ✅ 프로젝트 문서 업데이트 시작
-- ✅ 헥사고날 아키텍처 완전 재구성
-- ✅ 모든 패키지 올바른 레이어로 이동
-- ✅ 컨텍스트 파일 정리 및 간소화
+## 작업 목록
 
-## Phase 3 재설계 결과
-- ✅ 복잡한 백그라운드 시스템 롤백 (복잡도 80 → 취소)
-- ✅ 단순한 로그 파일 시스템 구현 (복잡도 30)
-- ✅ 작업 이력 영구 보관 기능
-- ✅ CLI 명령어: logs list, show, tail, clean
-- ✅ 백업 시 자동 로그 생성 통합
-- ✅ Claude.md Occam's Razor 원칙 준수
+### 1. Context 문서 업데이트 ✅
+- [x] .context/00-project.md
+- [x] .context/01-architecture.md
+- [x] .memory/short-term/00-current-task.md
+- [x] .memory/short-term/03-simplification-plan.md
+- [x] .memory/long-term/06-two-layer-architecture.md
+- [x] .memory/long-term/07-occam-razor-lessons.md
+- [x] .planning/00-roadmap.md
+- [x] .planning/01-current-sprint.md
+- [ ] .checkpoint/05-phase-3.9-simplification.md
 
-## 로그 파일 시스템 구조
+### 2. 코드 단순화 작업
+#### Step 1: Application 레이어 제거
+- [ ] Config를 infrastructure로 이동
+- [ ] Adapter 로직을 cmd에 통합
+- [ ] Application 디렉토리 삭제
+
+#### Step 2: Domain 통합
+- [ ] operation 도메인 생성
+- [ ] backup/restore 통합
+- [ ] Registry 패턴 제거
+
+#### Step 3: 미사용 코드 제거
+- [ ] runner 패키지 삭제
+- [ ] minio/mongodb 스텁 제거
+- [ ] 중복 테스트 제거
+
+#### Step 4: 구조 평탄화
+- [ ] providers 디렉토리 제거
+- [ ] filesystem provider 직접 배치
+- [ ] Import 경로 업데이트
+
+### 3. 검증 및 마무리
+- [ ] 모든 테스트 통과 확인
+- [ ] 테스트 커버리지 유지
+- [ ] 바이너리 크기 확인
+- [ ] 복잡도 측정 (목표: 30)
+
+## 진행 상황
 ```
-~/.cli-recover/logs/
-├── metadata/         # 메타데이터 JSON
-│   └── *.json       # 각 작업별 메타데이터
-└── files/           # 실제 로그 파일
-    └── backup/      # 백업 로그
-    └── restore/     # 복구 로그
+Context 업데이트: ████████░░ 90%
+코드 단순화:     ░░░░░░░░░░ 0%
+검증:           ░░░░░░░░░░ 0%
 ```
 
-## 주요 기능
-- 각 백업/복구 작업마다 고유 ID 생성
-- 상세 로그 파일 자동 생성
-- 작업 상태 추적 (running, completed, failed)
-- 메타데이터 저장 (namespace, pod, path 등)
-- 오래된 로그 자동 정리 (logs clean)
+## 일일 목표
+### Day 1 (2025-01-08)
+- ✅ Context 문서 업데이트
+- ⏳ Checkpoint 파일 생성
+- ⏳ 코드 단순화 시작
 
-## 성공 지표 달성
-- ✅ 실용적인 기능 구현
-- ✅ 복잡도 30/100 유지
-- ✅ 테스트 가능한 구조
-- ✅ 헥사고날 아키텍처 준수
+### Day 2 (예정)
+- [ ] Application 레이어 제거
+- [ ] Domain 통합
+- [ ] 테스트 실행
 
-## Phase 4 TUI 구현 완료
-- ✅ tview 라이브러리 선택 (Bubble Tea 대신)
-- ✅ CLI 래퍼 방식으로 구현
-- ✅ 메인 메뉴 네비게이션
-- ✅ 백업/복원 워크플로우
-- ✅ 백업 목록 조회 (테이블)
-- ✅ 로그 뷰어 (상세 보기)
-- ✅ 실시간 진행률 표시
-- ✅ 복잡도 40/100 달성 (목표 45/100 이하)
+### Day 3 (예정)
+- [ ] 미사용 코드 제거
+- [ ] 구조 평탄화
+- [ ] 최종 검증
 
-## TUI 구현 세부사항
-- 7개 파일, 총 ~800줄
-- God Object 회피 성공
-- 각 화면이 독립적인 구조체
-- tview 기본 위젯만 사용
-- CLI 명령어 실행 및 출력 스트리밍
+## 위험 및 이슈
+- 기능 손실 없도록 각 단계별 테스트
+- Git 커밋으로 롤백 가능하도록 준비
+- Import 경로 변경 시 주의
 
-## 다음 단계: 실사용 피드백 수집
-- 실제 터미널에서 TUI 테스트
-- Kubernetes 환경에서 실사용
-- 사용자 피드백 기반 개선
-- 필요시 Provider 확장 (MinIO/MongoDB)
+## 성공 기준
+- ✅ 복잡도 30 이하
+- ✅ 모든 테스트 통과
+- ✅ 기능 변경 없음
+- ✅ 코드 가독성 향상
+
+## 이전 완료 작업 (Phase 1-4)
+### Phase 3 로그 시스템 ✅
+- 작업 이력 영구 보관
+- CLI 명령어 구현
+- 복잡도 30/100 달성
+
+### Phase 4 TUI 구현 ✅
+- tview 라이브러리 사용
+- CLI 래퍼 방식
+- 복잡도 40/100 달성
