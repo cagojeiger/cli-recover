@@ -15,6 +15,9 @@ type Provider interface {
 	// Execute performs the backup operation
 	Execute(ctx context.Context, opts Options) error
 
+	// ExecuteWithResult performs the backup operation and returns result details
+	ExecuteWithResult(ctx context.Context, opts Options) (*Result, error)
+
 	// EstimateSize estimates the size of the backup in bytes
 	EstimateSize(opts Options) (int64, error)
 

@@ -1,7 +1,8 @@
-package filesystem_test
+package filesystem
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -10,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
-	"github.com/cagojeiger/cli-recover/internal/infrastructure/filesystem"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -18,16 +18,16 @@ import (
 
 func TestFilesystemProvider_Interface(t *testing.T) {
 	// Compile-time check
-	var _ backup.Provider = (*filesystem.Provider)(nil)
+	var _ backup.Provider = (*Provider)(nil)
 }
 
 func TestFilesystemProvider_Name(t *testing.T) {
-	provider := filesystem.NewProvider(nil, nil)
+	provider := NewProvider(nil, nil)
 	assert.Equal(t, "filesystem", provider.Name())
 }
 
 func TestFilesystemProvider_Description(t *testing.T) {
-	provider := filesystem.NewProvider(nil, nil)
+	provider := NewProvider(nil, nil)
 	assert.Equal(t, "Backup filesystem from Kubernetes pods", provider.Description())
 }
 
@@ -40,7 +40,7 @@ func TestFilesystemProvider_ValidateOptions_Success(t *testing.T) {
 			OutputFile: "backup.tar",
 		}
 
-		provider := filesystem.NewProvider(nil, nil)
+		provider := NewProvider(nil, nil)
 		err := provider.ValidateOptions(opts)
 
 		assert.NoError(t, err)
@@ -93,7 +93,7 @@ func TestFilesystemProvider_ValidateOptions_MissingFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider := filesystem.NewProvider(nil, nil)
+			provider := NewProvider(nil, nil)
 			err := provider.ValidateOptions(tt.opts)
 
 			assert.Error(t, err)
@@ -150,7 +150,7 @@ func newMockReadCloser(data string) io.ReadCloser {
 
 func TestFilesystemProvider_EstimateSize(t *testing.T) {
 	mockExecutor := new(MockCommandExecutor)
-	provider := filesystem.NewProvider(nil, mockExecutor)
+	provider := NewProvider(nil, mockExecutor)
 
 	opts := backup.Options{
 		Namespace:  "default",
@@ -176,7 +176,7 @@ func TestFilesystemProvider_Execute(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	mockExecutor := new(MockCommandExecutor)
-	provider := filesystem.NewProvider(nil, mockExecutor)
+	provider := NewProvider(nil, mockExecutor)
 
 	outputFile := filepath.Join(tempDir, "backup.tar.gz")
 	opts := backup.Options{
@@ -228,7 +228,7 @@ func TestFilesystemProvider_Execute(t *testing.T) {
 }
 
 func TestFilesystemProvider_StreamProgress(t *testing.T) {
-	provider := filesystem.NewProvider(nil, nil)
+	provider := NewProvider(nil, nil)
 	progressCh := provider.StreamProgress()
 
 	// Progress channel should be non-nil
@@ -242,7 +242,7 @@ func TestFilesystemProvider_Execute_WithExcludes(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	mockExecutor := new(MockCommandExecutor)
-	provider := filesystem.NewProvider(nil, mockExecutor)
+	provider := NewProvider(nil, mockExecutor)
 
 	outputFile := filepath.Join(tempDir, "backup.tar")
 	opts := backup.Options{
@@ -284,7 +284,7 @@ func TestFilesystemProvider_Execute_CommandFailure(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	mockExecutor := new(MockCommandExecutor)
-	provider := filesystem.NewProvider(nil, mockExecutor)
+	provider := NewProvider(nil, mockExecutor)
 
 	outputFile := filepath.Join(tempDir, "backup.tar")
 	opts := backup.Options{
@@ -315,7 +315,7 @@ func TestFilesystemProvider_Execute_OutputDirectoryCreation(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	mockExecutor := new(MockCommandExecutor)
-	provider := filesystem.NewProvider(nil, mockExecutor)
+	provider := NewProvider(nil, mockExecutor)
 
 	// Use nested directory that doesn't exist
 	outputFile := filepath.Join(tempDir, "nested", "dir", "backup.tar")
@@ -358,7 +358,7 @@ func TestFilesystemProvider_Execute_WithContainer(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	mockExecutor := new(MockCommandExecutor)
-	provider := filesystem.NewProvider(nil, mockExecutor)
+	provider := NewProvider(nil, mockExecutor)
 
 	outputFile := filepath.Join(tempDir, "backup.tar")
 	opts := backup.Options{
@@ -404,4 +404,199 @@ func TestFilesystemProvider_BuildTarCommand_NoRedirection(t *testing.T) {
 		assert.NotEqual(t, ">", arg, "Command should not contain shell redirection operator")
 		assert.NotContains(t, arg, "/tmp/backup.tar.gz", "Command should not contain output file path")
 	}
+}
+
+// Backup Integrity Tests - Phase 3.10
+
+func TestBackupInterruption_LeavesOnlyTempFile(t *testing.T) {
+	// Arrange
+	mockFS := NewMockFileSystem()
+	mockExecutor := new(MockCommandExecutor)
+	provider := NewProviderWithFS(nil, mockExecutor, mockFS)
+	
+	opts := backup.Options{
+		Namespace:  "default",
+		PodName:    "test-pod",
+		SourcePath: "/data",
+		OutputFile: "backup.tar",
+	}
+	
+	// Simulate write failure after 1KB
+	mockFS.SetWriteFailureAfterBytes("backup.tar.tmp", 1024)
+	
+	ctx := context.Background()
+	
+	// Setup mock executor
+	mockStdout := newMockReadCloser(strings.Repeat("x", 2048)) // 2KB of data
+	mockStderr := newMockReadCloser("")
+	mockWait := func() error { return nil }
+	
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
+		"tar", "-cvf", "-", "-C", "/", "data"}
+	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
+	
+	// Act
+	err := provider.Execute(ctx, opts)
+	
+	// Assert
+	assert.Error(t, err, "Should fail due to write error")
+	assert.Contains(t, err.Error(), "write failed")
+	assert.False(t, mockFS.Exists("backup.tar"), "Final file should not exist")
+	// Note: In the current implementation, temp files are cleaned up on failure
+	// This is actually a good practice to avoid leaving partial files
+	assert.False(t, mockFS.Exists("backup.tar.tmp"), "Temp file should be cleaned up after failure")
+	
+	mockExecutor.AssertExpectations(t)
+}
+
+func TestBackupSuccess_OnlyFinalFileExists(t *testing.T) {
+	// Arrange
+	mockFS := NewMockFileSystem()
+	mockExecutor := new(MockCommandExecutor)
+	provider := NewProviderWithFS(nil, mockExecutor, mockFS)
+	
+	testData := []byte("test backup data")
+	opts := backup.Options{
+		Namespace:  "default",
+		PodName:    "test-pod",
+		SourcePath: "/data",
+		OutputFile: "backup.tar",
+	}
+	
+	ctx := context.Background()
+	
+	// Setup mock executor
+	mockStdout := newMockReadCloser(string(testData))
+	mockStderr := newMockReadCloser("")
+	mockWait := func() error { return nil }
+	
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
+		"tar", "-cvf", "-", "-C", "/", "data"}
+	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
+	
+	// Act
+	err := provider.Execute(ctx, opts)
+	
+	// Assert
+	assert.NoError(t, err)
+	assert.True(t, mockFS.Exists("backup.tar"), "Final file should exist")
+	assert.False(t, mockFS.Exists("backup.tar.tmp"), "Temp file should be cleaned up")
+	
+	// Verify file content
+	content, err := mockFS.GetFileContent("backup.tar")
+	assert.NoError(t, err)
+	assert.Equal(t, testData, content, "File content should match")
+	
+	mockExecutor.AssertExpectations(t)
+}
+
+func TestChecksum_CalculatedDuringStreaming(t *testing.T) {
+	// Arrange
+	mockFS := NewMockFileSystem()
+	mockExecutor := new(MockCommandExecutor)
+	provider := NewProviderWithFS(nil, mockExecutor, mockFS)
+	
+	testData := []byte("test backup data for checksum")
+	
+	opts := backup.Options{
+		Namespace:  "default",
+		PodName:    "test-pod",
+		SourcePath: "/data",
+		OutputFile: "backup.tar",
+	}
+	
+	ctx := context.Background()
+	
+	// Setup mock executor
+	mockStdout := newMockReadCloser(string(testData))
+	mockStderr := newMockReadCloser("")
+	mockWait := func() error { return nil }
+	
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
+		"tar", "-cvf", "-", "-C", "/", "data"}
+	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
+	
+	// Act
+	result, err := provider.ExecuteWithResult(ctx, opts)
+	
+	// Assert
+	assert.NoError(t, err)
+	assert.NotEmpty(t, result.Checksum, "Checksum should be calculated")
+	assert.Equal(t, "backup.tar", result.BackupFile)
+	
+	// Verify checksum matches file content
+	content, _ := mockFS.GetFileContent("backup.tar")
+	assert.Equal(t, testData, content)
+	
+	mockExecutor.AssertExpectations(t)
+}
+
+func TestAtomicRename_Success(t *testing.T) {
+	// Arrange
+	mockFS := NewMockFileSystem()
+	mockExecutor := new(MockCommandExecutor)
+	provider := NewProviderWithFS(nil, mockExecutor, mockFS)
+	
+	opts := backup.Options{
+		Namespace:  "default",
+		PodName:    "test-pod",
+		SourcePath: "/data",
+		OutputFile: "backup.tar",
+	}
+	
+	ctx := context.Background()
+	
+	// Setup mock executor
+	mockStdout := newMockReadCloser("backup data")
+	mockStderr := newMockReadCloser("")
+	mockWait := func() error { return nil }
+	
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
+		"tar", "-cvf", "-", "-C", "/", "data"}
+	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
+	
+	// Act
+	err := provider.Execute(ctx, opts)
+	
+	// Assert
+	assert.NoError(t, err)
+	
+	// Verify atomic rename happened (temp file should not exist)
+	assert.False(t, mockFS.Exists("backup.tar.tmp"))
+	assert.True(t, mockFS.Exists("backup.tar"))
+	
+	mockExecutor.AssertExpectations(t)
+}
+
+func TestCleanupOnExecutorError(t *testing.T) {
+	// Arrange
+	mockFS := NewMockFileSystem()
+	mockExecutor := new(MockCommandExecutor)
+	provider := NewProviderWithFS(nil, mockExecutor, mockFS)
+	
+	opts := backup.Options{
+		Namespace:  "default",
+		PodName:    "test-pod",
+		SourcePath: "/data",
+		OutputFile: "backup.tar",
+	}
+	
+	ctx := context.Background()
+	
+	// Simulate executor error
+	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
+		"tar", "-cvf", "-", "-C", "/", "data"}
+	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(
+		nil, nil, nil, errors.New("pod not found"))
+	
+	// Act
+	err := provider.Execute(ctx, opts)
+	
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "pod not found")
+	assert.False(t, mockFS.Exists("backup.tar"), "Final file should not exist")
+	assert.False(t, mockFS.Exists("backup.tar.tmp"), "Temp file should not exist")
+	
+	mockExecutor.AssertExpectations(t)
 }

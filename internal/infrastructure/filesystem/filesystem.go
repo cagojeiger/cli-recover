@@ -3,6 +3,7 @@ package filesystem
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
@@ -20,6 +22,7 @@ type Provider struct {
 	kubeClient kubernetes.KubeClient
 	executor   kubernetes.CommandExecutor
 	progressCh chan backup.Progress
+	fs         FileSystem // For dependency injection
 }
 
 // Ensure Provider implements backup.Provider interface
@@ -31,6 +34,17 @@ func NewProvider(kubeClient kubernetes.KubeClient, executor kubernetes.CommandEx
 		kubeClient: kubeClient,
 		executor:   executor,
 		progressCh: make(chan backup.Progress, 100),
+		fs:         &OSFileSystem{}, // Use real filesystem by default
+	}
+}
+
+// NewProviderWithFS creates a new filesystem backup provider with custom file system
+func NewProviderWithFS(kubeClient kubernetes.KubeClient, executor kubernetes.CommandExecutor, fs FileSystem) *Provider {
+	return &Provider{
+		kubeClient: kubeClient,
+		executor:   executor,
+		progressCh: make(chan backup.Progress, 100),
+		fs:         fs,
 	}
 }
 
@@ -74,22 +88,55 @@ func (p *Provider) EstimateSizeWithContext(ctx context.Context, opts backup.Opti
 
 // Execute performs the backup using binary-safe streaming approach
 func (p *Provider) Execute(ctx context.Context, opts backup.Options) error {
+	_, err := p.executeInternal(ctx, opts, false)
+	return err
+}
+
+// ExecuteWithResult performs the backup and returns result with checksum
+func (p *Provider) ExecuteWithResult(ctx context.Context, opts backup.Options) (*backup.Result, error) {
+	return p.executeInternal(ctx, opts, true)
+}
+
+// executeInternal contains the actual backup logic
+func (p *Provider) executeInternal(ctx context.Context, opts backup.Options, withResult bool) (*backup.Result, error) {
 	if err := p.ValidateOptions(opts); err != nil {
-		return err
+		return nil, err
 	}
+
+	// Track timing
+	startTime := time.Now()
 
 	// Get output directory
 	outputDir := filepath.Dir(opts.OutputFile)
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return fmt.Errorf("failed to create output directory: %w", err)
+		return nil, fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	// Create output file
-	outputFile, err := os.Create(opts.OutputFile)
+	// Create temporary file
+	tempFile := opts.OutputFile + ".tmp"
+	
+	// Track success for cleanup
+	var success bool
+	defer func() {
+		if !success && p.fs.Exists(tempFile) {
+			p.fs.Remove(tempFile)
+		}
+	}()
+
+	// Create temp output file
+	outputFile, err := p.fs.Create(tempFile)
 	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
+		return nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
 	defer outputFile.Close()
+	
+	// Setup checksum writer if needed
+	var writer io.Writer = outputFile
+	var checksumWriter *ChecksumWriter
+	if withResult {
+		checksumWriter = NewChecksumWriter(outputFile, sha256.New())
+		writer = checksumWriter
+	}
 
 	// Build tar command with verbose enabled for progress monitoring
 	tarCmd := p.buildTarCommand(opts)
@@ -97,7 +144,7 @@ func (p *Provider) Execute(ctx context.Context, opts backup.Options) error {
 	// Execute streaming tar command with binary safety
 	stdout, stderr, wait, err := p.executor.StreamBinary(ctx, tarCmd)
 	if err != nil {
-		return fmt.Errorf("failed to start backup command: %w", err)
+		return nil, fmt.Errorf("failed to start backup command: %w", err)
 	}
 	defer stdout.Close()
 	defer stderr.Close()
@@ -108,9 +155,11 @@ func (p *Provider) Execute(ctx context.Context, opts backup.Options) error {
 
 	// Stream stdout (binary tar data) directly to file
 	wg.Add(1)
+	var writtenBytes int64
 	go func() {
 		defer wg.Done()
-		written, err := io.Copy(outputFile, stdout)
+		written, err := io.Copy(writer, stdout)
+		writtenBytes = written
 		if err != nil {
 			copyErr = fmt.Errorf("failed to write backup data: %w", err)
 		} else {
@@ -135,13 +184,31 @@ func (p *Provider) Execute(ctx context.Context, opts backup.Options) error {
 
 	// Wait for command completion
 	if waitErr := wait(); waitErr != nil {
-		return fmt.Errorf("backup command failed: %w", waitErr)
+		return nil, fmt.Errorf("backup command failed: %w", waitErr)
 	}
 
 	// Check for copy errors
 	if copyErr != nil {
-		return copyErr
+		return nil, copyErr
 	}
+
+	// Sync file to ensure all data is written
+	if err := outputFile.Sync(); err != nil {
+		return nil, fmt.Errorf("failed to sync file: %w", err)
+	}
+
+	// Close file before rename
+	if err := outputFile.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	// Atomic rename
+	if err := p.fs.Rename(tempFile, opts.OutputFile); err != nil {
+		return nil, fmt.Errorf("failed to finalize backup: %w", err)
+	}
+
+	// Mark success to prevent cleanup
+	success = true
 
 	// Send completion progress
 	p.progressCh <- backup.Progress{
@@ -150,8 +217,25 @@ func (p *Provider) Execute(ctx context.Context, opts backup.Options) error {
 		Message: "Backup completed successfully",
 	}
 
-	return nil
+	// Build result if requested
+	if withResult {
+		endTime := time.Now()
+		checksum := ""
+		if checksumWriter != nil {
+			checksum = checksumWriter.Sum()
+		}
+		return &backup.Result{
+			BackupFile: opts.OutputFile,
+			Size:       writtenBytes,
+			Checksum:   checksum,
+			StartTime:  startTime,
+			EndTime:    endTime,
+		}, nil
+	}
+
+	return nil, nil
 }
+
 
 // buildTarCommand builds the kubectl exec tar command
 func (p *Provider) buildTarCommand(opts backup.Options) []string {

@@ -2,10 +2,7 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -189,8 +186,8 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 		logWriter.WriteLine("")
 	}
 
-	// Execute backup - provider handles file writing
-	err = provider.Execute(ctx, opts)
+	// Execute backup with result - provider handles file writing and checksum
+	result, err := provider.ExecuteWithResult(ctx, opts)
 
 	// Stop progress monitoring
 	close(progressDone)
@@ -208,14 +205,11 @@ func executeBackup(providerName string, cmd *cobra.Command, args []string) error
 	// Final report
 	elapsed := time.Since(startTime)
 
-	// Get file size if file exists
-	var size int64
-	if fileInfo, err := os.Stat(opts.OutputFile); err == nil {
-		size = fileInfo.Size()
-	}
+	// Use size from result
+	size := result.Size
 
-	// Save metadata
-	if err := saveBackupMetadata(providerName, opts, size, startTime, time.Now()); err != nil {
+	// Save metadata with checksum from result
+	if err := saveBackupMetadataWithChecksum(providerName, opts, size, startTime, time.Now(), result.Checksum); err != nil {
 		if debug {
 			log.Debug("Failed to save metadata", logger.F("error", err))
 		}
@@ -408,13 +402,8 @@ func humanizeBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-// saveBackupMetadata saves backup metadata to the metadata store
-func saveBackupMetadata(providerName string, opts backup.Options, size int64, startTime, endTime time.Time) error {
-	// Calculate checksum of the backup file
-	checksum, err := calculateFileChecksum(opts.OutputFile)
-	if err != nil {
-		return fmt.Errorf("failed to calculate checksum: %w", err)
-	}
+// saveBackupMetadataWithChecksum saves backup metadata to the metadata store with pre-calculated checksum
+func saveBackupMetadataWithChecksum(providerName string, opts backup.Options, size int64, startTime, endTime time.Time, checksum string) error {
 
 	// Create metadata
 	backupMetadata := &restore.Metadata{
@@ -449,21 +438,6 @@ func saveBackupMetadata(providerName string, opts backup.Options, size int64, st
 	return nil
 }
 
-// calculateFileChecksum calculates SHA256 checksum of a file
-func calculateFileChecksum(filepath string) (string, error) {
-	file, err := os.Open(filepath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(hash.Sum(nil)), nil
-}
 
 // getLogDirFromCmd returns the log directory from command flags or default
 func getLogDirFromCmd(cmd *cobra.Command) string {
