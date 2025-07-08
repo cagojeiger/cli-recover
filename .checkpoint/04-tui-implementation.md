@@ -1,25 +1,25 @@
-# Checkpoint: TUI Implementation Complete
+# Checkpoint: Phase 4 TUI 계획
 
 ## 날짜
-- 2025-01-07
+- 계획: 2025-01-08
 
 ## 상태
-- Phase 4 완료
-- TUI 구현 완료
-- 모든 테스트 통과
+- Phase 4 시작 전
+- Phase 1-3 완료
+- Phase 3.9 진행중
 
-## 주요 성과
+## 계획된 기능
 ### 1. 라이브러리 선택
-- Bubble Tea 대신 tview 선택
+- tview 사용 예정 (Bubble Tea 대신)
 - 즉시 사용 가능한 위젯
 - 단순한 구조로 복잡도 관리
 
 ### 2. CLI 래퍼 방식
 - TUI는 CLI 명령어를 실행하는 얇은 래퍼
 - 비즈니스 로직 중복 없음
-- 복잡도 40/100 달성
+- 목표 복잡도 40/100
 
-### 3. 구현된 기능
+### 3. 구현 예정 기능
 - 메인 메뉴 네비게이션
 - 백업 워크플로우 (namespace/pod/path 선택)
 - 복원 워크플로우 (백업 파일 선택)
@@ -27,7 +27,7 @@
 - 로그 뷰어 (상세 보기 지원)
 - 실시간 진행률 표시
 
-## 기술적 구현
+## 예정 구조
 ### 파일 구조
 ```
 cmd/cli-recover/
@@ -42,26 +42,13 @@ cmd/cli-recover/
     └── progress.go # 진행률 표시
 ```
 
-### 사용법
-```bash
-# TUI 모드 실행
-cli-recover tui
-
-# 메뉴 네비게이션
-- b: Backup
-- r: Restore
-- l: List Backups
-- v: View Logs
-- q: Exit
-```
-
-## 교훈
-- God Object 안티패턴 회피 성공
+## 설계 원칙
+- God Object 안티패턴 회피
 - 상태 관리 최소화로 단순함 유지
 - CLI 기능 재사용으로 신뢰성 확보
 - tview 위젯으로 빠른 개발
 
-## 다음 단계
-- 실제 터미널 환경 테스트
-- 사용자 피드백 수집
-- 필요시 Provider 확장
+## 선행 조건
+- Phase 3.9 아키텍처 단순화 완료
+- 2계층 구조로 정리
+- 핵심 기능만 유지
