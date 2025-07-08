@@ -109,7 +109,7 @@ func runLogsList(cmd *cobra.Command, args []string) error {
 
 	// Build filter
 	filter := log.ListFilter{}
-	
+
 	if typeFilter, _ := cmd.Flags().GetString("type"); typeFilter != "" {
 		filter.Type = log.Type(typeFilter)
 	}
@@ -280,12 +280,12 @@ func runLogsClean(cmd *cobra.Command, args []string) error {
 	if dryRun {
 		fmt.Printf("Would delete %d logs older than %d days:\n", len(oldLogs), days)
 		for _, l := range oldLogs {
-			fmt.Printf("  - %s (%s %s from %s)\n", 
+			fmt.Printf("  - %s (%s %s from %s)\n",
 				l.ID, l.Type, l.Provider, l.StartTime.Format("2006-01-02"))
 		}
 	} else {
 		fmt.Printf("Deleting %d logs older than %d days...\n", len(oldLogs), days)
-		
+
 		// Delete old logs
 		deleted := 0
 		for _, l := range oldLogs {
@@ -293,13 +293,13 @@ func runLogsClean(cmd *cobra.Command, args []string) error {
 			if l.FilePath != "" {
 				os.Remove(l.FilePath)
 			}
-			
+
 			// Remove metadata
 			if err := repo.Delete(l.ID); err == nil {
 				deleted++
 			}
 		}
-		
+
 		fmt.Printf("Deleted %d logs\n", deleted)
 	}
 

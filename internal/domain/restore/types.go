@@ -20,7 +20,7 @@ type Options struct {
 	TargetPath string                 // Target restore path
 	Container  string                 // Container name (optional)
 	Extra      map[string]interface{} // Provider-specific options
-	
+
 	// Restore-specific options
 	Overwrite     bool     // Overwrite existing files
 	PreservePerms bool     // Preserve file permissions
@@ -55,18 +55,18 @@ func (e *RestoreError) WithDetail(key string, value interface{}) *RestoreError {
 
 // Metadata represents backup metadata for restore operations
 type Metadata struct {
-	ID           string    `json:"id"`
-	Type         string    `json:"type"`
-	Namespace    string    `json:"namespace"`
-	PodName      string    `json:"pod_name"`
-	SourcePath   string    `json:"source_path"`
-	BackupFile   string    `json:"backup_file"`
-	Size         int64     `json:"size"`
-	Checksum     string    `json:"checksum"`
-	CreatedAt    time.Time `json:"created_at"`
-	CompletedAt  time.Time `json:"completed_at"`
-	Status       string    `json:"status"`
-	Compression  string    `json:"compression"`
+	ID           string                 `json:"id"`
+	Type         string                 `json:"type"`
+	Namespace    string                 `json:"namespace"`
+	PodName      string                 `json:"pod_name"`
+	SourcePath   string                 `json:"source_path"`
+	BackupFile   string                 `json:"backup_file"`
+	Size         int64                  `json:"size"`
+	Checksum     string                 `json:"checksum"`
+	CreatedAt    time.Time              `json:"created_at"`
+	CompletedAt  time.Time              `json:"completed_at"`
+	Status       string                 `json:"status"`
+	Compression  string                 `json:"compression"`
 	ProviderInfo map[string]interface{} `json:"provider_info"`
 }
 

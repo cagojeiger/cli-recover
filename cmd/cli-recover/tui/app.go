@@ -94,7 +94,7 @@ func (a *App) Log(message string) {
 func parseNamespaces(output string) []string {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	namespaces := make([]string, 0, len(lines))
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line != "" && !strings.HasPrefix(line, "NAME") {
@@ -104,14 +104,14 @@ func parseNamespaces(output string) []string {
 			}
 		}
 	}
-	
+
 	return namespaces
 }
 
 func parsePods(output string) []string {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	pods := make([]string, 0, len(lines))
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line != "" && !strings.HasPrefix(line, "NAME") {
@@ -121,6 +121,6 @@ func parsePods(output string) []string {
 			}
 		}
 	}
-	
+
 	return pods
 }

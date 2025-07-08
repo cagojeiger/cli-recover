@@ -2,6 +2,7 @@ package kubernetes_test
 
 import (
 	"context"
+	"io"
 	"strings"
 	"testing"
 
@@ -33,7 +34,7 @@ func (m *MockExecutor) Execute(ctx context.Context, command []string) (string, e
 func (m *MockExecutor) Stream(ctx context.Context, command []string) (<-chan string, <-chan error) {
 	outputCh := make(chan string, 1)
 	errorCh := make(chan error, 1)
-	
+
 	output, err := m.Execute(ctx, command)
 	if err != nil {
 		errorCh <- err
@@ -42,8 +43,21 @@ func (m *MockExecutor) Stream(ctx context.Context, command []string) (<-chan str
 	}
 	close(outputCh)
 	close(errorCh)
-	
+
 	return outputCh, errorCh
+}
+
+func (m *MockExecutor) StreamBinary(ctx context.Context, command []string) (io.ReadCloser, io.ReadCloser, func() error, error) {
+	output, err := m.Execute(ctx, command)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	stdout := io.NopCloser(strings.NewReader(output))
+	stderr := io.NopCloser(strings.NewReader(""))
+	wait := func() error { return nil }
+
+	return stdout, stderr, wait, nil
 }
 
 func TestKubectlClient_GetNamespaces(t *testing.T) {
@@ -93,11 +107,11 @@ func TestKubectlClient_GetPods(t *testing.T) {
 	pods, err := client.GetPods(ctx, "default")
 	assert.NoError(t, err)
 	assert.Len(t, pods, 2)
-	
+
 	assert.Equal(t, "app-1", pods[0].Name)
 	assert.Equal(t, "Running", pods[0].Status)
 	assert.True(t, pods[0].Ready)
-	
+
 	assert.Equal(t, "app-2", pods[1].Name)
 	assert.Equal(t, "Pending", pods[1].Status)
 	assert.False(t, pods[1].Ready)

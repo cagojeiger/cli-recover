@@ -205,7 +205,7 @@ func TestFileLogger_Rotation(t *testing.T) {
 
 	// Write logs until rotation happens
 	largeMessage := strings.Repeat("x", 1024) // 1KB message
-	for i := 0; i < 1100; i++ { // Write more than 1MB
+	for i := 0; i < 1100; i++ {               // Write more than 1MB
 		l.Info(largeMessage)
 	}
 

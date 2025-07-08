@@ -17,7 +17,7 @@ func TestPod(t *testing.T) {
 		Age:       time.Duration(24 * time.Hour),
 		Node:      "worker-node-1",
 	}
-	
+
 	assert.Equal(t, "test-pod", pod.Name)
 	assert.Equal(t, "default", pod.Namespace)
 	assert.Equal(t, "Running", pod.Status)
@@ -28,7 +28,7 @@ func TestPod(t *testing.T) {
 
 func TestPod_EmptyValues(t *testing.T) {
 	pod := kubernetes.Pod{}
-	
+
 	assert.Empty(t, pod.Name)
 	assert.Empty(t, pod.Namespace)
 	assert.Empty(t, pod.Status)
@@ -83,7 +83,7 @@ func TestPod_MultipleStates(t *testing.T) {
 			}{"Pending", false},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected.status, tt.pod.Status)
@@ -98,7 +98,7 @@ func TestContainer(t *testing.T) {
 		Image: "nginx:1.21",
 		Ready: true,
 	}
-	
+
 	assert.Equal(t, "web-server", container.Name)
 	assert.Equal(t, "nginx:1.21", container.Image)
 	assert.True(t, container.Ready)
@@ -106,7 +106,7 @@ func TestContainer(t *testing.T) {
 
 func TestContainer_EmptyValues(t *testing.T) {
 	container := kubernetes.Container{}
-	
+
 	assert.Empty(t, container.Name)
 	assert.Empty(t, container.Image)
 	assert.False(t, container.Ready)
@@ -125,12 +125,12 @@ func TestContainer_MultipleContainers(t *testing.T) {
 			Ready: false,
 		},
 	}
-	
+
 	assert.Len(t, containers, 2)
 	assert.Equal(t, "nginx", containers[0].Name)
 	assert.Equal(t, "nginx:latest", containers[0].Image)
 	assert.True(t, containers[0].Ready)
-	
+
 	assert.Equal(t, "sidecar", containers[1].Name)
 	assert.Equal(t, "busybox:1.35", containers[1].Image)
 	assert.False(t, containers[1].Ready)

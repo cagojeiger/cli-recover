@@ -95,7 +95,7 @@ func InitializeFromConfig(cfg Config) error {
 // InitializeFromEnv initializes the global logger from environment variables
 func InitializeFromEnv() error {
 	cfg := DefaultConfig()
-	
+
 	// Override from environment variables
 	if level := os.Getenv("CLI_RECOVER_LOG_LEVEL"); level != "" {
 		cfg.Level = level
@@ -112,6 +112,6 @@ func InitializeFromEnv() error {
 	if color := os.Getenv("CLI_RECOVER_LOG_COLOR"); color == "false" {
 		cfg.UseColor = false
 	}
-	
+
 	return InitializeFromConfig(cfg)
 }

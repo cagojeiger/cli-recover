@@ -14,7 +14,7 @@ func TestProgress(t *testing.T) {
 		Total:   2048,
 		Message: "Processing files...",
 	}
-	
+
 	assert.Equal(t, int64(1024), progress.Current)
 	assert.Equal(t, int64(2048), progress.Total)
 	assert.Equal(t, "Processing files...", progress.Message)
@@ -32,7 +32,7 @@ func TestOptions(t *testing.T) {
 		PreservePerms: false,
 		SkipPaths:     []string{"/tmp", "/cache"},
 	}
-	
+
 	assert.Equal(t, "default", options.Namespace)
 	assert.Equal(t, "test-pod", options.PodName)
 	assert.Equal(t, "/path/to/backup.tar.gz", options.BackupFile)
@@ -51,7 +51,7 @@ func TestRestoreError_Error(t *testing.T) {
 		Message: "Failed to restore backup",
 		Details: map[string]interface{}{"reason": "file not found"},
 	}
-	
+
 	assert.Equal(t, "Failed to restore backup", err.Error())
 	assert.Equal(t, "RESTORE_FAILED", err.Code)
 	assert.Equal(t, "file not found", err.Details["reason"])
@@ -59,7 +59,7 @@ func TestRestoreError_Error(t *testing.T) {
 
 func TestNewRestoreError(t *testing.T) {
 	err := restore.NewRestoreError("INVALID_BACKUP", "Backup file is corrupted")
-	
+
 	assert.Equal(t, "INVALID_BACKUP", err.Code)
 	assert.Equal(t, "Backup file is corrupted", err.Message)
 	assert.NotNil(t, err.Details)
@@ -68,12 +68,12 @@ func TestNewRestoreError(t *testing.T) {
 
 func TestRestoreError_WithDetail(t *testing.T) {
 	err := restore.NewRestoreError("PERMISSION_ERROR", "Permission denied")
-	
+
 	// Test method chaining
 	err = err.WithDetail("file", "/etc/hosts").
 		WithDetail("user", "root").
 		WithDetail("retryable", true)
-	
+
 	assert.Equal(t, "PERMISSION_ERROR", err.Code)
 	assert.Equal(t, "Permission denied", err.Message)
 	assert.Equal(t, "/etc/hosts", err.Details["file"])
@@ -86,7 +86,7 @@ func TestRestoreError_WithDetail_Fluent(t *testing.T) {
 		WithDetail("host", "backup-server").
 		WithDetail("timeout", 30).
 		WithDetail("attempts", 3)
-	
+
 	assert.Equal(t, "NETWORK_ERROR", err.Code)
 	assert.Equal(t, "Connection timeout", err.Message)
 	assert.Len(t, err.Details, 3)
@@ -98,7 +98,7 @@ func TestRestoreError_WithDetail_Fluent(t *testing.T) {
 func TestMetadata(t *testing.T) {
 	now := time.Now()
 	later := now.Add(time.Hour)
-	
+
 	metadata := restore.Metadata{
 		ID:          "backup-123",
 		Type:        "filesystem",
@@ -117,7 +117,7 @@ func TestMetadata(t *testing.T) {
 			"excludes":          []string{".cache", ".tmp"},
 		},
 	}
-	
+
 	assert.Equal(t, "backup-123", metadata.ID)
 	assert.Equal(t, "filesystem", metadata.Type)
 	assert.Equal(t, "production", metadata.Namespace)
@@ -136,7 +136,7 @@ func TestMetadata(t *testing.T) {
 func TestRestoreResult(t *testing.T) {
 	duration := time.Duration(5 * time.Minute)
 	warnings := []string{"File permission changed", "Symlink target not found"}
-	
+
 	result := restore.RestoreResult{
 		Success:      true,
 		RestoredPath: "/app/data",
@@ -145,7 +145,7 @@ func TestRestoreResult(t *testing.T) {
 		Duration:     duration,
 		Warnings:     warnings,
 	}
-	
+
 	assert.True(t, result.Success)
 	assert.Equal(t, "/app/data", result.RestoredPath)
 	assert.Equal(t, 150, result.FileCount)
@@ -165,7 +165,7 @@ func TestRestoreResult_Failed(t *testing.T) {
 		Duration:     time.Duration(30 * time.Second),
 		Warnings:     nil,
 	}
-	
+
 	assert.False(t, result.Success)
 	assert.Empty(t, result.RestoredPath)
 	assert.Equal(t, 0, result.FileCount)
@@ -176,7 +176,7 @@ func TestRestoreResult_Failed(t *testing.T) {
 
 func TestOptions_Empty(t *testing.T) {
 	options := restore.Options{}
-	
+
 	// Test zero values
 	assert.Empty(t, options.Namespace)
 	assert.Empty(t, options.PodName)
@@ -196,7 +196,7 @@ func TestProgress_Percentage(t *testing.T) {
 		Total:   100,
 		Message: "50% complete",
 	}
-	
+
 	// Manual percentage calculation for testing
 	percentage := float64(progress.Current) / float64(progress.Total) * 100
 	assert.Equal(t, 50.0, percentage)

@@ -51,7 +51,7 @@ func (r *FileRepository) Save(l *log.Log) error {
 
 	// Generate metadata file path
 	metadataPath := r.getMetadataPath(l.ID)
-	
+
 	// Create directory if needed
 	dir := filepath.Dir(metadataPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -213,7 +213,7 @@ func (r *FileRepository) GetLatest(filter log.ListFilter) (*log.Log, error) {
 // loadIndex loads all log metadata files into memory
 func (r *FileRepository) loadIndex() error {
 	metadataDir := filepath.Join(r.baseDir, "metadata")
-	
+
 	// Create metadata directory if it doesn't exist
 	if err := os.MkdirAll(metadataDir, 0755); err != nil {
 		return err
@@ -284,7 +284,7 @@ func (r *FileRepository) CleanupOldLogs(maxAge time.Duration) error {
 	for _, id := range toDelete {
 		// Get log to find associated log file
 		l := r.index[id]
-		
+
 		// Remove log file if it exists
 		if l.FilePath != "" {
 			os.Remove(l.FilePath)

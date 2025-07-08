@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cagojeiger/cli-recover/internal/application/config"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/config"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/logger"
 )
 
@@ -19,14 +19,14 @@ func expandPath(path string) string {
 	if path == "" {
 		return path
 	}
-	
+
 	if len(path) >= 2 && path[:2] == "~/" {
 		homeDir, err := os.UserHomeDir()
 		if err == nil {
 			path = filepath.Join(homeDir, path[2:])
 		}
 	}
-	
+
 	return path
 }
 
@@ -52,7 +52,7 @@ func createRootCommand() *cobra.Command {
 			cmd.Help()
 		},
 	}
-	
+
 	rootCmd.SetVersionTemplate("cli-recover version {{.Version}}\n")
 	return rootCmd
 }
@@ -62,14 +62,14 @@ func setupPersistentPreRun(rootCmd *cobra.Command) {
 		if cmd.Name() == "init" {
 			return
 		}
-		
+
 		appConfig := loadAppConfig()
 		loggerCfg := buildLoggerConfig(cmd, appConfig)
-		
+
 		if err := logger.InitializeFromConfig(loggerCfg); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
 		}
-		
+
 		cmd.SetContext(config.WithConfig(cmd.Context(), appConfig))
 	}
 }
@@ -88,7 +88,7 @@ func buildLoggerConfig(cmd *cobra.Command, appConfig *config.Config) logger.Conf
 	logFile, _ := cmd.Flags().GetString("log-file")
 	logFormat, _ := cmd.Flags().GetString("log-format")
 	debug, _ := cmd.Flags().GetBool("debug")
-	
+
 	loggerCfg := logger.Config{
 		Level:      appConfig.Logger.Level,
 		Output:     appConfig.Logger.Output,
@@ -98,7 +98,7 @@ func buildLoggerConfig(cmd *cobra.Command, appConfig *config.Config) logger.Conf
 		JSONFormat: appConfig.Logger.File.Format == "json",
 		UseColor:   appConfig.Logger.Console.Color,
 	}
-	
+
 	if logLevel != "" {
 		loggerCfg.Level = logLevel
 	}
@@ -112,7 +112,7 @@ func buildLoggerConfig(cmd *cobra.Command, appConfig *config.Config) logger.Conf
 	if debug && loggerCfg.Level == "info" {
 		loggerCfg.Level = "debug"
 	}
-	
+
 	return loggerCfg
 }
 

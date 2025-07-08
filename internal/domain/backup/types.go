@@ -26,7 +26,7 @@ func (p Progress) CalculateETA(speed float64) time.Duration {
 	if speed == 0 || p.Current >= p.Total {
 		return 0
 	}
-	
+
 	remaining := p.Total - p.Current
 	seconds := float64(remaining) / speed
 	return time.Duration(seconds * float64(time.Second))
@@ -45,11 +45,11 @@ func FormatETA(eta time.Duration) string {
 	if eta == 0 {
 		return "0s"
 	}
-	
+
 	hours := int(eta.Hours())
 	minutes := int(eta.Minutes()) % 60
 	seconds := int(eta.Seconds()) % 60
-	
+
 	if hours > 0 {
 		return fmt.Sprintf("%dh%dm%ds", hours, minutes, seconds)
 	} else if minutes > 0 {
@@ -66,7 +66,7 @@ type Options struct {
 	OutputFile string
 	Compress   bool
 	Exclude    []string
-	Container  string // Optional: specific container in pod
+	Container  string                 // Optional: specific container in pod
 	Extra      map[string]interface{} // Provider-specific options
 }
 

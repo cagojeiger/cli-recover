@@ -284,7 +284,7 @@ func (l *FileLogger) cleanupOldLogs() {
 
 		// Find and remove old log files
 		cutoff := time.Now().AddDate(0, 0, -maxAge)
-		
+
 		files, err := filepath.Glob(filepath.Join(dir, baseName+".*"))
 		if err != nil {
 			continue

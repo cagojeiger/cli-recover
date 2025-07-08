@@ -89,12 +89,12 @@ func (l *LogsView) loadLogs() {
 		fields := strings.Fields(line)
 		if len(fields) >= 6 {
 			l.logIDs = append(l.logIDs, fields[0])
-			
+
 			for col := 0; col < 6 && col < len(fields); col++ {
 				cell := tview.NewTableCell(fields[col]).
 					SetAlign(tview.AlignLeft).
 					SetExpansion(1)
-				
+
 				if col == 3 && fields[col] == "completed" {
 					cell.SetTextColor(tcell.ColorGreen)
 				} else if col == 3 && fields[col] == "failed" {
@@ -102,7 +102,7 @@ func (l *LogsView) loadLogs() {
 				} else if col == 3 && fields[col] == "running" {
 					cell.SetTextColor(tcell.ColorYellow)
 				}
-				
+
 				l.table.SetCell(row, col, cell)
 			}
 			row++

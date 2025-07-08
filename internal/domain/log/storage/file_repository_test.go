@@ -59,7 +59,7 @@ func TestFileRepository_Get(t *testing.T) {
 	assert.Equal(t, original.ID, retrieved.ID)
 	assert.Equal(t, original.Type, retrieved.Type)
 	assert.Equal(t, original.Provider, retrieved.Provider)
-	
+
 	// Check metadata
 	ns, ok := retrieved.GetMetadata("namespace")
 	assert.True(t, ok)
@@ -112,7 +112,7 @@ func TestFileRepository_List(t *testing.T) {
 
 	// Verify order (newest first)
 	if len(limitedLogs) >= 2 {
-		assert.True(t, limitedLogs[0].StartTime.After(limitedLogs[1].StartTime) || 
+		assert.True(t, limitedLogs[0].StartTime.After(limitedLogs[1].StartTime) ||
 			limitedLogs[0].StartTime.Equal(limitedLogs[1].StartTime))
 	}
 }
@@ -140,7 +140,7 @@ func TestFileRepository_Update(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, log.StatusCompleted, updated.Status)
 	assert.NotNil(t, updated.EndTime)
-	
+
 	val, ok := updated.GetMetadata("updated")
 	assert.True(t, ok)
 	assert.Equal(t, "true", val)

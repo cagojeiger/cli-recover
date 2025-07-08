@@ -8,22 +8,23 @@
 - **현재 버전**: v0.2.0 (dev)
 
 ## 현재 상태 (2025-01-08)
-- **단계**: Phase 3.9 코드 단순화 진행중
+- **단계**: Phase 3.9 코드 단순화 완료 ✅
 - **브랜치**: feature/simplification
-- **진행률**: Phase 1-3 완료, Phase 3.9 진행중
+- **진행률**: Phase 1-3 완료, Phase 3.9 완료
 - **완료 항목**:
   - Filesystem 백업/복원 provider ✅
   - 메타데이터 저장 시스템 ✅
   - List 명령 (백업 목록) ✅
-  - Provider registry 패턴 ✅
   - 로그 파일 시스템 ✅
-- **진행중**:
-  - Phase 3.9: 아키텍처 단순화 (Occam's Razor)
-  - 3계층 → 2계층 구조 변경
-  - 미사용 코드 제거
-  - 복잡도 75 → 30 목표
+  - Phase 3.9: 아키텍처 단순화 ✅
+    - 3계층 → 2계층 구조 변경 완료
+    - Application 레이어 제거
+    - Registry 패턴 → Factory 함수
+    - 미사용 코드 제거 (runner, minio/mongodb 스텁)
+    - 복잡도 75 → ~30 달성
 - **계획됨**:
   - Phase 4: TUI 구현 (tview)
+  - Phase 5: 성능 최적화 및 문서화
 
 ## 목표 및 제약사항
 

@@ -34,19 +34,19 @@ func TestGlobalLoggerFunctions(t *testing.T) {
 	Info("info message")
 	Warn("warn message")
 	Error("error message")
-	
+
 	// Test WithField
 	l := WithField("key", "value")
 	if l == nil {
 		t.Error("WithField returned nil")
 	}
-	
+
 	// Test WithFields
 	l2 := WithFields(logger.F("key1", "value1"))
 	if l2 == nil {
 		t.Error("WithFields returned nil")
 	}
-	
+
 	// Test level functions
 	SetLevel(logger.ErrorLevel)
 	if GetLevel() != logger.ErrorLevel {
@@ -76,12 +76,12 @@ func TestInitializeFromEnv(t *testing.T) {
 	origLevel := os.Getenv("CLI_RECOVER_LOG_LEVEL")
 	origOutput := os.Getenv("CLI_RECOVER_LOG_OUTPUT")
 	origColor := os.Getenv("CLI_RECOVER_LOG_COLOR")
-	
+
 	// Set test env vars
 	os.Setenv("CLI_RECOVER_LOG_LEVEL", "error")
 	os.Setenv("CLI_RECOVER_LOG_OUTPUT", "console")
 	os.Setenv("CLI_RECOVER_LOG_COLOR", "false")
-	
+
 	// Restore env vars after test
 	defer func() {
 		os.Setenv("CLI_RECOVER_LOG_LEVEL", origLevel)
