@@ -14,172 +14,155 @@ GOTEST := $(GOCMD) test
 GOGET := $(GOCMD) get
 GOMOD := $(GOCMD) mod
 
-# Build targets
-.PHONY: help all build build-all clean test test-coverage test-report test-quality test-fast deps run version
-
 # Default target - show help
+.PHONY: help
 help:
-	@echo "CLI-Recover Makefile Commands:"
+	@echo "CLI-Recover - Essential Commands"
+	@echo "================================"
 	@echo ""
-	@echo "  make build              - Build for current platform"
-	@echo "  make build-all          - Build for all platforms"
-	@echo "  make run                - Build and run version command"
-	@echo "  make test               - Run tests (excluding legacy code)"
-	@echo "  make test-coverage      - Run tests with coverage report"
-	@echo "  make test-report        - Detailed coverage report by package"
-	@echo "  make test-quality       - Check coverage meets quality standards"
-	@echo "  make test-fast          - Run fast unit tests only"
-	@echo "  make clean              - Clean build artifacts"
-	@echo "  make version            - Show current version"
-	@echo "  make deps               - Download dependencies"
+	@echo "Daily Development:"
+	@echo "  make fmt       - Format Go code"
+	@echo "  make test      - Run unit tests"
+	@echo "  make build     - Build binary for current platform"
 	@echo ""
-	@echo "Platform-specific builds:"
-	@echo "  make build-darwin-amd64  - Build for macOS Intel"
-	@echo "  make build-darwin-arm64  - Build for macOS Apple Silicon"
-	@echo "  make build-linux-amd64   - Build for Linux x86_64"
-	@echo "  make build-linux-arm64   - Build for Linux ARM64"
+	@echo "Quality Checks (before commit):"
+	@echo "  make check     - Run fmt, vet, and mod tidy"
+	@echo "  make coverage  - Test coverage report (target: 90%)"
+	@echo "  make lint      - Run golangci-lint"
+	@echo ""
+	@echo "Development:"
+	@echo "  make tdd       - Watch mode for TDD"
+	@echo "  make run       - Build and run version"
+	@echo ""
+	@echo "CI/CD:"
+	@echo "  make ci        - Full CI pipeline"
+	@echo "  make quality   - Quality gate checks"
+	@echo ""
+	@echo "Release:"
+	@echo "  make version   - Show current version"
+	@echo "  make build-all - Build for all platforms"
+	@echo "  make checksums - Generate checksums"
 
-all: clean deps build
+# Essential targets
+.PHONY: all fmt test build
 
-deps:
-	$(GOMOD) download
-	$(GOMOD) tidy
+all: check test build
 
-build:
-	$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) ./cmd/cli-recover
-
-build-all: build-darwin-amd64 build-darwin-arm64 build-linux-amd64 build-linux-arm64
-
-build-darwin-amd64:
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-darwin-amd64 ./cmd/cli-recover
-
-build-darwin-arm64:
-	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-darwin-arm64 ./cmd/cli-recover
-
-build-linux-amd64:
-	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux-amd64 ./cmd/cli-recover
-
-build-linux-arm64:
-	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux-arm64 ./cmd/cli-recover
+# Daily development commands
+fmt:
+	@echo "Formatting code..."
+	@$(GOCMD) fmt ./...
 
 test:
-	@echo "Running tests (excluding legacy code)..."
-	$(GOTEST) -v ./cmd/... ./internal/...
+	@echo "Running tests..."
+	@$(GOTEST) -v -short ./cmd/... ./internal/...
 
-# Test with coverage (excluding legacy code)
-test-coverage:
-	@echo "Running tests with coverage (excluding legacy code)..."
+build:
+	@echo "Building $(BINARY_NAME)..."
+	@$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) ./cmd/cli-recover
+
+# Quality checks
+.PHONY: check coverage lint
+
+check: fmt
+	@echo "Running code checks..."
+	@$(GOCMD) vet ./...
+	@$(GOMOD) tidy
+	@echo "✅ All checks passed"
+
+coverage:
+	@echo "Running tests with coverage..."
 	@$(GOTEST) -coverprofile=coverage.out ./cmd/... ./internal/...
 	@echo ""
 	@echo "========== Coverage Summary =========="
 	@$(GOCMD) tool cover -func=coverage.out | grep "total:" || echo "No coverage data"
 	@echo ""
-	@echo "🎯 Target: 90% | Current: $$($(GOCMD) tool cover -func=coverage.out | grep "total:" | awk '{print $$3}' || echo "0%")"
-	@echo ""
-	@echo "Generating HTML coverage report..."
-	@$(GOCMD) tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report saved to coverage.html"
-
-# Detailed coverage report by package
-test-report:
-	@echo "Generating detailed coverage report..."
-	@$(GOTEST) -coverprofile=coverage.out ./cmd/... ./internal/...
-	@echo ""
-	@echo "========== Package Coverage Details =========="
-	@echo "Architecture Layers:"
-	@$(GOCMD) tool cover -func=coverage.out | grep -E "github.com/cagojeiger/cli-recover/(cmd|internal/domain|internal/infrastructure|internal/application)" | sort
-	@echo ""
-	@echo "Summary by Layer:"
-	@echo "  CMD Layer:           $$($(GOCMD) tool cover -func=coverage.out | grep "cmd/" | awk '{sum+=$$3; count++} END {if(count>0) printf "%.1f%%", sum/count; else print "0%"}')"
-	@echo "  Domain Layer:        $$($(GOCMD) tool cover -func=coverage.out | grep "internal/domain" | awk '{sum+=$$3; count++} END {if(count>0) printf "%.1f%%", sum/count; else print "0%"}')"
-	@echo "  Infrastructure:      $$($(GOCMD) tool cover -func=coverage.out | grep "internal/infrastructure" | awk '{sum+=$$3; count++} END {if(count>0) printf "%.1f%%", sum/count; else print "0%"}')"
-	@echo "  Application:         $$($(GOCMD) tool cover -func=coverage.out | grep "internal/application" | awk '{sum+=$$3; count++} END {if(count>0) printf "%.1f%%", sum/count; else print "0%"}')"
-	@echo ""
-	@echo "Overall: $$($(GOCMD) tool cover -func=coverage.out | grep "total:" | awk '{print $$3}')"
-	@echo "=============================================="
-
-# Check if coverage meets quality standards
-test-quality:
-	@echo "Checking test quality standards..."
-	@$(GOTEST) -coverprofile=coverage.out ./cmd/... ./internal/...
 	@COVERAGE=$$($(GOCMD) tool cover -func=coverage.out | grep "total:" | awk '{print $$3}' | sed 's/%//'); \
-	echo "Current coverage: $$COVERAGE%"; \
-	if [ $$(echo "$$COVERAGE >= 70" | bc -l) -eq 1 ]; then \
-		echo "✅ Coverage meets minimum standard (70%)"; \
-		if [ $$(echo "$$COVERAGE >= 90" | bc -l) -eq 1 ]; then \
-			echo "🏆 Excellent coverage! Target achieved (90%+)"; \
-		else \
-			echo "🎯 Good coverage. Target: 90%, Current: $$COVERAGE%"; \
-		fi \
+	echo "🎯 Target: 90% | Current: $$COVERAGE%"; \
+	if [ $$(echo "$$COVERAGE >= 90" | bc -l) -eq 1 ]; then \
+		echo "✅ Coverage target achieved!"; \
 	else \
-		echo "❌ Coverage below minimum standard. Target: 70%, Current: $$COVERAGE%"; \
-		exit 1; \
+		echo "⚠️  Coverage below target (90%)"; \
 	fi
-
-# Fast unit tests only
-test-fast:
-	@echo "Running fast unit tests..."
-	$(GOTEST) -short ./cmd/... ./internal/...
-
-clean:
-	$(GOCLEAN)
-	rm -f $(BINARY_NAME)
-	rm -f $(BINARY_NAME)-*
-
-run: build
-	./$(BINARY_NAME) --version
-
-# Create checksums for releases
-checksums:
-	sha256sum $(BINARY_NAME)-* > checksums.txt
-
-# Display current version
-version:
-	@echo "Current version: $(VERSION)"
-
-# TDD Development workflow
-.PHONY: tdd test-unit test-integration lint dev-tools test-ci quality-gate coverage-check
-
-test-unit:
-	@echo "Running unit tests..."
-	$(GOTEST) -v -short ./cmd/... ./internal/...
-
-test-integration:
-	@echo "Running integration tests..."
-	$(GOTEST) -v -run Integration ./cmd/... ./internal/...
+	@echo ""
+	@echo "Generating HTML report: coverage.html"
+	@$(GOCMD) tool cover -html=coverage.out -o coverage.html
 
 lint:
 	@echo "Running linter..."
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run; \
 	else \
-		echo "golangci-lint not installed. Run 'make dev-tools' to install."; \
+		echo "⚠️  golangci-lint not installed."; \
+		echo "Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
 	fi
 
-dev-tools:
-	@echo "Installing development tools..."
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+# Development tools
+.PHONY: tdd run clean deps
 
-# TDD watch mode (requires entr)
 tdd:
 	@echo "Starting TDD watch mode..."
 	@if command -v entr >/dev/null 2>&1; then \
 		find ./cmd ./internal -name "*.go" | entr -c go test -v ./cmd/... ./internal/...; \
 	else \
-		echo "entr not installed. Install it with: brew install entr (macOS) or apt-get install entr (Linux)"; \
+		echo "⚠️  entr not installed."; \
+		echo "Install with: brew install entr (macOS) or apt-get install entr (Linux)"; \
 	fi
 
-# Additional quality gates for CI/CD
+run: build
+	@./$(BINARY_NAME) --version
 
-test-ci:
-	@echo "Running CI test suite..."
-	@$(GOTEST) -race -coverprofile=coverage.out ./cmd/... ./internal/...
-	@echo "CI tests completed successfully"
+clean:
+	@echo "Cleaning build artifacts..."
+	@$(GOCLEAN)
+	@rm -f $(BINARY_NAME) $(BINARY_NAME)-* coverage.out coverage.html
 
-quality-gate: test-quality lint
-	@echo "✅ All quality gates passed!"
+deps:
+	@echo "Downloading dependencies..."
+	@$(GOMOD) download
+	@$(GOMOD) tidy
 
-coverage-check:
-	@echo "Coverage trend analysis..."
-	@$(GOTEST) -coverprofile=coverage.out ./cmd/... ./internal/...
-	@echo "Current coverage: $$($(GOCMD) tool cover -func=coverage.out | grep "total:" | awk '{print $$3}')"
+# CI/CD
+.PHONY: ci quality
+
+ci: check test coverage lint
+	@echo ""
+	@echo "✅ CI pipeline completed successfully"
+
+quality:
+	@echo "Running quality gate checks..."
+	@$(MAKE) check
+	@$(MAKE) coverage
+	@COVERAGE=$$($(GOCMD) tool cover -func=coverage.out | grep "total:" | awk '{print $$3}' | sed 's/%//'); \
+	if [ $$(echo "$$COVERAGE >= 90" | bc -l) -eq 1 ]; then \
+		echo "✅ Quality gate: PASSED (coverage: $$COVERAGE%)"; \
+	else \
+		echo "❌ Quality gate: FAILED (coverage: $$COVERAGE%, required: 90%)"; \
+		exit 1; \
+	fi
+	@$(MAKE) lint
+
+# Release targets
+.PHONY: version build-all checksums
+
+version:
+	@echo "Version: $(VERSION)"
+	@echo "Commit:  $(GIT_COMMIT)"
+	@echo "Built:   $(BUILD_DATE)"
+
+build-all:
+	@echo "Building for all platforms..."
+	@echo "  → Darwin AMD64..."
+	@GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-darwin-amd64 ./cmd/cli-recover
+	@echo "  → Darwin ARM64..."
+	@GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-darwin-arm64 ./cmd/cli-recover
+	@echo "  → Linux AMD64..."
+	@GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux-amd64 ./cmd/cli-recover
+	@echo "  → Linux ARM64..."
+	@GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux-arm64 ./cmd/cli-recover
+	@echo "✅ All platforms built successfully"
+
+checksums:
+	@echo "Generating checksums..."
+	@sha256sum $(BINARY_NAME)-* > checksums.txt
+	@echo "✅ Checksums saved to checksums.txt"
