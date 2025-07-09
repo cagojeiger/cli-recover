@@ -73,7 +73,8 @@ writer := checksumWriter // io.MultiWriter 패턴
 
 ## 다음 단계
 - Phase 3.11: 진행률 보고 시스템 개선 (선택)
-- Phase 3.12: 도구 자동 다운로드 구현
+- Phase 3.12: CLI 사용성 개선 구현
+- Phase 3.13: 도구 자동 다운로드 구현
 
 ## 롤백 포인트
 ```bash

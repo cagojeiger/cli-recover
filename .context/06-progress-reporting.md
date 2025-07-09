@@ -117,7 +117,7 @@ io.Copy(dest, reader)
 - 임시 파일 사용 중 표시
 - 체크섬 계산 진행률
 
-### Phase 3.12 (도구 다운로드)
+### Phase 3.13 (도구 다운로드)
 - HTTP Content-Length 활용
 - 다운로드 속도 표시
 - 재시도 시 진행률 리셋

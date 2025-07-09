@@ -7,17 +7,19 @@
 - **주 사용자**: Kubernetes 클러스터 관리 DevOps 엔지니어
 - **현재 버전**: v0.2.0 (dev)
 
-## 현재 상태 (2025-07-09)
-- **단계**: Phase 3.11 진행률 보고 완료 ✅
+## 현재 상태 (2025-01-09)
+- **단계**: Phase 3.12 CLI 사용성 개선 (구현 준비) ⏳
 - **브랜치**: feature/tui-backup
 - **완료된 Phase**:
   - Phase 1-3: CLI 핵심 기능 ✅
   - Phase 3.9: 아키텍처 단순화 (2계층) ✅
   - Phase 3.10: 백업 무결성 ✅
   - Phase 3.11: 진행률 보고 시스템 ✅
+  - Phase 3.12 문서: CLI 디자인 가이드 완료 ✅
   - Phase 4: TUI 구현 (tview) ✅
 - **계획된 Phase**:
-  - Phase 3.12: 도구 자동 다운로드
+  - Phase 3.12: CLI 사용성 개선 (플래그 레지스트리, 충돌 해결)
+  - Phase 3.13: 도구 자동 다운로드
   - Phase 5: Provider 확장 (MinIO/MongoDB)
 
 ## 목표 및 제약사항
