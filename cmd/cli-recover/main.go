@@ -53,6 +53,9 @@ func createRootCommand() *cobra.Command {
 		},
 	}
 
+	// Disable the auto-generated completion command
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+
 	rootCmd.SetVersionTemplate("cli-recover version {{.Version}}\n")
 	return rootCmd
 }
