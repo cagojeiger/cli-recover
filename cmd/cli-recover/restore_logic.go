@@ -16,6 +16,7 @@ import (
 	"github.com/cagojeiger/cli-recover/internal/infrastructure"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/kubernetes"
 	infLogger "github.com/cagojeiger/cli-recover/internal/infrastructure/logger"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/progress"
 )
 
 // executeRestore contains the integrated restore logic from the adapter
@@ -171,60 +172,49 @@ func buildRestoreOptions(providerName string, cmd *cobra.Command, args []string)
 // monitorRestoreProgress monitors and displays restore progress
 func monitorRestoreProgress(provider restore.Provider, estimatedSize int64, done <-chan bool, verbose bool) {
 	progressCh := provider.StreamProgress()
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
 
-	var lastProgress restore.Progress
-	startTime := time.Now()
+	// Create the appropriate progress reporter
+	reporter := progress.NewAutoReporter(os.Stderr)
+
+	// Start the operation
+	reporter.Start("Restore", estimatedSize)
+
+	// Track last update time for throttling
+	lastUpdate := time.Time{}
+	updateInterval := 100 * time.Millisecond // Throttle updates
 
 	for {
 		select {
 		case <-done:
-			return
-		case progress, ok := <-progressCh:
-			if ok {
-				lastProgress = progress
-				if verbose {
-					// In verbose mode, show each file
-					fmt.Fprintf(os.Stderr, "[PROGRESS] %s\n", progress.Message)
-				}
+			// Operation completed
+			reporter.Complete()
+			// Clear any remaining progress output for terminal
+			if _, ok := reporter.(*progress.TerminalReporter); ok {
+				fmt.Fprint(os.Stderr, "") // Terminal reporter already adds newline
 			}
-		case <-ticker.C:
-			// Update progress bar
-			if !verbose && lastProgress.Total > 0 {
-				elapsed := time.Since(startTime)
-				throughput := float64(lastProgress.Current) / elapsed.Seconds()
+			return
 
-				progressMsg := fmt.Sprintf("[PROGRESS] %s/%s (%s/s)",
-					humanizeBytes(lastProgress.Current),
-					humanizeBytes(lastProgress.Total),
-					humanizeBytes(int64(throughput)))
+		case progress, ok := <-progressCh:
+			if !ok {
+				continue
+			}
 
-				// Add percentage and ETA
-				if estimatedSize > 0 || lastProgress.Total > 0 {
-					total := estimatedSize
-					if lastProgress.Total > 0 {
-						total = lastProgress.Total
-					}
+			// In verbose mode, still show individual file messages
+			if verbose && progress.Message != "" {
+				fmt.Fprintf(os.Stderr, "[VERBOSE] %s\n", progress.Message)
+			}
 
-					percentage := float64(lastProgress.Current) / float64(total) * 100
-					if percentage > 100 {
-						percentage = 100
-					}
-
-					// Calculate ETA
-					if throughput > 0 {
-						remaining := total - lastProgress.Current
-						etaSeconds := float64(remaining) / throughput
-						eta := time.Duration(etaSeconds) * time.Second
-
-						progressMsg += fmt.Sprintf(" - %.1f%% complete, ETA: %s",
-							percentage, eta.Round(time.Second))
-					}
+			// Update progress reporter (it handles throttling internally)
+			now := time.Now()
+			if now.Sub(lastUpdate) >= updateInterval || progress.Current == progress.Total {
+				// Use estimated size if progress doesn't include total
+				total := progress.Total
+				if total == 0 && estimatedSize > 0 {
+					total = estimatedSize
 				}
 
-				// Clear line and show progress
-				fmt.Fprintf(os.Stderr, "\r%s", progressMsg)
+				reporter.Update(progress.Current, total)
+				lastUpdate = now
 			}
 		}
 	}

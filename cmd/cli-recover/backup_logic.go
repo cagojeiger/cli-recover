@@ -252,7 +252,11 @@ func buildBackupOptions(providerName string, cmd *cobra.Command, args []string) 
 	switch providerName {
 	case "filesystem":
 		if len(args) < 2 {
-			return opts, fmt.Errorf("filesystem backup requires [pod] [path] arguments")
+			return opts, &CLIError{
+				Message: "Missing required arguments",
+				Reason:  "Filesystem backup requires both pod name and path",
+				Fix:     "Usage: cli-recover backup filesystem [pod] [path]",
+			}
 		}
 		opts.PodName = args[0]
 		opts.SourcePath = args[1]
@@ -260,7 +264,7 @@ func buildBackupOptions(providerName string, cmd *cobra.Command, args []string) 
 		// Compression - only support none (.tar) and gzip (.tar.gz)
 		compression, _ := cmd.Flags().GetString("compression")
 		if compression != "none" && compression != "gzip" {
-			return opts, fmt.Errorf("unsupported compression type '%s', only 'none' (.tar) and 'gzip' (.tar.gz) are supported", compression)
+			return opts, NewInvalidFlagError("--compression", compression, "'none' or 'gzip'")
 		}
 		opts.Compress = compression == "gzip"
 		opts.Extra["compression"] = compression
