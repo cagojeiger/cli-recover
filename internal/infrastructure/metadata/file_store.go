@@ -13,27 +13,6 @@ import (
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
 )
 
-// Store defines the interface for metadata storage
-type Store interface {
-	// Save saves backup metadata
-	Save(metadata *restore.Metadata) error
-
-	// Get retrieves metadata by ID
-	Get(id string) (*restore.Metadata, error)
-
-	// GetByFile retrieves metadata by backup file path
-	GetByFile(backupFile string) (*restore.Metadata, error)
-
-	// List returns all metadata entries
-	List() ([]*restore.Metadata, error)
-
-	// ListByNamespace returns metadata for a specific namespace
-	ListByNamespace(namespace string) ([]*restore.Metadata, error)
-
-	// Delete removes metadata by ID
-	Delete(id string) error
-}
-
 // FileStore implements Store using local filesystem
 type FileStore struct {
 	baseDir string
@@ -209,18 +188,4 @@ func (s *FileStore) loadMetadata(filename string) (*restore.Metadata, error) {
 // generateID generates a unique ID for metadata
 func generateID() string {
 	return fmt.Sprintf("backup-%d", time.Now().UnixNano())
-}
-
-// DefaultStore is the default metadata store instance
-var DefaultStore Store
-
-func init() {
-	// Initialize default store
-	store, err := NewFileStore("")
-	if err != nil {
-		// Fallback to temporary directory
-		tmpDir := filepath.Join(os.TempDir(), "cli-recover-metadata")
-		store, _ = NewFileStore(tmpDir)
-	}
-	DefaultStore = store
 }

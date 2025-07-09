@@ -12,7 +12,7 @@ import (
 
 	"github.com/cagojeiger/cli-recover/internal/domain/backup"
 	domainLog "github.com/cagojeiger/cli-recover/internal/domain/log"
-	"github.com/cagojeiger/cli-recover/internal/domain/log/storage"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/log/storage"
 	"github.com/cagojeiger/cli-recover/internal/domain/logger"
 	"github.com/cagojeiger/cli-recover/internal/domain/metadata"
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"

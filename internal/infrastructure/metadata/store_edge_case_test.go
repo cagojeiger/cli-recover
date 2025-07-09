@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/metadata"
+	infMetadata "github.com/cagojeiger/cli-recover/internal/infrastructure/metadata"
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ import (
 
 func TestFileStore_ConcurrentAccess(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	const numGoroutines = 10
@@ -60,7 +61,7 @@ func TestNewFileStore_HomeDirectoryError(t *testing.T) {
 	// This test is hard to simulate without mocking os.UserHomeDir()
 	// but we can test it conceptually by passing empty string
 	// The function should handle the case gracefully
-	store, err := metadata.NewFileStore("")
+	store, err := infMetadata.NewFileStore("")
 
 	// Should succeed in normal circumstances
 	assert.NoError(t, err)
@@ -74,7 +75,7 @@ func TestNewFileStore_DirectoryPermissionError(t *testing.T) {
 	}
 
 	invalidPath := "/root/cannot-create-this-directory"
-	_, err := metadata.NewFileStore(invalidPath)
+	_, err := infMetadata.NewFileStore(invalidPath)
 
 	// Should return an error on permission denied
 	assert.Error(t, err)
@@ -83,7 +84,7 @@ func TestNewFileStore_DirectoryPermissionError(t *testing.T) {
 
 func TestFileStore_Save_MarshalError(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Create metadata with invalid field that can't be marshaled
@@ -102,7 +103,7 @@ func TestFileStore_Save_MarshalError(t *testing.T) {
 
 func TestFileStore_Save_WriteError(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Remove write permissions from directory
@@ -122,7 +123,7 @@ func TestFileStore_Save_WriteError(t *testing.T) {
 
 func TestFileStore_loadMetadata_InvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Create invalid JSON file
@@ -139,7 +140,7 @@ func TestFileStore_loadMetadata_InvalidJSON(t *testing.T) {
 
 func TestFileStore_List_DirectoryReadError(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Remove directory to cause read error
@@ -175,7 +176,7 @@ func TestDefaultStore_Initialization(t *testing.T) {
 
 func TestFileStore_FullWorkflow(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// 1. Save metadata

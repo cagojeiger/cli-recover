@@ -41,9 +41,9 @@ func TestRestoreProviderCmd_Filesystem_Flags(t *testing.T) {
 	assert.NotNil(t, targetPathFlag)
 	assert.Equal(t, "/", targetPathFlag.DefValue)
 
-	overwriteFlag := flags.Lookup("overwrite")
-	assert.NotNil(t, overwriteFlag)
-	assert.Equal(t, "false", overwriteFlag.DefValue)
+	forceFlag := flags.Lookup("force")
+	assert.NotNil(t, forceFlag)
+	assert.Equal(t, "false", forceFlag.DefValue)
 
 	preservePermsFlag := flags.Lookup("preserve-perms")
 	assert.NotNil(t, preservePermsFlag)

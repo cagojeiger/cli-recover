@@ -8,21 +8,26 @@
 - **이유**: Application 레이어가 단순 전달만 수행
 - **효과**: 복잡도 75 → 30 목표
 
-### 최종 디렉토리 구조 (Phase 3.9 완료)
+### 최종 디렉토리 구조 (2025-01-09 업데이트)
 ```
 internal/
-├── domain/              # 비즈니스 로직 & 인터페이스
-│   ├── backup/         # 백업 도메인
-│   ├── restore/        # 복원 도메인
-│   ├── operation/      # 통합 어댑터
-│   ├── metadata/       # 메타데이터
+├── domain/              # 비즈니스 로직 & 인터페이스 (순수 도메인)
+│   ├── backup/         # 백업 인터페이스
+│   ├── restore/        # 복원 인터페이스
+│   ├── operation/      # 통합 어댑터 (미사용 - 제거 예정)
+│   ├── metadata/       # 메타데이터 인터페이스만
 │   ├── logger/         # 로거 인터페이스
-│   └── log/            # 작업 이력
+│   ├── log/            # 작업 이력 도메인
+│   └── progress/       # 진행률 타입
 └── infrastructure/      # 외부 시스템 연동 & 구현체
-    ├── config/         # 설정 관리 (application에서 이동)
-    ├── filesystem/     # 파일시스템 provider (평탄화됨)
+    ├── config/         # 설정 관리
+    ├── filesystem/     # 파일시스템 provider 구현
     ├── kubernetes/     # K8s 클라이언트
     ├── logger/         # 로거 구현체
+    ├── progress/       # 진행률 구현체
+    ├── metadata/       # 메타데이터 파일 저장소
+    ├── log/           
+    │   └── storage/   # 로그 파일 저장소
     ├── provider_factory.go      # Provider 팩토리
     └── provider_factory_test.go # 팩토리 테스트
 
@@ -53,14 +58,21 @@ Domain Layer (What & Why)
 ├── 비즈니스 규칙
 ├── 도메인 모델
 ├── 인터페이스 정의
-└── 유스케이스
+├── 순수 타입 정의
+└── 외부 의존성 없음
 
 Infrastructure Layer (How)
+├── Domain 인터페이스 구현
 ├── 외부 시스템 통합
-├── 구현체 제공
+├── 파일/네트워크 I/O
 ├── 설정 관리
-└── 파일/네트워크 I/O
+└── 실제 저장소 구현
 ```
+
+### 의존성 방향 (헥사고날 아키텍처)
+- CMD → Infrastructure → Domain
+- Domain은 순수함 (no imports)
+- Infrastructure가 Domain에 의존
 
 ## 핵심 인터페이스
 

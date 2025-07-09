@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/log"
-	"github.com/cagojeiger/cli-recover/internal/domain/log/storage"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/log/storage"
 )
 
 // newLogsCommand creates the logs command

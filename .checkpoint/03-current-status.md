@@ -5,9 +5,10 @@
 
 ## 코드베이스 현황
 
-### 아키텍처
-- **구조**: 2계층 (Domain ↔ Infrastructure)
-- **복잡도**: ~30/100
+### 아키텍처 (2025-01-09 정리)
+- **구조**: 2계층 헥사고날 아키텍처
+- **의존성**: CMD → Infrastructure → Domain
+- **복잡도**: ~25/100 (더 단순해짐)
 - **패턴**: Factory, 원자적 파일 쓰기, 스트리밍
 
 ### 테스트 커버리지 (50.7% / 목표: 90%)
@@ -25,7 +26,7 @@
 - internal/infrastructure/logger: 77.4%
 - internal/infrastructure/config: 74.4%
 - internal/infrastructure/filesystem: 73.3%
-- internal/domain/log/storage: 72.5%
+- internal/infrastructure/log/storage: 72.5%
 
 ❌ 낮은 커버리지:
 - internal/infrastructure/kubernetes: 61.4%
@@ -50,6 +51,11 @@
 4. **플래그 충돌 해결** (Phase 3.12 부분)
    - backup: `-t` → `-T`
    - restore: `-o` → `-f`, `-c` → `-C`
+
+5. **아키텍처 정리** (2025-01-09)
+   - domain/log/storage → infrastructure/log/storage
+   - domain/metadata 분리: 인터페이스만 남김
+   - FileStore 구현 → infrastructure/metadata
 
 ## 현재 명령어 상태
 
@@ -103,15 +109,17 @@ cli-recover restore filesystem [pod] [backup-file]
 
 ### CLAUDE.md 규칙 준수 상태
 - ✅ RULE_00: 컨텍스트 엔지니어링 (정리 완료)
-- ✅ RULE_01: Occam's Razor (복잡도 30)
+- ✅ RULE_01: Occam's Razor (복잡도 25)
 - ✅ RULE_02: 계획 우선 (TDD 부분 적용)
 - ❌ RULE_04: 테스트 커버리지 90% (현재 50.7%)
+- ✅ RULE_07: 아키텍처 분석 (tree로 헥사고날 검증)
 
 ### 코드 품질
 - 빌드: ✅ 성공
 - 테스트: ✅ 모두 통과
-- 복잡도: ✅ 30/100 (목표 <70)
+- 복잡도: ✅ 25/100 (목표 <70)
 - 파일 크기: ✅ 모두 500줄 미만
+- 아키텍처: ✅ 헥사고날 원칙 준수
 
 ## 다음 우선순위
 

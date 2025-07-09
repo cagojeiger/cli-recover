@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/log"
-	"github.com/cagojeiger/cli-recover/internal/domain/log/storage"
+	"github.com/cagojeiger/cli-recover/internal/infrastructure/log/storage"
 )
 
 func TestFileRepository_Save(t *testing.T) {

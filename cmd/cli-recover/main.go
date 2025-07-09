@@ -9,6 +9,7 @@ import (
 
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/config"
 	"github.com/cagojeiger/cli-recover/internal/infrastructure/logger"
+	_ "github.com/cagojeiger/cli-recover/internal/infrastructure/metadata" // init DefaultStore
 )
 
 // version will be set by ldflags during build

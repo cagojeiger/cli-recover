@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/metadata"
+	infMetadata "github.com/cagojeiger/cli-recover/internal/infrastructure/metadata"
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,11 +16,11 @@ import (
 // Test that FileStore implements Store interface
 func TestFileStore_Interface(t *testing.T) {
 	// Compile-time check
-	var _ metadata.Store = (*metadata.FileStore)(nil)
+	var _ metadata.Store = (*infMetadata.FileStore)(nil)
 }
 
 func TestNewFileStore_DefaultPath(t *testing.T) {
-	store, err := metadata.NewFileStore("")
+	store, err := infMetadata.NewFileStore("")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
@@ -35,7 +36,7 @@ func TestNewFileStore_CustomPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	customPath := filepath.Join(tmpDir, "custom-metadata")
 
-	store, err := metadata.NewFileStore(customPath)
+	store, err := infMetadata.NewFileStore(customPath)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
@@ -49,7 +50,7 @@ func TestNewFileStore_DirectoryCreation(t *testing.T) {
 	tmpDir := t.TempDir()
 	nestedPath := filepath.Join(tmpDir, "nested", "deep", "metadata")
 
-	store, err := metadata.NewFileStore(nestedPath)
+	store, err := infMetadata.NewFileStore(nestedPath)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
@@ -62,7 +63,7 @@ func TestNewFileStore_DirectoryCreation(t *testing.T) {
 
 func TestFileStore_Save_Success(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	testMetadata := &restore.Metadata{
@@ -95,7 +96,7 @@ func TestFileStore_Save_Success(t *testing.T) {
 
 func TestFileStore_Save_IDGeneration(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Save two different metadata entries
@@ -118,7 +119,7 @@ func TestFileStore_Save_IDGeneration(t *testing.T) {
 
 func TestFileStore_Save_PreserveExistingID(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	existingID := "custom-backup-123"
@@ -137,7 +138,7 @@ func TestFileStore_Save_PreserveExistingID(t *testing.T) {
 
 func TestFileStore_Get_Success(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Save test metadata
@@ -171,7 +172,7 @@ func TestFileStore_Get_Success(t *testing.T) {
 
 func TestFileStore_Get_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	_, err = store.Get("non-existent-id")
@@ -182,7 +183,7 @@ func TestFileStore_Get_NotFound(t *testing.T) {
 
 func TestFileStore_GetByFile_Success(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	backupFile := "/tmp/specific-backup.tar.gz"
@@ -206,7 +207,7 @@ func TestFileStore_GetByFile_Success(t *testing.T) {
 
 func TestFileStore_GetByFile_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	_, err = store.GetByFile("/tmp/non-existent-backup.tar.gz")
@@ -217,7 +218,7 @@ func TestFileStore_GetByFile_NotFound(t *testing.T) {
 
 func TestFileStore_List_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	entries, err := store.List()
@@ -228,7 +229,7 @@ func TestFileStore_List_Empty(t *testing.T) {
 
 func TestFileStore_List_Multiple(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Save multiple metadata entries
@@ -261,7 +262,7 @@ func TestFileStore_List_Multiple(t *testing.T) {
 
 func TestFileStore_List_SkipInvalidFiles(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Create a valid metadata file
@@ -289,7 +290,7 @@ func TestFileStore_List_SkipInvalidFiles(t *testing.T) {
 
 func TestFileStore_ListByNamespace_Success(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Save metadata in different namespaces
@@ -317,7 +318,7 @@ func TestFileStore_ListByNamespace_Success(t *testing.T) {
 
 func TestFileStore_ListByNamespace_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Save metadata in different namespace
@@ -334,7 +335,7 @@ func TestFileStore_ListByNamespace_Empty(t *testing.T) {
 
 func TestFileStore_Delete_Success(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Save test metadata
@@ -358,7 +359,7 @@ func TestFileStore_Delete_Success(t *testing.T) {
 
 func TestFileStore_Delete_NonExistent(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := metadata.NewFileStore(tmpDir)
+	store, err := infMetadata.NewFileStore(tmpDir)
 	require.NoError(t, err)
 
 	// Delete non-existent file should not return error
