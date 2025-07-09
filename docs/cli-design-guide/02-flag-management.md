@@ -284,7 +284,7 @@ func GenerateFlagDocs() string {
 
 ## 향후 개선 사항
 
-### Phase 3.11 구현 계획
+### Phase 3.12 구현 계획
 1. 플래그 충돌 해결
 2. 레지스트리 시스템 구현
 3. 하이브리드 args/flags 지원

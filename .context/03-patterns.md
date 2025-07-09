@@ -247,19 +247,19 @@ func NewBackupService(
 }
 ```
 
-## 2025-01-07 현재 적용 패턴
+## 2025-01-09 현재 적용 패턴
 
-### Provider Registry 패턴
+### Factory 패턴 (Registry 단순화)
 ```go
-// 실제 구현
-type Registry struct {
-    factories map[string]ProviderFactory
-    mu        sync.RWMutex
+// 단순한 Factory 함수로 변경
+func CreateBackupProvider(name string) (backup.Provider, error) {
+    switch name {
+    case "filesystem":
+        return filesystem.NewProvider(executor.New()), nil
+    default:
+        return nil, fmt.Errorf("unknown provider: %s", name)
+    }
 }
-
-// 글로벌 레지스트리 사용
-backup.GlobalRegistry.RegisterFactory("filesystem", factory)
-restore.GlobalRegistry.RegisterFactory("filesystem", factory)
 ```
 
 ### Adapter 패턴 (CLI 통합)
@@ -371,5 +371,102 @@ func TestSanitizeTargetPath(t *testing.T) {
         {"with spaces", "/my data", "/my data"},
         // 실제 동작 기반 테스트
     }
+}
+```
+
+## CLI 디자인 패턴 (2025-01-09)
+
+### 플래그 레지스트리 패턴
+```go
+// 중앙 집중식 플래그 관리
+var Registry = struct {
+    Namespace   string
+    Output      string
+    Force       string
+    Compression string
+    // ...
+}{
+    Namespace:   "n",
+    Output:      "o",
+    Force:       "f",
+    Compression: "c",
+}
+
+// 컴파일 타임 검증
+func init() {
+    if err := validateNoDuplicates(); err != nil {
+        panic(fmt.Sprintf("Flag conflict: %v", err))
+    }
+}
+```
+
+### 하이브리드 인자 처리 패턴
+```go
+// Positional args + flags 처리
+func buildOptions(cmd *cobra.Command, args []string) (Options, error) {
+    opts := Options{}
+    
+    // 1. Positional args 먼저
+    if len(args) >= 1 {
+        opts.Pod = args[0]
+    }
+    if len(args) >= 2 {
+        opts.Path = args[1]
+    }
+    
+    // 2. Flags로 오버라이드
+    if pod, _ := cmd.Flags().GetString("pod"); pod != "" {
+        opts.Pod = pod
+    }
+    
+    return opts, nil
+}
+```
+
+### 구조화된 에러 처리 패턴
+```go
+// 사용자 친화적 에러
+type CLIError struct {
+    What   string
+    Why    string
+    How    string
+    SeeDoc string
+}
+
+func handleError(err error) {
+    var cliErr *CLIError
+    if errors.As(err, &cliErr) {
+        fmt.Fprintf(os.Stderr, "❌ Error: %s\n", cliErr.What)
+        fmt.Fprintf(os.Stderr, "   Reason: %s\n", cliErr.Why)
+        fmt.Fprintf(os.Stderr, "   Fix: %s\n", cliErr.How)
+        if cliErr.SeeDoc != "" {
+            fmt.Fprintf(os.Stderr, "   See: %s\n", cliErr.SeeDoc)
+        }
+    }
+}
+```
+
+### 진행률 통합 패턴
+```go
+// 백업 파일 쓰기와 진행률 통합
+type backupProgressWriter struct {
+    writer   io.Writer
+    current  int64
+    total    int64
+    reporter backup.ProgressReporter
+}
+
+func (w *backupProgressWriter) Write(p []byte) (n int, err error) {
+    n, err = w.writer.Write(p)
+    w.current += int64(n)
+    
+    // 진행률 보고
+    w.reporter.Report(backup.Progress{
+        BytesProcessed: w.current,
+        TotalBytes:     w.total,
+        CurrentFile:    w.currentFile,
+    })
+    
+    return n, err
 }
 ```

@@ -181,7 +181,61 @@ cmd/cli-recover/tui/
 - ✅ 테스트 커버리지 유지
 - ⏳ Phase 4: TUI 구현 예정
 
+## CLI 사용성 개선 (Phase 3.12 계획)
+
+### 플래그 관리 중앙화
+```go
+// flags/registry.go
+var Registry = struct {
+    Namespace   string
+    Output      string  
+    Force       string
+    Container   string
+    // ...
+}{
+    Namespace: "n",
+    Output:    "o",
+    Force:     "f",
+    Container: "C",
+}
+```
+
+### 충돌 해결 전략
+- **backup**: `-t` → `-T` (--totals)
+- **restore**: `-o` → `-f` (--force), `-c` → `-C` (--container)
+- **원칙**: POSIX/GNU 표준 준수
+
+### 에러 처리 개선
+```
+❌ Error: Backup file not found
+   Reason: The file 'backup.tar' does not exist
+   Fix: Check the filename or use 'cli-recover list backups'
+   See: https://docs.cli-recover.io/errors/file-not-found
+```
+
 ## 향후 계획
+### Phase 3.11: 진행률 보고 시스템 (완료) ✅
+1. 3초 규칙 적용
+2. 다중 환경 지원
+3. 크기 추정 통합
+4. 테스트 수정
+
+### Phase 3.12: CLI 사용성 개선 (진행 예정)
+1. 플래그 충돌 해결
+2. 하이브리드 인자 처리
+3. 에러 메시지 개선
+4. 진행률 표시 통합
+
+### Phase 3.13: 도구 자동 다운로드 (계획)
+1. kubectl 자동 설치
+2. 플랫폼별 바이너리 선택
+3. 캐싱 메커니즘
+
+### Phase 4: TUI 구현
+1. CLI 명령 래핑
+2. 실시간 진행률
+3. 메뉴 네비게이션
+
 ### 실사용 피드백 후
 1. 필요시 MinIO provider 추가
 2. 필요시 MongoDB provider 추가

@@ -80,3 +80,54 @@ func (b *BackupFlow) executeBackup() {
 - TUI는 CLI 명령 실행
 - 비즈니스 로직 중복 제거
 - 일관된 동작 보장
+
+## CLI 패턴
+
+### 플래그 레지스트리
+```go
+var Registry = struct {
+    Namespace   string
+    Output      string
+    Force       string
+    // ...
+}{
+    Namespace: "n",
+    Output:    "o", 
+    Force:     "f",
+}
+```
+- 중앙 집중식 관리
+- 컴파일 타임 충돌 검증
+- 타입 안전성
+
+### 하이브리드 인자 처리
+```go
+func buildOptions(cmd *cobra.Command, args []string) Options {
+    opts := Options{}
+    // Positional args
+    if len(args) >= 1 {
+        opts.Pod = args[0]
+    }
+    // Flag overrides
+    if pod, _ := cmd.Flags().GetString("pod"); pod != "" {
+        opts.Pod = pod
+    }
+    return opts
+}
+```
+- Positional args 우선 파싱
+- Flag로 오버라이드 가능
+- kubectl 스타일 유연성
+
+### 구조화된 에러 처리
+```go
+type CLIError struct {
+    What   string // 무엇이 잘못됐나
+    Why    string // 왜 발생했나
+    How    string // 어떻게 해결하나
+    SeeDoc string // 추가 문서
+}
+```
+- 사용자 친화적 메시지
+- 해결책 제시
+- 셀프 서비스 유도
