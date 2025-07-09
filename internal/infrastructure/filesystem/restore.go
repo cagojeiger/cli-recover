@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -57,6 +56,11 @@ func (p *RestoreProvider) ValidateOptions(opts restore.Options) error {
 		return fmt.Errorf("target path is required")
 	}
 
+	// Validate target path for security
+	if err := validatePath(opts.TargetPath); err != nil {
+		return fmt.Errorf("invalid target path: %w", err)
+	}
+
 	// Note: File existence check is done in Execute() to allow for remote files
 	// or files that will be created later
 
@@ -93,9 +97,25 @@ func (p *RestoreProvider) ValidateBackup(backupFile string, metadata *restore.Me
 func (p *RestoreProvider) Execute(ctx context.Context, opts restore.Options) (*restore.RestoreResult, error) {
 	startTime := time.Now()
 
+	// Apply timeout if context doesn't have one
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 10*time.Minute)
+		defer cancel()
+	}
+
 	// Check if backup file exists
-	if _, err := os.Stat(opts.BackupFile); os.IsNotExist(err) {
+	fileInfo, err := os.Stat(opts.BackupFile)
+	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("backup file not found: %s", opts.BackupFile)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to access backup file: %w", err)
+	}
+
+	// Validate it's a regular file
+	if !fileInfo.Mode().IsRegular() {
+		return nil, fmt.Errorf("backup file is not a regular file: %s", opts.BackupFile)
 	}
 
 	// Verify pod exists
@@ -117,37 +137,65 @@ func (p *RestoreProvider) Execute(ctx context.Context, opts restore.Options) (*r
 			fmt.Sprintf("pod %s not found in namespace %s", opts.PodName, opts.Namespace))
 	}
 
-	// Build tar extract command
-	tarCmd := p.buildTarCommand(opts)
-
 	// Send initial progress
 	p.progressCh <- restore.Progress{
 		Current: 0,
-		Total:   100,
+		Total:   fileInfo.Size(),
 		Message: "Starting restore operation",
 	}
 
-	// Execute tar command
-	outputCh, errorCh := p.executor.Stream(ctx, tarCmd)
+	// Use new StreamRestore function
+	progressCh, err := kubernetes.StreamRestore(
+		ctx,
+		opts.BackupFile,
+		opts.Namespace,
+		opts.PodName,
+		opts.Container,
+		opts.TargetPath,
+		opts.PreservePerms,
+		opts.Overwrite,
+		opts.SkipPaths,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start restore: %w", err)
+	}
 
 	// Monitor progress
 	fileCount := 0
-	go p.monitorProgress(outputCh, &fileCount)
+	bytesProcessed := int64(0)
+	lastUpdate := time.Now()
 
-	// Wait for completion or error
-	select {
-	case err := <-errorCh:
-		if err != nil {
-			return nil, fmt.Errorf("restore failed: %w", err)
+	for progress := range progressCh {
+		if progress.Error != nil {
+			return nil, fmt.Errorf("restore error: %w", progress.Error)
 		}
-	case <-ctx.Done():
-		return nil, ctx.Err()
+
+		fileCount = progress.FileCount
+		
+		// Estimate bytes processed based on file count
+		if fileInfo.Size() > 0 && fileCount > 0 {
+			// Simple estimation: assume linear progress
+			bytesProcessed = int64(float64(fileCount) * float64(fileInfo.Size()) / 1000.0)
+			if bytesProcessed > fileInfo.Size() {
+				bytesProcessed = fileInfo.Size()
+			}
+		}
+
+		// Send progress updates (throttled)
+		if time.Since(lastUpdate) >= 100*time.Millisecond {
+			p.progressCh <- restore.Progress{
+				Current: bytesProcessed,
+				Total:   fileInfo.Size(),
+				Message: fmt.Sprintf("Restoring: %s", progress.FileName),
+			}
+			lastUpdate = time.Now()
+		}
 	}
 
 	// Send completion progress
 	p.progressCh <- restore.Progress{
-		Current: 100,
-		Total:   100,
+		Current: fileInfo.Size(),
+		Total:   fileInfo.Size(),
 		Message: "Restore completed successfully",
 	}
 
@@ -157,96 +205,12 @@ func (p *RestoreProvider) Execute(ctx context.Context, opts restore.Options) (*r
 		Success:      true,
 		RestoredPath: opts.TargetPath,
 		FileCount:    fileCount,
+		BytesWritten: fileInfo.Size(),
 		Duration:     duration,
 		Warnings:     []string{},
 	}, nil
 }
 
-// buildTarCommand builds the kubectl exec tar command for restore
-func (p *RestoreProvider) buildTarCommand(opts restore.Options) []string {
-	// Read backup file and pipe to kubectl exec tar
-	catCmd := fmt.Sprintf("cat %s", opts.BackupFile)
-
-	// Build kubectl exec command
-	kubectlArgs := []string{"exec", "-i", "-n", opts.Namespace, opts.PodName}
-
-	// Add container if specified
-	if opts.Container != "" {
-		kubectlArgs = append(kubectlArgs, "-c", opts.Container)
-	}
-
-	kubectlArgs = append(kubectlArgs, "--", "tar")
-
-	// Detect compression from file extension
-	compression := detectCompression(opts.BackupFile)
-	switch compression {
-	case "gzip":
-		kubectlArgs = append(kubectlArgs, "-xzf")
-	case "bzip2":
-		kubectlArgs = append(kubectlArgs, "-xjf")
-	case "xz":
-		kubectlArgs = append(kubectlArgs, "-xJf")
-	default:
-		kubectlArgs = append(kubectlArgs, "-xf")
-	}
-
-	// Add stdin flag
-	kubectlArgs = append(kubectlArgs, "-")
-
-	// Add target directory
-	kubectlArgs = append(kubectlArgs, "-C", opts.TargetPath)
-
-	// Add overwrite flag if needed
-	if !opts.Overwrite {
-		kubectlArgs = append(kubectlArgs, "--keep-old-files")
-	}
-
-	// Add preserve permissions flag
-	if opts.PreservePerms {
-		kubectlArgs = append(kubectlArgs, "-p")
-	}
-
-	// Add skip paths
-	for _, skip := range opts.SkipPaths {
-		kubectlArgs = append(kubectlArgs, "--exclude="+skip)
-	}
-
-	// Combine cat and kubectl with pipe
-	fullCmd := fmt.Sprintf("%s | kubectl %s", catCmd, strings.Join(kubectlArgs, " "))
-
-	return []string{"sh", "-c", fullCmd}
-}
-
-// detectCompression detects compression type from file extension
-func detectCompression(filename string) string {
-	lower := strings.ToLower(filename)
-	switch {
-	case strings.HasSuffix(lower, ".tar.gz") || strings.HasSuffix(lower, ".tgz"):
-		return "gzip"
-	case strings.HasSuffix(lower, ".tar.bz2"):
-		return "bzip2"
-	case strings.HasSuffix(lower, ".tar.xz"):
-		return "xz"
-	default:
-		return "none"
-	}
-}
-
-// monitorProgress monitors tar output and updates progress
-func (p *RestoreProvider) monitorProgress(outputCh <-chan string, fileCount *int) {
-	extractPattern := regexp.MustCompile(`^(x |extracting:?\s*)(.+)$`)
-
-	for line := range outputCh {
-		if matches := extractPattern.FindStringSubmatch(line); matches != nil {
-			*fileCount++
-			p.progressCh <- restore.Progress{
-				Current: int64(*fileCount),
-				Total:   0, // Unknown total
-				Message: fmt.Sprintf("Restoring: %s", matches[2]),
-			}
-		}
-	}
-}
 
 // StreamProgress returns the progress channel
 func (p *RestoreProvider) StreamProgress() <-chan restore.Progress {
@@ -262,4 +226,29 @@ func (p *RestoreProvider) EstimateSize(backupFile string) (int64, error) {
 	}
 
 	return info.Size(), nil
+}
+
+// ValidatePath validates the target path for security
+func validatePath(path string) error {
+	// Ensure path is absolute
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("target path must be absolute: %s", path)
+	}
+
+	// Check for path traversal attempts
+	if strings.Contains(path, "..") {
+		return fmt.Errorf("path cannot contain '..': %s", path)
+	}
+
+	// Warn about dangerous paths
+	dangerousPaths := []string{"/", "/etc", "/var", "/usr", "/bin", "/sbin", "/lib", "/lib64"}
+	for _, dangerous := range dangerousPaths {
+		if path == dangerous || strings.HasPrefix(path, dangerous+"/") {
+			// Just a warning, not an error - user might know what they're doing
+			fmt.Fprintf(os.Stderr, "⚠️  Warning: Restoring to system directory: %s\n", path)
+			break
+		}
+	}
+
+	return nil
 }

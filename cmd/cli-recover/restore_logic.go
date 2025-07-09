@@ -101,6 +101,37 @@ func executeRestore(providerName string, cmd *cobra.Command, args []string) erro
 	close(progressDone)
 
 	if err != nil {
+		// Check for specific error types
+		if restoreErr, ok := err.(*restore.RestoreError); ok {
+			// Structured error with helpful information
+			log.Error("Restore failed",
+				logger.F("code", restoreErr.Code),
+				logger.F("message", restoreErr.Message))
+			
+			// Print user-friendly error message
+			fmt.Fprintf(os.Stderr, "\n❌ Error: %s\n", restoreErr.Message)
+			
+			// Provide helpful suggestions based on error code
+			switch restoreErr.Code {
+			case "POD_NOT_FOUND":
+				fmt.Fprintf(os.Stderr, "   Fix: Check pod name with 'kubectl get pods -n %s'\n", opts.Namespace)
+			case "BACKUP_NOT_FOUND":
+				fmt.Fprintf(os.Stderr, "   Fix: Verify the backup file path or use 'cli-recover list backups'\n")
+			case "PERMISSION_DENIED":
+				fmt.Fprintf(os.Stderr, "   Fix: Check pod permissions or run with appropriate privileges\n")
+			}
+			
+			return fmt.Errorf("restore failed: %s", restoreErr.Message)
+		}
+		
+		// Check for context timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			log.Error("Restore timed out", logger.F("timeout", "10m"))
+			fmt.Fprintf(os.Stderr, "\n❌ Error: Restore operation timed out after 10 minutes\n")
+			fmt.Fprintf(os.Stderr, "   Fix: Check network connectivity and pod status\n")
+			return fmt.Errorf("restore timed out")
+		}
+		
 		return fmt.Errorf("restore failed: %w", err)
 	}
 
@@ -173,10 +204,10 @@ func buildRestoreOptions(providerName string, cmd *cobra.Command, args []string)
 func monitorRestoreProgress(provider restore.Provider, estimatedSize int64, done <-chan bool, verbose bool) {
 	progressCh := provider.StreamProgress()
 
-	// Create the appropriate progress reporter
-	reporter := progress.NewAutoReporter(os.Stderr)
+	// Create the appropriate progress reporter without delay for restore
+	reporter := progress.NewAutoReporterWithDelay(os.Stderr, false)  // false = no 3-second delay
 
-	// Start the operation
+	// Start the operation immediately
 	reporter.Start("Restore", estimatedSize)
 
 	// Track last update time for throttling
