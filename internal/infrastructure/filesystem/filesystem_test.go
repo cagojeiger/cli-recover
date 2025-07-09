@@ -352,10 +352,10 @@ func TestFilesystemProvider_Execute_OutputDirectoryCreation(t *testing.T) {
 	mockStdout := newMockReadCloser("")
 	mockStderr := newMockReadCloser("")
 	mockWait := func() error { return nil }
-	
+
 	// Mock size estimation
 	mockSizeEstimation(mockExecutor, ctx, "default", "test-pod", "/data")
-	
+
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
 
 	err = provider.Execute(ctx, opts)
@@ -402,10 +402,10 @@ func TestFilesystemProvider_Execute_WithContainer(t *testing.T) {
 	mockStdout := newMockReadCloser("")
 	mockStderr := newMockReadCloser("")
 	mockWait := func() error { return nil }
-	
+
 	// Mock size estimation
 	mockSizeEstimation(mockExecutor, ctx, "default", "test-pod", "/data")
-	
+
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
 
 	err = provider.Execute(ctx, opts)
@@ -459,10 +459,10 @@ func TestBackupInterruption_LeavesOnlyTempFile(t *testing.T) {
 
 	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 		"tar", "-cvf", "-", "-C", "/", "data"}
-	
+
 	// Mock size estimation
 	mockSizeEstimation(mockExecutor, ctx, "default", "test-pod", "/data")
-	
+
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
 
 	// Act
@@ -502,10 +502,10 @@ func TestBackupSuccess_OnlyFinalFileExists(t *testing.T) {
 
 	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 		"tar", "-cvf", "-", "-C", "/", "data"}
-	
+
 	// Mock size estimation
 	mockSizeEstimation(mockExecutor, ctx, "default", "test-pod", "/data")
-	
+
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
 
 	// Act
@@ -548,10 +548,10 @@ func TestChecksum_CalculatedDuringStreaming(t *testing.T) {
 
 	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 		"tar", "-cvf", "-", "-C", "/", "data"}
-	
+
 	// Mock size estimation
 	mockSizeEstimation(mockExecutor, ctx, "default", "test-pod", "/data")
-	
+
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
 
 	// Act
@@ -591,10 +591,10 @@ func TestAtomicRename_Success(t *testing.T) {
 
 	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 		"tar", "-cvf", "-", "-C", "/", "data"}
-	
+
 	// Mock size estimation
 	mockSizeEstimation(mockExecutor, ctx, "default", "test-pod", "/data")
-	
+
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(mockStdout, mockStderr, mockWait, nil)
 
 	// Act
@@ -628,10 +628,10 @@ func TestCleanupOnExecutorError(t *testing.T) {
 	// Simulate executor error
 	expectedCmd := []string{"kubectl", "exec", "-n", "default", "test-pod", "--",
 		"tar", "-cvf", "-", "-C", "/", "data"}
-	
+
 	// Mock size estimation
 	mockSizeEstimation(mockExecutor, ctx, "default", "test-pod", "/data")
-	
+
 	mockExecutor.On("StreamBinary", ctx, expectedCmd).Return(
 		nil, nil, nil, errors.New("pod not found"))
 
