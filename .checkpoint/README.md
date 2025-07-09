@@ -9,7 +9,12 @@
 
 ## 현재 체크포인트
 1. `00-mvp.md`: 최초 MVP (프로젝트 시작점)
-2. `01-current-state.md`: 현재 상태 (헥사고날 아키텍처 완성)
+2. `04-phase-3.9-simplification.md`: 아키텍처 단순화 완료
+3. `05-phase-3.10-completed.md`: 백업 무결성 구현 완료
+4. `06-phases-summary.md`: Phase 요약
+5. `07-phase-3.13-planned.md`: Phase 3.13 계획
+6. `08-phase-3.11-progress-completed.md`: 진행률 보고 시스템 완료
+7. `10-phase-3.12-cli-design.md`: CLI 디자인 문서 완료
 
 ## 사용 사례
 - 주요 기능 완성 시점 기록
