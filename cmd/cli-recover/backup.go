@@ -47,7 +47,7 @@ func newProviderBackupCmd(providerName string) *cobra.Command {
 		cmd.Flags().StringSliceP("exclude", "e", []string{}, "Exclude patterns (can be used multiple times)")
 		cmd.Flags().BoolP("exclude-vcs", "", false, "Exclude version control systems (.git, .svn, etc.)")
 		cmd.Flags().BoolP("verbose", "v", false, "Verbose output")
-		cmd.Flags().BoolP("totals", "t", false, "Show transfer totals")
+		cmd.Flags().BoolP("totals", "T", false, "Show transfer totals")
 		cmd.Flags().BoolP("preserve-perms", "p", false, "Preserve file permissions")
 		cmd.Flags().StringP("container", "", "", "Container name (for multi-container pods)")
 		cmd.Flags().StringP("output", "o", "", "Output file path (auto-generated if not specified)")

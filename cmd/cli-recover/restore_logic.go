@@ -146,7 +146,7 @@ func buildRestoreOptions(providerName string, cmd *cobra.Command, args []string)
 		}
 
 		// Restore options
-		opts.Overwrite, _ = cmd.Flags().GetBool("overwrite")
+		opts.Overwrite, _ = cmd.Flags().GetBool("force")
 		opts.PreservePerms, _ = cmd.Flags().GetBool("preserve-perms")
 		opts.SkipPaths, _ = cmd.Flags().GetStringSlice("skip-paths")
 		opts.Container, _ = cmd.Flags().GetString("container")

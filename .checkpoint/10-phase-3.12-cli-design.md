@@ -1,7 +1,7 @@
-# Checkpoint: CLI 디자인 문서 완료
+# Checkpoint: Phase 3.12 CLI 디자인 문서
 
 ## 날짜: 2025-01-09
-## 상태: 문서화 완료, Phase 3.12 구현 준비
+## 상태: 문서화 완료, 부분 구현 (플래그 충돌 해결)
 
 ## 완료된 작업
 
@@ -17,15 +17,16 @@
 
 ### 주요 디자인 결정
 
-#### 1. 플래그 충돌 해결
+#### 1. 플래그 충돌 해결 ✅
 **문제점 발견**:
 - `-o`: backup(--output) vs restore(--overwrite)
 - `-c`: backup(--compression) vs restore(--container)
 - `-t`: backup(--totals) vs restore(--target-path)
 
-**해결책**:
-- backup: `-t` → `-T` (--totals)
-- restore: `-o` → `-f` (--force), `-c` → `-C` (--container)
+**구현 완료** (2025-01-09):
+- backup: `-t` → `-T` (--totals) ✅
+- restore: `-o` → `-f` (--force) ✅
+- restore: `-c` → `-C` (--container) ✅
 
 #### 2. 플래그 레지스트리 설계
 ```go
@@ -59,15 +60,20 @@ var Registry = struct {
 - 시스템 흐름, 명령 계층, 플래그 관리 등
 - 사용자 인터랙션 플로우
 
-## 다음 단계: Phase 3.12 구현 (준비 완료)
+## Phase 3.12 구현 현황
 
-### 구현 우선순위
+### 완료된 작업 ✅
+1. **플래그 충돌 해결** (2025-01-09)
+   - backup.go: `-t` → `-T`
+   - restore.go: `-o` → `-f`, `-c` → `-C`
+   - restore_logic.go: GetBool("overwrite") → GetBool("force")
+
+### 미구현 항목 ❌
 1. **플래그 레지스트리** (flags/registry.go)
-2. **충돌 해결** (backup.go, restore.go 수정)
-3. **하이브리드 인자** (옵션 빌더 개선)
-4. **에러 메시지** (구조화된 에러 타입)
-5. **진행률 통합** (모든 provider)
-6. **문서 업데이트** (CHANGELOG, README)
+2. **하이브리드 인자** (옵션 빌더 개선)
+3. **CLIError 타입** (구조화된 에러)
+4. **진행률 통합** (모든 provider)
+5. **문서 업데이트** (CHANGELOG, README)
 
 ### 예상 복잡도: 30/100
 - 단순한 리팩토링 위주

@@ -44,10 +44,10 @@ func newProviderRestoreCmd(providerName string) *cobra.Command {
 		// Add filesystem-specific flags
 		cmd.Flags().StringP("namespace", "n", "default", "Kubernetes namespace")
 		cmd.Flags().StringP("target-path", "t", "/", "Target restore path in the pod")
-		cmd.Flags().BoolP("overwrite", "o", false, "Overwrite existing files")
+		cmd.Flags().BoolP("force", "f", false, "Force overwrite existing files")
 		cmd.Flags().BoolP("preserve-perms", "p", false, "Preserve file permissions")
 		cmd.Flags().StringSliceP("skip-paths", "s", []string{}, "Paths to skip during restore")
-		cmd.Flags().StringP("container", "c", "", "Container name (for multi-container pods)")
+		cmd.Flags().StringP("container", "C", "", "Container name (for multi-container pods)")
 		cmd.Flags().BoolP("verbose", "v", false, "Verbose output")
 		cmd.Flags().BoolP("dry-run", "", false, "Show what would be executed without running")
 	}
