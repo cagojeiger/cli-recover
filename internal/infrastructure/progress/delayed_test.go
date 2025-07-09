@@ -68,7 +68,7 @@ func TestDelayedReporter_QuickOperation(t *testing.T) {
 	delayed.Start("Quick operation", 100)
 	delayed.Update(50, 100)
 	delayed.Update(100, 100)
-	
+
 	// Complete before 3 seconds
 	time.Sleep(100 * time.Millisecond)
 	delayed.Complete()
@@ -89,33 +89,33 @@ func TestDelayedReporter_LongOperation(t *testing.T) {
 	delayed.delayPeriod = 100 * time.Millisecond // Short delay for testing
 
 	delayed.Start("Long operation", 1000)
-	
+
 	// Send updates before delay
 	delayed.Update(100, 1000)
 	delayed.Update(200, 1000)
-	
+
 	// Should not have started yet
 	assert.False(t, mock.started, "Progress should not be shown before delay")
-	
+
 	// Wait for delay to pass
 	time.Sleep(150 * time.Millisecond)
-	
+
 	// Now it should have started
 	assert.True(t, mock.started, "Progress should be shown after delay")
 	assert.Equal(t, "Long operation", mock.startOp)
 	assert.Equal(t, int64(1000), mock.startTotal)
-	
+
 	// Should have received the latest update
 	assert.Len(t, mock.updates, 1, "Should have one update after start")
 	assert.Equal(t, int64(200), mock.updates[0].current)
-	
+
 	// Send more updates after start
 	delayed.Update(500, 1000)
 	delayed.Update(1000, 1000)
-	
+
 	// Should pass through immediately now
 	assert.Len(t, mock.updates, 3, "Should have all updates after start")
-	
+
 	delayed.Complete()
 	assert.True(t, mock.completed, "Complete should be called")
 }
@@ -126,11 +126,11 @@ func TestDelayedReporter_Error(t *testing.T) {
 	delayed := NewDelayedReporter(mock)
 
 	delayed.Start("Error operation", 100)
-	
+
 	// Error before delay
 	testErr := errors.New("test error")
 	delayed.Error(testErr)
-	
+
 	// Error should be shown immediately
 	assert.True(t, mock.started, "Should start on error")
 	assert.True(t, mock.errorCalled, "Error should be called")
@@ -145,11 +145,11 @@ func TestDelayedReporter_CompleteAfterDelayBeforeStart(t *testing.T) {
 
 	delayed.Start("Medium operation", 500)
 	delayed.Update(250, 500)
-	
+
 	// Wait longer than delay but complete before it triggers
 	time.Sleep(150 * time.Millisecond)
 	delayed.Complete()
-	
+
 	// Should show start and complete
 	assert.True(t, mock.started, "Should start when completing after delay")
 	assert.True(t, mock.completed, "Should complete")
@@ -164,11 +164,11 @@ func TestDelayedReporter_MultipleOperations(t *testing.T) {
 	// Start first operation
 	delayed.Start("First operation", 100)
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Start second operation before first delay completes
 	delayed.Start("Second operation", 200)
 	time.Sleep(250 * time.Millisecond)
-	
+
 	// Only second operation should have started
 	assert.True(t, mock.started)
 	assert.Equal(t, "Second operation", mock.startOp)

@@ -237,7 +237,7 @@ func TestHumanizeBytes(t *testing.T) {
 		},
 		{
 			name:     "terabytes",
-			bytes:    3 * 1024 * 1024 * 1024 * 1024 + 751619276800, // ~3.7 TB
+			bytes:    3*1024*1024*1024*1024 + 751619276800, // ~3.7 TB
 			expected: "3.7 TB",
 		},
 		{
@@ -279,7 +279,7 @@ func TestGetLogDirFromCmd(t *testing.T) {
 				cmd := &cobra.Command{}
 				return cmd
 			},
-			expected:    func() string {
+			expected: func() string {
 				homeDir, _ := os.UserHomeDir()
 				return filepath.Join(homeDir, ".cli-recover", "logs")
 			}(),
@@ -292,7 +292,7 @@ func TestGetLogDirFromCmd(t *testing.T) {
 				cmd.Flags().String("log-dir", "", "")
 				return cmd
 			},
-			expected:    func() string {
+			expected: func() string {
 				homeDir, _ := os.UserHomeDir()
 				return filepath.Join(homeDir, ".cli-recover", "logs")
 			}(),
@@ -306,7 +306,7 @@ func TestGetLogDirFromCmd(t *testing.T) {
 				// So this test case should expect the default directory
 				return cmd
 			},
-			expected:    func() string {
+			expected: func() string {
 				homeDir, _ := os.UserHomeDir()
 				return filepath.Join(homeDir, ".cli-recover", "logs")
 			}(),
@@ -425,7 +425,7 @@ func TestBuildBackupOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := tt.setupCmd()
 			result, err := buildBackupOptions(tt.providerName, cmd, tt.args)
-			
+
 			if tt.expectedErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectedErr)
@@ -442,7 +442,7 @@ func TestBuildBackupOptions(t *testing.T) {
 				} else {
 					assert.Equal(t, tt.expected.Exclude, result.Exclude)
 				}
-				
+
 				// Check output file generation
 				if tt.expected.OutputFile != "" {
 					assert.Equal(t, tt.expected.OutputFile, result.OutputFile)
@@ -462,7 +462,7 @@ func TestMonitorBackupProgress(t *testing.T) {
 	t.Run("normal progress monitoring", func(t *testing.T) {
 		provider := new(mockBackupProvider)
 		progressChan := make(chan backup.Progress, 3)
-		
+
 		// Send some progress updates
 		go func() {
 			progressChan <- backup.Progress{Current: 0, Total: 100, Message: "Starting"}
@@ -472,34 +472,34 @@ func TestMonitorBackupProgress(t *testing.T) {
 			progressChan <- backup.Progress{Current: 100, Total: 100, Message: "Complete"}
 			close(progressChan)
 		}()
-		
+
 		provider.On("StreamProgress").Return((<-chan backup.Progress)(progressChan))
-		
+
 		done := make(chan bool)
 		go func() {
 			time.Sleep(50 * time.Millisecond)
 			close(done)
 		}()
-		
+
 		// This should not panic or error
 		monitorBackupProgress(provider, 1024*1024, done, false)
-		
+
 		provider.AssertExpectations(t)
 	})
-	
+
 	t.Run("progress monitoring with early done signal", func(t *testing.T) {
 		provider := new(mockBackupProvider)
 		progressChan := make(chan backup.Progress, 1)
 		progressChan <- backup.Progress{Current: 10, Total: 100, Message: "Starting"}
-		
+
 		provider.On("StreamProgress").Return((<-chan backup.Progress)(progressChan))
-		
+
 		done := make(chan bool)
 		close(done) // Close immediately
-		
+
 		// Should exit gracefully
 		monitorBackupProgress(provider, 1024*1024, done, true)
-		
+
 		provider.AssertExpectations(t)
 	})
 }
@@ -554,7 +554,7 @@ func TestSaveBackupMetadataWithChecksum(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := saveBackupMetadataWithChecksum(tt.providerName, tt.opts, tt.size, tt.startTime, tt.endTime, tt.checksum)
-			
+
 			// The function should always succeed as DefaultStore is initialized
 			// It might save to a temp directory if HOME is not accessible
 			assert.NoError(t, err)
@@ -566,19 +566,19 @@ func TestExecuteBackup_Integration(t *testing.T) {
 	t.Run("filesystem backup validation error", func(t *testing.T) {
 		cmd := &cobra.Command{}
 		cmd.Flags().String("namespace", "default", "")
-		
+
 		// Missing required arguments
 		err := executeBackup("filesystem", cmd, []string{"pod-only"})
-		
+
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Missing required arguments")
 	})
-	
+
 	t.Run("unknown provider error", func(t *testing.T) {
 		cmd := &cobra.Command{}
-		
+
 		err := executeBackup("unknown-provider", cmd, []string{"arg1", "arg2"})
-		
+
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown backup provider")
 	})
@@ -647,7 +647,7 @@ func TestBackupOptionValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.opts.Validate()
-			
+
 			if tt.expectedErr {
 				assert.Error(t, err)
 				if tt.errContains != "" {
@@ -668,7 +668,7 @@ func BenchmarkSanitizePath(b *testing.B) {
 		"/home/user/.config/app",
 		"/opt/data/backup/2024/01",
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		sanitizePath(paths[i%len(paths)])
@@ -682,7 +682,7 @@ func BenchmarkHumanizeBytes(b *testing.B) {
 		1024 * 1024 * 1024,
 		1024 * 1024 * 1024 * 1024,
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		humanizeBytes(sizes[i%len(sizes)])

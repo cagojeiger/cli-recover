@@ -90,9 +90,9 @@ func TestListCommand_FlagShortcuts(t *testing.T) {
 	namespaceFlag := flags.Lookup("namespace")
 	assert.Equal(t, "n", namespaceFlag.Shorthand)
 
-	// Test output shortcut
+	// Test output shortcut - removed because it conflicts with output in backup command
 	outputFlag := flags.Lookup("output")
-	assert.Equal(t, "o", outputFlag.Shorthand)
+	assert.Equal(t, "", outputFlag.Shorthand)
 }
 
 func TestListCommand_DefaultOutputFormat(t *testing.T) {

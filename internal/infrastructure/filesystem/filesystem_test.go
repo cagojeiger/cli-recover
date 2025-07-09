@@ -430,4 +430,3 @@ func TestFilesystemProvider_BuildTarCommand_NoRedirection(t *testing.T) {
 		assert.NotContains(t, arg, "/tmp/backup.tar.gz", "Command should not contain output file path")
 	}
 }
-

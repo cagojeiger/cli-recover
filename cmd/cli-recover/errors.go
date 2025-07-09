@@ -30,19 +30,19 @@ type CLIError struct {
 // Error implements the error interface
 func (e *CLIError) Error() string {
 	var parts []string
-	
+
 	if e.Message != "" {
 		parts = append(parts, e.Message)
 	}
-	
+
 	if e.Reason != "" {
 		parts = append(parts, e.Reason)
 	}
-	
+
 	if e.Cause != nil {
 		parts = append(parts, e.Cause.Error())
 	}
-	
+
 	return strings.Join(parts, ": ")
 }
 
@@ -73,17 +73,17 @@ func PrintError(err error) {
 func printCLIError(e *CLIError) {
 	// Main error message
 	fmt.Fprintf(os.Stderr, "❌ Error: %s\n", e.Message)
-	
+
 	// Reason (if provided)
 	if e.Reason != "" {
 		fmt.Fprintf(os.Stderr, "   Reason: %s\n", e.Reason)
 	}
-	
+
 	// Fix suggestion (if provided)
 	if e.Fix != "" {
 		fmt.Fprintf(os.Stderr, "   Fix: %s\n", e.Fix)
 	}
-	
+
 	// Additional info (if provided)
 	if e.Info != "" {
 		fmt.Fprintf(os.Stderr, "   Info: %s\n", e.Info)
@@ -100,7 +100,7 @@ func convertToCLIError(err error) *CLIError {
 	default:
 		// Check for common error patterns
 		errStr := err.Error()
-		
+
 		// File not found
 		if strings.Contains(errStr, "no such file or directory") {
 			return &CLIError{
@@ -110,7 +110,7 @@ func convertToCLIError(err error) *CLIError {
 				Cause:   err,
 			}
 		}
-		
+
 		// Permission denied
 		if strings.Contains(errStr, "permission denied") {
 			return &CLIError{
@@ -120,7 +120,7 @@ func convertToCLIError(err error) *CLIError {
 				Cause:   err,
 			}
 		}
-		
+
 		// Kubernetes pod not found
 		if strings.Contains(errStr, "pods") && strings.Contains(errStr, "not found") {
 			return &CLIError{
@@ -130,7 +130,7 @@ func convertToCLIError(err error) *CLIError {
 				Cause:   err,
 			}
 		}
-		
+
 		// Disk space
 		if strings.Contains(errStr, "no space left on device") {
 			return &CLIError{
@@ -140,7 +140,7 @@ func convertToCLIError(err error) *CLIError {
 				Cause:   err,
 			}
 		}
-		
+
 		return nil
 	}
 }
@@ -150,38 +150,38 @@ func convertBackupError(e *backup.BackupError) *CLIError {
 	cliErr := &CLIError{
 		Cause: e,
 	}
-	
+
 	switch e.Code {
 	case backup.ErrCodeNotFound:
 		cliErr.Message = "Backup source not found"
 		cliErr.Reason = e.Message
 		cliErr.Fix = "Verify the pod name and path exist"
-		
+
 	case backup.ErrCodeInvalidInput:
 		cliErr.Message = "Invalid backup parameters"
 		cliErr.Reason = e.Message
 		cliErr.Fix = "Check the command syntax and parameters"
-		
+
 	case backup.ErrCodeTimeout:
 		cliErr.Message = "Backup operation timed out"
 		cliErr.Reason = "The operation took too long to complete"
 		cliErr.Fix = "Try backing up smaller directories or check pod connectivity"
-		
+
 	case backup.ErrCodeUnauthorized:
 		cliErr.Message = "Unauthorized to perform backup"
 		cliErr.Reason = "Insufficient permissions for the requested operation"
 		cliErr.Fix = "Check your Kubernetes RBAC permissions"
-		
+
 	case backup.ErrCodeInternal:
 		cliErr.Message = "Internal backup error"
 		cliErr.Reason = e.Message
 		cliErr.Fix = "Check the logs for more details"
-		
+
 	default:
 		cliErr.Message = "Backup failed"
 		cliErr.Reason = e.Message
 	}
-	
+
 	return cliErr
 }
 
@@ -190,39 +190,39 @@ func convertRestoreError(e *restore.RestoreError) *CLIError {
 	cliErr := &CLIError{
 		Cause: e,
 	}
-	
+
 	// RestoreError uses string codes, check common patterns
 	switch e.Code {
 	case "NOT_FOUND":
 		cliErr.Message = "Restore target not found"
 		cliErr.Reason = e.Message
 		cliErr.Fix = "Verify the backup file exists and pod is running"
-		
+
 	case "INVALID_INPUT":
 		cliErr.Message = "Invalid restore parameters"
 		cliErr.Reason = e.Message
 		cliErr.Fix = "Check the command syntax and parameters"
-		
+
 	case "TIMEOUT":
 		cliErr.Message = "Restore operation timed out"
 		cliErr.Reason = "The operation took too long to complete"
 		cliErr.Fix = "Try restoring to a different pod or check connectivity"
-		
+
 	case "UNAUTHORIZED":
 		cliErr.Message = "Unauthorized to perform restore"
 		cliErr.Reason = "Insufficient permissions for the requested operation"
 		cliErr.Fix = "Check your Kubernetes RBAC permissions"
-		
+
 	case "INTERNAL":
 		cliErr.Message = "Internal restore error"
 		cliErr.Reason = e.Message
 		cliErr.Fix = "Check the logs for more details"
-		
+
 	default:
 		cliErr.Message = "Restore failed"
 		cliErr.Reason = e.Message
 	}
-	
+
 	return cliErr
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/cagojeiger/cli-recover/internal/domain/flags"
 	"github.com/spf13/cobra"
 )
 
@@ -41,15 +42,15 @@ func newProviderRestoreCmd(providerName string) *cobra.Command {
 			},
 		}
 
-		// Add filesystem-specific flags
-		cmd.Flags().StringP("namespace", "n", "default", "Kubernetes namespace")
-		cmd.Flags().StringP("target-path", "t", "/", "Target restore path in the pod")
-		cmd.Flags().BoolP("force", "f", false, "Force overwrite existing files")
-		cmd.Flags().BoolP("preserve-perms", "p", false, "Preserve file permissions")
-		cmd.Flags().StringSliceP("skip-paths", "s", []string{}, "Paths to skip during restore")
-		cmd.Flags().StringP("container", "C", "", "Container name (for multi-container pods)")
-		cmd.Flags().BoolP("verbose", "v", false, "Verbose output")
-		cmd.Flags().BoolP("dry-run", "", false, "Show what would be executed without running")
+		// Add filesystem-specific flags using registry
+		cmd.Flags().StringP(flags.LongNames.Namespace, flags.Registry.Namespace, "default", "Kubernetes namespace")
+		cmd.Flags().StringP(flags.LongNames.TargetPath, flags.Registry.TargetPath, "/", "Target restore path in the pod")
+		cmd.Flags().BoolP(flags.LongNames.Force, flags.Registry.Force, false, "Force overwrite existing files")
+		cmd.Flags().BoolP(flags.LongNames.PreservePerms, flags.Registry.PreservePerms, false, "Preserve file permissions")
+		cmd.Flags().StringSliceP(flags.LongNames.SkipPaths, flags.Registry.SkipPaths, []string{}, "Paths to skip during restore")
+		cmd.Flags().StringP(flags.LongNames.Container, flags.Registry.Container, "", "Container name (for multi-container pods)")
+		cmd.Flags().BoolP(flags.LongNames.Verbose, flags.Registry.Verbose, false, "Verbose output")
+		cmd.Flags().BoolP(flags.LongNames.DryRun, flags.Registry.DryRun, false, "Show what would be executed without running")
 	}
 
 	return cmd

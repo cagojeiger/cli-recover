@@ -2,6 +2,7 @@
 
 ## 날짜: 2025-01-09
 ## 브랜치: feature/tui-backup
+## Phase 3: ✅ 완료!
 
 ## 코드베이스 현황
 
@@ -35,27 +36,32 @@
 - cmd/cli-recover/tui: 0.0%
 ```
 
-### 최근 구현된 기능 ✅
-1. **아키텍처 단순화** (Phase 3.9)
+### Phase 3 완료 기능 ✅
+1. **아키텍처 단순화** (Phase 3.9) ✅
    - 3계층 → 2계층
    - Registry 패턴 제거
+   - 복잡도: 75 → 30
 
-2. **백업 무결성** (Phase 3.10)
+2. **백업 무결성** (Phase 3.10) ✅
    - 원자적 파일 쓰기
    - 스트리밍 체크섬
+   - 복잡도: 25/100
 
-3. **진행률 보고** (Phase 3.11)
+3. **진행률 보고** (Phase 3.11) ✅
    - 다중 환경 지원
    - 3초 규칙 적용
+   - 복잡도: 35/100
 
-4. **플래그 충돌 해결** (Phase 3.12 부분)
-   - backup: `-t` → `-T`
-   - restore: `-o` → `-f`, `-c` → `-C`
+4. **CLI 사용성 개선** (Phase 3.12) ✅
+   - 플래그 충돌 해결
+   - CLIError 타입 구현
+   - 플래그 레지스트리 시스템
+   - 복잡도: 30/100
 
-5. **아키텍처 정리** (2025-01-09)
-   - domain/log/storage → infrastructure/log/storage
-   - domain/metadata 분리: 인터페이스만 남김
-   - FileStore 구현 → infrastructure/metadata
+5. **추가 완료 작업** (2025-01-09)
+   - 플래그 레지스트리 구현 (internal/domain/flags)
+   - 컴파일 타임 충돌 검증
+   - 모든 명령어 통합
 
 ## 현재 명령어 상태
 
@@ -87,23 +93,31 @@ cli-recover restore filesystem [pod] [backup-file]
 - `logs [list|show|tail|clean]`: 로그 관리
 - `tui`: 터미널 UI 모드
 
-## 미완성 작업
+## Phase 4 이후 작업 목록
 
-### 1. 테스트 커버리지 부족 ❌
-**우선순위 1** - CLAUDE.md RULE_04
-- restore_logic_test.go 없음
-- list_logic_test.go 없음  
-- logs_test.go 없음
-- tui 패키지 테스트 없음
+### Phase 4: TUI 구현
+- 터미널 UI 모드
+- 대화형 백업/복원
+- 실시간 진행률 표시
+- 복잡도: 40/100
 
-### 2. Phase 3.12 나머지 구현 ❌
-- CLIError 타입 (구조화된 에러 처리)
-- 플래그 레지스트리 시스템
-- 하이브리드 인자 처리
+### Phase 5: 테스트 커버리지 향상
+**우선순위 높음** - CLAUDE.md RULE_04
+- cmd/cli-recover: 38.3% → 90%
+- cmd/cli-recover/tui: 0% → 90%
+- internal/domain/log: 45% → 90%
+- 목표: 전체 90% 달성
 
-### 3. Phase 3.13 전체 ❌
-- ToolManager (kubectl/mc 자동 다운로드)
-- 복잡도 50 - 재검토 필요
+### Phase 6: 하이브리드 인자 처리
+**우선순위 낮음** - 선택사항
+- Positional args + flags 동시 지원
+- kubectl/docker 스타일 호환
+- 복잡도: 20/100
+
+### Phase 7: Provider 확장
+- Phase 3.13 도구 자동 다운로드 (여기로 이동)
+- MinIO/MongoDB Provider
+- 복잡도: 60/100
 
 ## 품질 지표
 
@@ -121,19 +135,17 @@ cli-recover restore filesystem [pod] [backup-file]
 - 파일 크기: ✅ 모두 500줄 미만
 - 아키텍처: ✅ 헥사고날 원칙 준수
 
-## 다음 우선순위
+## 다음 단계 선택지
 
-### 즉시 진행 (높은 우선순위)
-1. **테스트 커버리지 향상** 
-   - cmd/cli-recover 영역 집중
-   - 목표: 50.7% → 90%
+### 옵션 1: Phase 4 (TUI 구현)
+- 사용자 친화적 인터페이스
+- 복잡도: 40/100
+- 예상 기간: 3-4일
 
-### 중기 진행 (중간 우선순위)  
-2. **Phase 3.12 최소 구현**
-   - CLIError 타입만 추가
-   - 레지스트리는 제외
+### 옵션 2: Phase 5 (테스트 커버리지)
+- CLAUDE.md RULE_04 준수
+- 현재 50.7% → 90%
+- 예상 기간: 2-3일
 
-### 장기 검토 (낮은 우선순위)
-3. **Phase 3.13 재평가**
-   - 실제 필요성 검증
-   - 복잡도 감소 방안 검토
+### 권장사항
+**Phase 5를 먼저 진행** - 코드 품질 확보 후 TUI 구현이 더 안전함

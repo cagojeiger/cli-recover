@@ -107,7 +107,7 @@ func TestMetadata_SetMetadata(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metadata := tt.setup()
 			metadata.SetMetadata(tt.key, tt.value)
-			
+
 			assert.NotNil(t, metadata.Extra)
 			assert.Equal(t, tt.expected, metadata.Extra)
 		})
@@ -361,7 +361,7 @@ func TestMetadata_CompleteLifecycle(t *testing.T) {
 	t.Run("add custom metadata", func(t *testing.T) {
 		backupMeta.SetMetadata("retention", "30d")
 		backupMeta.SetMetadata("environment", "prod")
-		
+
 		assert.NotNil(t, backupMeta.Extra)
 		assert.Equal(t, "30d", backupMeta.Extra["retention"])
 		assert.Equal(t, "prod", backupMeta.Extra["environment"])
@@ -371,7 +371,7 @@ func TestMetadata_CompleteLifecycle(t *testing.T) {
 	t.Run("complete backup", func(t *testing.T) {
 		backupMeta.Status = "completed"
 		backupMeta.CompletedAt = time.Now()
-		
+
 		assert.Equal(t, "completed", backupMeta.Status)
 		assert.False(t, backupMeta.CompletedAt.IsZero())
 		assert.True(t, backupMeta.CompletedAt.After(backupMeta.CreatedAt))
@@ -407,7 +407,7 @@ func TestProviderType_Constants(t *testing.T) {
 	// Ensure provider types have expected values
 	assert.Equal(t, operation.ProviderType("backup"), operation.TypeBackup)
 	assert.Equal(t, operation.ProviderType("restore"), operation.TypeRestore)
-	
+
 	// Test string representation
 	assert.Equal(t, "backup", string(operation.TypeBackup))
 	assert.Equal(t, "restore", string(operation.TypeRestore))
@@ -454,7 +454,7 @@ func TestResult_EdgeCases(t *testing.T) {
 			Message: "Operation was cancelled",
 			Error:   nil,
 		}
-		
+
 		assert.False(t, result.Success)
 		assert.Nil(t, result.Error)
 		assert.Contains(t, result.Message, "cancelled")
@@ -465,7 +465,7 @@ func TestResult_EdgeCases(t *testing.T) {
 			Success:  true,
 			Warnings: []string{},
 		}
-		
+
 		assert.True(t, result.Success)
 		assert.NotNil(t, result.Warnings)
 		assert.Empty(t, result.Warnings)
@@ -476,7 +476,7 @@ func TestResult_EdgeCases(t *testing.T) {
 			Success:  true,
 			Duration: 0,
 		}
-		
+
 		assert.True(t, result.Success)
 		assert.Zero(t, result.Duration)
 	})
@@ -484,7 +484,7 @@ func TestResult_EdgeCases(t *testing.T) {
 
 func TestOptions_DefaultValues(t *testing.T) {
 	var opts operation.Options
-	
+
 	// Test zero values
 	assert.Equal(t, operation.ProviderType(""), opts.Type)
 	assert.Empty(t, opts.Namespace)
@@ -508,12 +508,12 @@ func TestMetadata_SetMetadata_Concurrent(t *testing.T) {
 	metadata := &operation.Metadata{
 		ID: "concurrent-test",
 	}
-	
+
 	// Sequential calls should work correctly
 	metadata.SetMetadata("key1", "value1")
 	metadata.SetMetadata("key2", "value2")
 	metadata.SetMetadata("key3", "value3")
-	
+
 	require.NotNil(t, metadata.Extra)
 	assert.Len(t, metadata.Extra, 3)
 	assert.Equal(t, "value1", metadata.Extra["key1"])

@@ -9,16 +9,16 @@ import (
 
 // DelayedReporter wraps another reporter and delays showing progress until 3 seconds have passed
 type DelayedReporter struct {
-	wrapped      progress.ProgressReporter
-	mu           sync.Mutex
-	started      bool
-	startTime    time.Time
-	operation    string
-	totalBytes   int64
-	lastCurrent  int64
-	lastTotal    int64
-	delayPeriod  time.Duration
-	timer        *time.Timer
+	wrapped     progress.ProgressReporter
+	mu          sync.Mutex
+	started     bool
+	startTime   time.Time
+	operation   string
+	totalBytes  int64
+	lastCurrent int64
+	lastTotal   int64
+	delayPeriod time.Duration
+	timer       *time.Timer
 }
 
 // NewDelayedReporter creates a reporter that waits 3 seconds before showing progress

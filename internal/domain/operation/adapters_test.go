@@ -110,7 +110,7 @@ func (m *MockRestoreProvider) StreamProgress() <-chan restore.Progress {
 func TestNewBackupAdapter(t *testing.T) {
 	mockBackup := new(MockBackupProvider)
 	adapter := operation.NewBackupAdapter(mockBackup)
-	
+
 	assert.NotNil(t, adapter)
 	assert.Implements(t, (*operation.Provider)(nil), adapter)
 }
@@ -118,10 +118,10 @@ func TestNewBackupAdapter(t *testing.T) {
 func TestBackupAdapter_Name(t *testing.T) {
 	mockBackup := new(MockBackupProvider)
 	mockBackup.On("Name").Return("filesystem-backup")
-	
+
 	adapter := operation.NewBackupAdapter(mockBackup)
 	name := adapter.Name()
-	
+
 	assert.Equal(t, "filesystem-backup", name)
 	mockBackup.AssertExpectations(t)
 }
@@ -129,10 +129,10 @@ func TestBackupAdapter_Name(t *testing.T) {
 func TestBackupAdapter_Description(t *testing.T) {
 	mockBackup := new(MockBackupProvider)
 	mockBackup.On("Description").Return("Backup filesystem data")
-	
+
 	adapter := operation.NewBackupAdapter(mockBackup)
 	desc := adapter.Description()
-	
+
 	assert.Equal(t, "Backup filesystem data", desc)
 	mockBackup.AssertExpectations(t)
 }
@@ -140,7 +140,7 @@ func TestBackupAdapter_Description(t *testing.T) {
 func TestBackupAdapter_Type(t *testing.T) {
 	mockBackup := new(MockBackupProvider)
 	adapter := operation.NewBackupAdapter(mockBackup)
-	
+
 	assert.Equal(t, operation.TypeBackup, adapter.Type())
 }
 
@@ -220,17 +220,17 @@ func TestBackupAdapter_ValidateOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockBackup := new(MockBackupProvider)
 			tt.setupMock(mockBackup, tt.opts)
-			
+
 			adapter := operation.NewBackupAdapter(mockBackup)
 			err := adapter.ValidateOptions(tt.opts)
-			
+
 			if tt.expectedErr != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.expectedErr.Error(), err.Error())
 			} else {
 				assert.NoError(t, err)
 			}
-			
+
 			mockBackup.AssertExpectations(t)
 		})
 	}
@@ -238,7 +238,7 @@ func TestBackupAdapter_ValidateOptions(t *testing.T) {
 
 func TestBackupAdapter_Execute(t *testing.T) {
 	ctx := context.Background()
-	
+
 	tests := []struct {
 		name           string
 		opts           operation.Options
@@ -269,7 +269,7 @@ func TestBackupAdapter_Execute(t *testing.T) {
 				SourcePath: "/data",
 				OutputFile: "/backup.tar",
 			},
-			backupError:   errors.New("pod not found"),
+			backupError: errors.New("pod not found"),
 			expectedResult: &operation.Result{
 				Success: false,
 				Message: "Backup failed: pod not found",
@@ -299,7 +299,7 @@ func TestBackupAdapter_Execute(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockBackup := new(MockBackupProvider)
-			
+
 			expectedBackupOpts := backup.Options{
 				Namespace:  tt.opts.Namespace,
 				PodName:    tt.opts.PodName,
@@ -310,12 +310,12 @@ func TestBackupAdapter_Execute(t *testing.T) {
 				Exclude:    tt.opts.Exclude,
 				Extra:      tt.opts.Extra,
 			}
-			
+
 			mockBackup.On("Execute", ctx, expectedBackupOpts).Return(tt.backupError)
-			
+
 			adapter := operation.NewBackupAdapter(mockBackup)
 			result, err := adapter.Execute(ctx, tt.opts)
-			
+
 			if tt.expectedError != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.expectedError.Error(), err.Error())
@@ -328,7 +328,7 @@ func TestBackupAdapter_Execute(t *testing.T) {
 				assert.Equal(t, tt.expectedResult.Success, result.Success)
 				assert.Equal(t, tt.expectedResult.Message, result.Message)
 			}
-			
+
 			mockBackup.AssertExpectations(t)
 		})
 	}
@@ -376,18 +376,18 @@ func TestBackupAdapter_EstimateSize(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockBackup := new(MockBackupProvider)
-			
+
 			expectedBackupOpts := backup.Options{
 				Namespace:  tt.opts.Namespace,
 				PodName:    tt.opts.PodName,
 				SourcePath: tt.opts.SourcePath,
 			}
-			
+
 			mockBackup.On("EstimateSize", expectedBackupOpts).Return(tt.expectedSize, tt.expectedErr)
-			
+
 			adapter := operation.NewBackupAdapter(mockBackup)
 			size, err := adapter.EstimateSize(tt.opts)
-			
+
 			if tt.expectedErr != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.expectedErr.Error(), err.Error())
@@ -395,7 +395,7 @@ func TestBackupAdapter_EstimateSize(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			assert.Equal(t, tt.expectedSize, size)
-			
+
 			mockBackup.AssertExpectations(t)
 		})
 	}
@@ -404,42 +404,42 @@ func TestBackupAdapter_EstimateSize(t *testing.T) {
 func TestBackupAdapter_StreamProgress(t *testing.T) {
 	t.Run("progress streaming", func(t *testing.T) {
 		mockBackup := new(MockBackupProvider)
-		
+
 		// Create backup progress channel
 		backupChan := make(chan backup.Progress, 3)
 		backupChan <- backup.Progress{Current: 0, Total: 100, Message: "Starting backup"}
 		backupChan <- backup.Progress{Current: 50, Total: 100, Message: "50% complete"}
 		backupChan <- backup.Progress{Current: 100, Total: 100, Message: "Backup complete"}
 		close(backupChan)
-		
+
 		mockBackup.On("StreamProgress").Return((<-chan backup.Progress)(backupChan))
-		
+
 		adapter := operation.NewBackupAdapter(mockBackup)
 		progressChan := adapter.StreamProgress()
-		
+
 		// Verify progress conversion
 		progress := <-progressChan
 		assert.Equal(t, int64(0), progress.Current)
 		assert.Equal(t, int64(100), progress.Total)
 		assert.Equal(t, "Starting backup", progress.Message)
-		
+
 		progress = <-progressChan
 		assert.Equal(t, int64(50), progress.Current)
 		assert.Equal(t, int64(100), progress.Total)
 		assert.Equal(t, "50% complete", progress.Message)
-		
+
 		progress = <-progressChan
 		assert.Equal(t, int64(100), progress.Current)
 		assert.Equal(t, int64(100), progress.Total)
 		assert.Equal(t, "Backup complete", progress.Message)
-		
+
 		// Verify channel is closed
 		_, ok := <-progressChan
 		assert.False(t, ok)
-		
+
 		mockBackup.AssertExpectations(t)
 	})
-	
+
 	// Note: Testing nil progress channel is skipped because the adapter
 	// implementation will hang when trying to range over a nil channel.
 	// This is a known limitation in the current implementation.
@@ -448,7 +448,7 @@ func TestBackupAdapter_StreamProgress(t *testing.T) {
 func TestNewRestoreAdapter(t *testing.T) {
 	mockRestore := new(MockRestoreProvider)
 	adapter := operation.NewRestoreAdapter(mockRestore)
-	
+
 	assert.NotNil(t, adapter)
 	assert.Implements(t, (*operation.Provider)(nil), adapter)
 }
@@ -456,10 +456,10 @@ func TestNewRestoreAdapter(t *testing.T) {
 func TestRestoreAdapter_Name(t *testing.T) {
 	mockRestore := new(MockRestoreProvider)
 	mockRestore.On("Name").Return("filesystem-restore")
-	
+
 	adapter := operation.NewRestoreAdapter(mockRestore)
 	name := adapter.Name()
-	
+
 	assert.Equal(t, "filesystem-restore", name)
 	mockRestore.AssertExpectations(t)
 }
@@ -467,10 +467,10 @@ func TestRestoreAdapter_Name(t *testing.T) {
 func TestRestoreAdapter_Description(t *testing.T) {
 	mockRestore := new(MockRestoreProvider)
 	mockRestore.On("Description").Return("Restore filesystem data")
-	
+
 	adapter := operation.NewRestoreAdapter(mockRestore)
 	desc := adapter.Description()
-	
+
 	assert.Equal(t, "Restore filesystem data", desc)
 	mockRestore.AssertExpectations(t)
 }
@@ -478,7 +478,7 @@ func TestRestoreAdapter_Description(t *testing.T) {
 func TestRestoreAdapter_Type(t *testing.T) {
 	mockRestore := new(MockRestoreProvider)
 	adapter := operation.NewRestoreAdapter(mockRestore)
-	
+
 	assert.Equal(t, operation.TypeRestore, adapter.Type())
 }
 
@@ -564,17 +564,17 @@ func TestRestoreAdapter_ValidateOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockRestore := new(MockRestoreProvider)
 			tt.setupMock(mockRestore, tt.opts)
-			
+
 			adapter := operation.NewRestoreAdapter(mockRestore)
 			err := adapter.ValidateOptions(tt.opts)
-			
+
 			if tt.expectedErr != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.expectedErr.Error(), err.Error())
 			} else {
 				assert.NoError(t, err)
 			}
-			
+
 			mockRestore.AssertExpectations(t)
 		})
 	}
@@ -582,7 +582,7 @@ func TestRestoreAdapter_ValidateOptions(t *testing.T) {
 
 func TestRestoreAdapter_Execute(t *testing.T) {
 	ctx := context.Background()
-	
+
 	tests := []struct {
 		name           string
 		opts           operation.Options
@@ -667,7 +667,7 @@ func TestRestoreAdapter_Execute(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockRestore := new(MockRestoreProvider)
-			
+
 			expectedRestoreOpts := restore.Options{
 				Namespace:     tt.opts.Namespace,
 				PodName:       tt.opts.PodName,
@@ -679,12 +679,12 @@ func TestRestoreAdapter_Execute(t *testing.T) {
 				SkipPaths:     tt.opts.SkipPaths,
 				Extra:         tt.opts.Extra,
 			}
-			
+
 			mockRestore.On("Execute", ctx, expectedRestoreOpts).Return(tt.restoreResult, tt.restoreError)
-			
+
 			adapter := operation.NewRestoreAdapter(mockRestore)
 			result, err := adapter.Execute(ctx, tt.opts)
-			
+
 			if tt.expectedError != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.expectedError.Error(), err.Error())
@@ -701,7 +701,7 @@ func TestRestoreAdapter_Execute(t *testing.T) {
 				assert.Equal(t, tt.expectedResult.BytesWritten, result.BytesWritten)
 				assert.Equal(t, tt.expectedResult.Warnings, result.Warnings)
 			}
-			
+
 			mockRestore.AssertExpectations(t)
 		})
 	}
@@ -743,12 +743,12 @@ func TestRestoreAdapter_EstimateSize(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockRestore := new(MockRestoreProvider)
-			
+
 			mockRestore.On("EstimateSize", tt.opts.BackupFile).Return(tt.expectedSize, tt.expectedErr)
-			
+
 			adapter := operation.NewRestoreAdapter(mockRestore)
 			size, err := adapter.EstimateSize(tt.opts)
-			
+
 			if tt.expectedErr != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.expectedErr.Error(), err.Error())
@@ -756,7 +756,7 @@ func TestRestoreAdapter_EstimateSize(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			assert.Equal(t, tt.expectedSize, size)
-			
+
 			mockRestore.AssertExpectations(t)
 		})
 	}
@@ -765,42 +765,42 @@ func TestRestoreAdapter_EstimateSize(t *testing.T) {
 func TestRestoreAdapter_StreamProgress(t *testing.T) {
 	t.Run("progress streaming", func(t *testing.T) {
 		mockRestore := new(MockRestoreProvider)
-		
+
 		// Create restore progress channel
 		restoreChan := make(chan restore.Progress, 3)
 		restoreChan <- restore.Progress{Current: 0, Total: 100, Message: "Starting restore"}
 		restoreChan <- restore.Progress{Current: 50, Total: 100, Message: "50% restored"}
 		restoreChan <- restore.Progress{Current: 100, Total: 100, Message: "Restore complete"}
 		close(restoreChan)
-		
+
 		mockRestore.On("StreamProgress").Return((<-chan restore.Progress)(restoreChan))
-		
+
 		adapter := operation.NewRestoreAdapter(mockRestore)
 		progressChan := adapter.StreamProgress()
-		
+
 		// Verify progress conversion
 		progress := <-progressChan
 		assert.Equal(t, int64(0), progress.Current)
 		assert.Equal(t, int64(100), progress.Total)
 		assert.Equal(t, "Starting restore", progress.Message)
-		
+
 		progress = <-progressChan
 		assert.Equal(t, int64(50), progress.Current)
 		assert.Equal(t, int64(100), progress.Total)
 		assert.Equal(t, "50% restored", progress.Message)
-		
+
 		progress = <-progressChan
 		assert.Equal(t, int64(100), progress.Current)
 		assert.Equal(t, int64(100), progress.Total)
 		assert.Equal(t, "Restore complete", progress.Message)
-		
+
 		// Verify channel is closed
 		_, ok := <-progressChan
 		assert.False(t, ok)
-		
+
 		mockRestore.AssertExpectations(t)
 	})
-	
+
 	// Note: Testing nil progress channel is skipped because the adapter
 	// implementation will hang when trying to range over a nil channel.
 	// This is a known limitation in the current implementation.
@@ -872,7 +872,7 @@ func TestConvertBackupMetadata(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := operation.ConvertBackupMetadata(tt.metadata)
-			
+
 			if tt.expected == nil {
 				assert.Nil(t, result)
 			} else {
@@ -888,12 +888,12 @@ func TestConvertBackupMetadata(t *testing.T) {
 				assert.Equal(t, tt.expected.Size, result.Size)
 				assert.Equal(t, tt.expected.Checksum, result.Checksum)
 				assert.Equal(t, tt.expected.Status, result.Status)
-				
+
 				// ProviderInfo should match
 				if tt.metadata.ProviderInfo != nil {
 					assert.Equal(t, tt.metadata.ProviderInfo, result.ProviderInfo)
 				}
-				
+
 				// Time fields should be set from the original
 				if !tt.metadata.CreatedAt.IsZero() {
 					assert.Equal(t, tt.metadata.CreatedAt, result.CreatedAt)
@@ -901,7 +901,7 @@ func TestConvertBackupMetadata(t *testing.T) {
 				if !tt.metadata.CompletedAt.IsZero() {
 					assert.Equal(t, tt.metadata.CompletedAt, result.CompletedAt)
 				}
-				
+
 				// Extra should be initialized
 				assert.NotNil(t, result.Extra)
 			}
@@ -974,7 +974,7 @@ func TestConvertToRestoreMetadata(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := operation.ConvertToRestoreMetadata(tt.metadata)
-			
+
 			if tt.expected == nil {
 				assert.Nil(t, result)
 			} else {
@@ -989,7 +989,7 @@ func TestConvertToRestoreMetadata(t *testing.T) {
 				assert.Equal(t, tt.expected.Size, result.Size)
 				assert.Equal(t, tt.expected.Checksum, result.Checksum)
 				assert.Equal(t, tt.expected.Status, result.Status)
-				
+
 				// Time fields should be set from the original
 				if !tt.metadata.CreatedAt.IsZero() {
 					assert.Equal(t, tt.metadata.CreatedAt, result.CreatedAt)

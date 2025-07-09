@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/cagojeiger/cli-recover/internal/domain/flags"
 	"github.com/spf13/cobra"
 )
 
@@ -35,10 +36,10 @@ func newListBackupsCommand() *cobra.Command {
 		},
 	}
 
-	// Add flags
-	cmd.Flags().StringP("namespace", "n", "", "Filter by namespace")
-	cmd.Flags().StringP("output", "o", "table", "Output format (table, json, yaml)")
-	cmd.Flags().Bool("details", false, "Show detailed information")
+	// Add flags using registry
+	cmd.Flags().StringP(flags.LongNames.Namespace, flags.Registry.Namespace, "", "Filter by namespace")
+	cmd.Flags().StringP(flags.LongNames.Format, flags.Registry.Format, "table", "Output format (table, json, yaml)")
+	cmd.Flags().Bool(flags.LongNames.Details, false, "Show detailed information")
 
 	return cmd
 }

@@ -64,10 +64,10 @@
 - [x] 테스트 수정 및 mock 추가
 - [x] 문서 정리 (CLAUDE.md 원칙 준수)
 
-## Phase 3.12: CLI 사용성 개선 (계획)
+## Phase 3.12: CLI 사용성 개선 (완료) ✅
 **복잡도**: 30/100 ✅
 **목표**: CLI 일관성 확보 및 사용자 경험 개선
-**기간**: 2025-01-09 ~ 2025-01-10
+**기간**: 2025-01-09 (당일 완료!)
 **문서화**: 완료 (2025-01-09)
 
 ### 문제점 분석
@@ -77,17 +77,17 @@
 - 에러 메시지 불친절
 
 ### 해결책 (CLAUDE.md 준수)
-- [ ] 플래그 레지스트리 구현 (중앙 관리)
-- [ ] 충돌 플래그 수정 (-o→-f, -t→-T, -c→-C)
-- [ ] 하이브리드 args/flags 지원
-- [ ] 진행률 표시 통합
-- [ ] 에러 메시지 개선 (원인, 해결법 제시)
+- [x] 플래그 레지스트리 구현 (중앙 관리) ✅
+- [x] 충돌 플래그 수정 (-o→-f, -t→-T, -c→-C) ✅
+- [x] 에러 메시지 개선 (CLIError 타입) ✅
+- [x] 진행률 표시 통합 ✅
+- [ ] 하이브리드 args/flags 지원 → Phase 6로 이동
 
-### 기대 효과
-- kubectl/docker 스타일 일관성
-- 플래그 충돌 제거
-- 더 나은 사용자 경험
-- 복잡도 30/100 유지
+### 달성된 효과
+- 플래그 충돌 완전 제거 ✅
+- 컴파일 타임 충돌 검증 ✅
+- 사용자 친화적 에러 메시지 ✅
+- 복잡도 30/100 달성 ✅
 
 ## Phase 3.13: CLI 도구 자동 다운로드 (계획)
 **복잡도**: 50/100 ✅
@@ -292,28 +292,52 @@ type BackupMetadata struct {
 - [ ] 키보드 단축키 지원
 - [ ] 복잡도 40/100 유지
 
-## Phase 5: Provider 확장 (계획)
+## Phase 5: 테스트 커버리지 향상 (계획)
+**복잡도**: 20/100 ✅
+**목표**: CLAUDE.md RULE_04 준수 (90% 커버리지)
+**현재**: 50.7% → 목표: 90%
+
+### 작업 항목
+- [ ] cmd/cli-recover: 38.3% → 90%
+- [ ] cmd/cli-recover/tui: 0% → 90%
+- [ ] internal/domain/log: 45% → 90%
+- [ ] internal/infrastructure/kubernetes: 61.4% → 90%
+
+### 우선순위
+1. restore_logic_test.go 생성
+2. list_logic_test.go 생성
+3. logs_test.go 생성
+4. TUI 패키지 테스트
+
+## Phase 6: 하이브리드 인자 처리 (계획)
+**복잡도**: 20/100 ✅
+**목표**: Positional args와 flags 동시 지원
+**우선순위**: 낮음 (선택사항)
+
+### 작업 항목
+- [ ] 인자 파싱 로직 개선
+- [ ] 우선순위 규칙 정의
+- [ ] kubectl/docker 스타일 호환성
+- [ ] 백업/복원 명령어 적용
+
+### 예시
+```bash
+# 모두 동일한 동작
+cli-recover backup filesystem nginx /data
+cli-recover backup filesystem --pod=nginx --path=/data
+cli-recover backup filesystem nginx --path=/data
+```
+
+## Phase 7: Provider 확장 (장기 계획)
 **복잡도**: 60/100 ⚠️⚠️
 **목표**: 다양한 백업 타입 지원
 
 ### 작업 항목
+- [ ] Phase 3.13 도구 자동 다운로드 (여기로 이동)
 - [ ] MinIO Provider
-  - S3 프로토콜 지원
-  - 버킷 백업/복원
 - [ ] MongoDB Provider
-  - mongodump/mongorestore
-  - 컬렉션 선택
 - [ ] PostgreSQL Provider
-  - pg_dump/pg_restore
-  - 스키마/데이터 옵션
 - [ ] MySQL Provider
-  - mysqldump/mysql
-  - 데이터베이스 선택
-
-### Provider 추가 시
-- CLI와 TUI 자동 지원
-- 통일된 진행률/에러 처리
-- 메타데이터 자동 관리
 
 ## 일정 요약 (업데이트)
 - **Phase 1 완료**: 1월 2주 (95% 완료)
@@ -321,11 +345,13 @@ type BackupMetadata struct {
 - **Phase 3 완료**: 1월 7일 (100% 완료)
 - **Phase 3.9 완료**: 1월 8일 (아키텍처 단순화 - 하루만에 완료!) ✅
 - **Phase 3.10 완료**: 1월 8일 (백업 무결성 - TDD로 안전하게 구현!) ✅
-- **Phase 3.11 완료**: 7월 9일 (진행률 보고 시스템) ✅
-- **Phase 3.12 계획**: 1월 9-10일 (CLI 사용성 개선)
-- **Phase 3.13 계획**: 1월 11일 (도구 자동 다운로드)
-- **Phase 4 계획**: Phase 3 완료 후 (TUI 구현)
-- **Phase 5**: 필요시 진행 (MinIO/MongoDB)
+- **Phase 3.11 완료**: 1월 9일 (진행률 보고 시스템) ✅
+- **Phase 3.12 완료**: 1월 9일 (CLI 사용성 개선) ✅
+- **Phase 3 완료**: 1월 9일 (전체 Phase 3 완료!) ✅
+- **Phase 4 계획**: TUI 구현
+- **Phase 5 계획**: 테스트 커버리지 90%
+- **Phase 6 계획**: 하이브리드 인자 처리 (낮은 우선순위)
+- **Phase 7 계획**: Provider 확장 + 도구 자동 다운로드
 - **총 기간**: 유동적 (사용자 요구사항 기반)
 
 ## 진행률 보고 원칙 (2025-01-08 추가)

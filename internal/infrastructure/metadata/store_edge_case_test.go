@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/cagojeiger/cli-recover/internal/domain/metadata"
-	infMetadata "github.com/cagojeiger/cli-recover/internal/infrastructure/metadata"
 	"github.com/cagojeiger/cli-recover/internal/domain/restore"
+	infMetadata "github.com/cagojeiger/cli-recover/internal/infrastructure/metadata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
