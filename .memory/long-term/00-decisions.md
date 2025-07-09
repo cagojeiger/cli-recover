@@ -1,327 +1,69 @@
-# 주요 설계 결정사항
+# 주요 결정사항
 
-## 프레임워크 선택
+## 아키텍처 결정
 
-### Bubble Tea 유지 (2024-01-07)
-**결정**: 기존 Bubble Tea 프레임워크 유지
-**이유**:
-- 마이그레이션 비용 > 기대 이익
-- 이미 작동하는 코드베이스 존재
-- Charm 생태계 활용 가능 (lipgloss, bubbles)
-- teatest로 테스트 가능
+### 2계층 구조 (2025-01-08)
+- **결정**: Domain ↔ Infrastructure (Application 레이어 제거)
+- **이유**: 중간 전달 레이어가 불필요, 복잡도 45% 감소
+- **효과**: 직접 호출로 코드 추적 용이
 
-**대안 검토**:
-- tview: k9s가 사용하지만 전면 재작성 필요
-- 직접 구현: 복잡도 너무 높음
+### Hexagonal Architecture → 단순화
+- **초기**: Ports & Adapters 패턴 채택
+- **문제**: 과도한 추상화, God Object (Model 115+ 필드)
+- **해결**: 2계층으로 단순화하되 인터페이스 분리 유지
 
-## 아키텍처 패턴
+### Factory 패턴 (2025-01-08)
+- **변경**: Registry 패턴 → 단순 Factory 함수
+- **이유**: Provider 1개만 관리하는데 복잡한 Registry 불필요
+- **구현**: switch 문으로 직접 생성
 
-### 헥사고날 아키텍처 채택
-**결정**: Ports & Adapters 패턴 적용
-**이유**:
-- 비즈니스 로직과 인프라 분리
-- 테스트 용이성
-- 확장성 (새 백업 타입 추가 쉬움)
+## 기술 선택
 
-### 점진적 리팩토링
-**결정**: Big Bang 대신 단계별 접근
-**이유**:
-- 위험 최소화
-- 기능 유지하면서 개선
-- 각 단계별 검증 가능
+### CLI-First 접근 (2025-01-07)
+- **변경**: TUI 중심 → CLI 우선 개발
+- **이유**: 테스트 용이, 즉각적 가치 제공, 자동화 가능
+- **원칙**: "Make it work → Make it right → Make it pretty"
 
-## 기술적 결정
+### TUI 라이브러리 (2025-01-08)
+- **변경**: Bubble Tea → tview
+- **이유**: 즉시 사용 가능한 위젯, 단순한 구조
+- **구현**: CLI 래퍼 방식 (~800줄)
 
-### Ring Buffer 도입
-**결정**: 무제한 배열 대신 순환 버퍼 사용
-**이유**:
-- 메모리 사용량 예측 가능
-- 대용량 백업 시 OOM 방지
-- 최근 N개 라인만 유지로 충분
+### 백업 무결성 (2025-01-08)
+- **방법**: 임시파일 + 원자적 rename
+- **체크섬**: SHA256 스트리밍 계산
+- **복잡도**: 25/100 (3-4줄로 해결)
 
-### TDD 우선순위
-**결정**: 비-UI 로직부터 TDD 적용
-**순서**:
-1. Ring Buffer
-2. 비즈니스 서비스
-3. Repository
-4. UI 컴포넌트 (teatest)
+## 개발 원칙
 
-**이유**:
-- UI 테스트는 상대적으로 어려움
-- 핵심 로직 안정성 우선
+### Occam's Razor
+- **기준**: 복잡도 70 이상 거부
+- **적용**: Registry 제거, Application 레이어 제거
+- **결과**: 코드 35% 감소, 파일 40% 감소
 
-### 인터페이스 기반 설계
-**결정**: 구체 타입 대신 인터페이스 의존
-**예시**:
-```go
-// Before
-type Model struct {
-    runner runner.Runner // 구체 타입
-}
+### TDD & Tidy First
+- **순서**: Red → Green → Refactor
+- **분리**: 구조적 변경과 행동적 변경 분리
+- **커밋**: 한 번에 하나의 논리적 변경만
 
-// After  
-type Model struct {
-    kubeClient KubernetesClient // 인터페이스
-}
-```
-**이유**:
-- 테스트 시 모킹 가능
-- 구현 교체 용이
-- 의존성 역전 원칙
+### 진행률 보고 (2025-07-08)
+- **3초 규칙**: 3초 이상 작업은 진행률 필수
+- **다중 환경**: Terminal, CI/CD, 로그, TUI 통합
+- **구현**: io.TeeReader로 표준 라이브러리만 사용
 
-## 프로세스 결정
+## 전략적 결정
 
-### 백업 타입별 독립성
-**결정**: 각 백업 타입은 독립적인 프로세스
-**구현**:
-```go
-type BackupType interface {
-    Name() string
-    ValidateOptions(opts) error
-    BuildCommand(target) string
-}
-```
-**이유**:
-- filesystem, minio, mongodb 각각 다른 요구사항
-- 플러그인 방식으로 확장 가능
-- 기존 타입 영향 없이 새 타입 추가
+### Provider 확장 전략
+- **현재**: Filesystem provider만 완전 구현
+- **미래**: MinIO, MongoDB는 Phase 5로 연기
+- **이유**: 실사용 피드백 후 필요시 추가
 
-### 설정 관리
-**결정**: ~/.cli-recover/config.yaml 사용
-**이유**:
-- 사용자 커스터마이징 가능
-- 환경별 설정 분리
-- viper로 쉬운 관리
+### 메타데이터 관리
+- **저장**: 로컬 파일 시스템 (JSON)
+- **위치**: ~/.cli-recover/metadata/
+- **이유**: 단순함, 외부 의존성 없음
 
-## UI/UX 결정
-
-### 프로그레스바 제거
-**결정**: 복잡한 파싱 대신 원본 출력 표시
-**이유**:
-- 백업 타입마다 출력 형식 다름
-- 파싱 로직 복잡도 높음
-- 사용자가 원본 정보 선호
-
-### 컴포넌트 기반 UI
-**결정**: 재사용 가능한 컴포넌트 추출
-**컴포넌트**:
-- ListComponent
-- FormComponent
-- TableComponent
-**이유**:
-- 코드 중복 제거
-- 일관된 UX
-- 유지보수 용이
-
-## 2025-01-07 추가 결정사항
-
-### CLI-First 전략 채택
-**결정**: TUI-first에서 CLI-first로 전환
-**이유**:
-- TUI Model이 God Object화 (115+ 필드)
-- 테스트 어려움
-- 복잡도 관리 실패
-**구현**:
-- Provider 기반 CLI 명령 구조
-- TUI는 CLI 래퍼로만 사용
-- MinIO/MongoDB는 Phase 5로 연기
-
-### TUI 테스트 제외
-**결정**: TUI 레이어 테스트 작성 안함
-**이유**:
-- CLI가 테스트 가능하므로 중복
-- TUI는 단순 래퍼
-- 투자 대비 효과 낮음
-**영향**:
-- Makefile에서 TUI 커버리지 제외
-- 비즈니스 로직 테스트에 집중
-
-### 메타데이터 저장소
-**결정**: 로컬 파일 기반 저장
-**구현**:
-- ~/.cli-recover/metadata/
-- JSON 형식
-- SHA256 체크섬 포함
-**이유**:
-- 단순함 우선
-- 외부 의존성 없음
-- 향후 확장 가능
-
-### Status 명령 연기
-**결정**: Phase 1에서 Phase 4로 이동
-**이유**:
-- Job 히스토리와 함께 구현이 효율적
-- 필수 기능이 아님
-- Phase 1을 빠르게 마무리
-**영향**:
-- Phase 1이 95% 완료로 마무리
-- 핵심 백업/복원 기능에 집중
-
-### 코드 정리 전략
-**결정**: TDD 방식으로 레거시 코드 제거
-**절차**:
-1. 호환성 테스트 작성
-2. 기능 동일성 검증
-3. 안전한 제거
-**결과**:
-- backup_filesystem.go 안전하게 제거
-- 테스트 커버리지 58.4% 달성
-- 깨끗한 코드베이스 확보
-
-## 2025-01-07 Phase 3 진행
-
-### 로그 시스템 구현
-**발견**: 로그 시스템이 이미 완전히 구현되어 있음
-**위치**:
-- internal/domain/logger: 인터페이스 정의
-- internal/infrastructure/logger: 구현체들
-**기능**:
-- 파일/콘솔 로거
-- 로그 로테이션
-- JSON/Text 포맷
-- 글로벌 로거 지원
-**작업**:
-- 기존 fmt.Printf를 로거로 교체
-- CLI 플래그 추가 (--log-level, --log-file, --log-format)
-- 테스트에 NoOpLogger 추가
-
-### Phase 3 빠른 완료
-**이유**: 이미 구현된 기능 발견
-**결과**:
-- 예상 2일 → 실제 1시간
-- 복잡도 30/100 유지
-- 모든 테스트 통과
-
-## 2025-01-07 아키텍처 대대적 정리
-
-### TUI 완전 삭제 결정
-**결정**: TUI 레이어 완전 제거
-**이유**:
-- 헥사고날 아키텍처 심각한 위반
-- God Object 안티패턴 (Model 115+ 필드)
-- 비즈니스 로직이 UI 레이어에 혼재
-- 테스트 불가능한 구조
-**백업**: backup/legacy-tui-20250107/에 보관
-**영향**:
-- 코드베이스 대폭 단순화
-- 테스트 가능한 구조로 전환
-- Phase 4에서 깨끗한 재시작 가능
-
-### 헥사고날 아키텍처 재구성
-**결정**: 모든 패키지를 올바른 레이어로 재배치
-**변경사항**:
-- adapters: cmd/cli-recover/adapters → internal/application/adapters
-- config: internal/config → internal/application/config
-- runner: internal/runner → internal/infrastructure/runner
-- providers: internal/providers → internal/infrastructure/providers
-**중복 제거**:
-- internal/backup/ (domain/backup과 중복)
-- internal/kubernetes/ (infrastructure/kubernetes와 중복)
-- internal/presentation/ (빈 디렉토리)
-**파일명 정리**:
-- _new suffix 모두 제거 (Go 컨벤션 준수)
-**결과**:
-- 명확한 레이어 분리
-- 의존성 방향 올바름
-- 테스트 용이한 구조
-
-### 백그라운드 실행 모드 설계
-**결정**: Job 도메인 모델 도입
-**구현 방식**:
-- exec.Command 자기 재실행 패턴 (Go는 fork() 불가)
-- PID 파일 관리 (~/.cli-recover/jobs/)
-- Job 상태 추적 (pending → running → completed/failed)
-**아키텍처**:
-- Domain: Job entity, JobRepository interface
-- Infrastructure: FileJobRepository, ProcessExecutor
-- Application: JobService
-
-### 파일 관리 시스템 설계
-**결정**: ~/.cli-recover/ 하위 통합 관리
-**구조**:
-```
-~/.cli-recover/
-├── config.yaml    # 설정 파일
-├── logs/         # 작업 이력 로그
-│   ├── metadata/ # 메타데이터 JSON
-│   └── files/    # 실제 로그 파일
-├── metadata/     # 백업 메타데이터
-└── tmp/          # 임시 파일
-```
-**Cleanup 명령**:
-- logs clean 명령으로 오래된 로그 정리
-- --days 옵션으로 보관 기간 설정
-- --dry-run 모드 지원
-
-## 2025-01-07 Phase 3 재설계
-
-### 백그라운드 실행 롤백
-**결정**: 과도하게 복잡한 백그라운드 시스템 제거
-**이유**:
-- 복잡도 80/100 (Occam's Razor 위반)
-- Job 도메인, SecurityRunner 등 과도한 추상화
-- 실제 필요성 불명확
-**대안**: 단순한 로그 파일 시스템으로 대체
-
-### 로그 파일 시스템 구현
-**결정**: 작업 이력 영구 보관 시스템
-**복잡도**: 30/100 ✅
-**구성**:
-- internal/domain/log: 도메인 모델
-- 파일 기반 저장소 (JSON 메타데이터)
-- 작업별 개별 로그 파일
-- CLI 명령어: logs list, show, tail, clean
-**차이점**:
-- logger: 애플리케이션 디버깅용 (휘발성)
-- log: 작업 이력 보관용 (영구 보관)
-
-### 실사용 피드백 우선
-**결정**: 추가 기능 구현 전 실사용 테스트
-**이유**:
-- 불필요한 기능 구현 방지
-- 실제 요구사항 파악
-- Occam's Razor 원칙 준수
-**방향**:
-- 현재 기능으로 충분한지 검증
-- 필요시만 단순하게 추가
-
-## 2025-01-07 Phase 4 TUI 재구현
-
-### TUI 라이브러리 변경
-**결정**: Bubble Tea → tview
-**이유**:
-- 즉시 사용 가능한 위젯 (드롭다운, 테이블 등)
-- 단순한 구조로 복잡도 관리 용이
-- K9s 등 성공 사례 존재
-**결과**:
-- 복잡도 40/100 달성 (목표 45/100 이하)
-- 7개 파일, 총 ~800줄로 구현
-
-### CLI 래퍼 방식
-**결정**: TUI는 CLI 명령어를 실행하는 얇은 래퍼
-**구현**:
-- TUI에서 CLI 명령 생성 및 실행
-- stdout/stderr 파이프로 실시간 출력 캡처
-- 비즈니스 로직 중복 없음
-**장점**:
-- 테스트된 CLI 기능 재사용
-- TUI/CLI 동작 일관성 보장
-- 유지보수 용이
-
-### TUI 구조 설계
-**파일 구조**:
-```
-cmd/cli-recover/tui/
-├── app.go      # 앱 코어 (페이지 관리)
-├── menu.go     # 메인 메뉴
-├── backup.go   # 백업 워크플로우
-├── restore.go  # 복원 워크플로우
-├── list.go     # 백업 목록 테이블
-├── logs.go     # 로그 뷰어
-└── progress.go # 진행률 표시
-```
-**특징**:
-- God Object 회피 (각 화면 독립적)
-- 상태 관리 최소화
-- tview 기본 위젯만 사용
+### 도구 의존성 (계획)
+- **문제**: kubectl 없으면 실패
+- **해결**: 자동 다운로드 (Phase 3.12)
+- **복잡도**: 50/100 예상

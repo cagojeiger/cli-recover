@@ -34,13 +34,13 @@ func (fs *MockFileSystem) SetFailure(filename string, err error) {
 func (fs *MockFileSystem) SetWriteFailureAfterBytes(filename string, n int64) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	
+
 	// Create a pre-configured file that will fail after n bytes
 	fs.files[filename] = &mockFile{
-		name:         filename,
-		buffer:       &bytes.Buffer{},
+		name:           filename,
+		buffer:         &bytes.Buffer{},
 		failAfterBytes: n,
-		failError:    errors.New("write failed: simulated error"),
+		failError:      errors.New("write failed: simulated error"),
 	}
 }
 
@@ -48,16 +48,16 @@ func (fs *MockFileSystem) SetWriteFailureAfterBytes(filename string, n int64) {
 func (fs *MockFileSystem) Create(name string) (File, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	
+
 	if err, ok := fs.shouldFail[name]; ok {
 		return nil, err
 	}
-	
+
 	// If file was pre-configured (e.g., for failure testing), use it
 	if f, exists := fs.files[name]; exists {
 		return f, nil
 	}
-	
+
 	f := &mockFile{
 		name:   name,
 		buffer: &bytes.Buffer{},
@@ -70,20 +70,20 @@ func (fs *MockFileSystem) Create(name string) (File, error) {
 func (fs *MockFileSystem) Open(name string) (File, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	
+
 	if err, ok := fs.shouldFail[name]; ok {
 		return nil, err
 	}
-	
+
 	f, exists := fs.files[name]
 	if !exists {
 		return nil, os.ErrNotExist
 	}
-	
+
 	// Create a new reader file
 	return &mockFile{
-		name:   name,
-		buffer: bytes.NewBuffer(f.buffer.Bytes()),
+		name:     name,
+		buffer:   bytes.NewBuffer(f.buffer.Bytes()),
 		readonly: true,
 	}, nil
 }
@@ -92,11 +92,11 @@ func (fs *MockFileSystem) Open(name string) (File, error) {
 func (fs *MockFileSystem) Remove(name string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	
+
 	if err, ok := fs.shouldFail[name]; ok {
 		return err
 	}
-	
+
 	delete(fs.files, name)
 	return nil
 }
@@ -105,16 +105,16 @@ func (fs *MockFileSystem) Remove(name string) error {
 func (fs *MockFileSystem) Rename(oldpath, newpath string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	
+
 	if err, ok := fs.shouldFail[oldpath]; ok {
 		return err
 	}
-	
+
 	f, exists := fs.files[oldpath]
 	if !exists {
 		return os.ErrNotExist
 	}
-	
+
 	fs.files[newpath] = f
 	f.name = newpath
 	delete(fs.files, oldpath)
@@ -125,12 +125,12 @@ func (fs *MockFileSystem) Rename(oldpath, newpath string) error {
 func (fs *MockFileSystem) Stat(name string) (os.FileInfo, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	
+
 	f, exists := fs.files[name]
 	if !exists {
 		return nil, os.ErrNotExist
 	}
-	
+
 	return &mockFileInfo{
 		name: name,
 		size: int64(f.buffer.Len()),
@@ -141,7 +141,7 @@ func (fs *MockFileSystem) Stat(name string) (os.FileInfo, error) {
 func (fs *MockFileSystem) Exists(name string) bool {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	
+
 	_, exists := fs.files[name]
 	return exists
 }
@@ -150,12 +150,12 @@ func (fs *MockFileSystem) Exists(name string) bool {
 func (fs *MockFileSystem) GetFileContent(name string) ([]byte, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	
+
 	f, exists := fs.files[name]
 	if !exists {
 		return nil, os.ErrNotExist
 	}
-	
+
 	return f.buffer.Bytes(), nil
 }
 
@@ -176,11 +176,11 @@ func (f *mockFile) Write(p []byte) (n int, err error) {
 	if f.closed {
 		return 0, errors.New("file closed")
 	}
-	
+
 	if f.readonly {
 		return 0, errors.New("file is readonly")
 	}
-	
+
 	// Check if we should fail after certain bytes
 	if f.failAfterBytes > 0 && f.bytesWritten+int64(len(p)) > f.failAfterBytes {
 		// Write partial data up to the failure point
@@ -191,7 +191,7 @@ func (f *mockFile) Write(p []byte) (n int, err error) {
 		}
 		return canWrite, f.failError
 	}
-	
+
 	n, err = f.buffer.Write(p)
 	f.bytesWritten += int64(n)
 	return n, err

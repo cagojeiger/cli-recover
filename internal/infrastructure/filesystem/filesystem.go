@@ -114,7 +114,7 @@ func (p *Provider) executeInternal(ctx context.Context, opts backup.Options, wit
 
 	// Create temporary file
 	tempFile := opts.OutputFile + ".tmp"
-	
+
 	// Track success for cleanup
 	var success bool
 	defer func() {
@@ -129,7 +129,7 @@ func (p *Provider) executeInternal(ctx context.Context, opts backup.Options, wit
 		return nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
 	defer outputFile.Close()
-	
+
 	// Setup checksum writer if needed
 	var writer io.Writer = outputFile
 	var checksumWriter *ChecksumWriter
@@ -153,21 +153,42 @@ func (p *Provider) executeInternal(ctx context.Context, opts backup.Options, wit
 	var wg sync.WaitGroup
 	var copyErr error
 
+	// Estimate size if possible for better progress reporting
+	estimatedSize, _ := p.EstimateSizeWithContext(ctx, opts)
+
 	// Stream stdout (binary tar data) directly to file
 	wg.Add(1)
 	var writtenBytes int64
 	go func() {
 		defer wg.Done()
-		written, err := io.Copy(writer, stdout)
-		writtenBytes = written
-		if err != nil {
-			copyErr = fmt.Errorf("failed to write backup data: %w", err)
+
+		// If we have an estimated size, use progress writer for real-time updates
+		if estimatedSize > 0 {
+			// Import note: need to add progress package import
+			// Create a progress writer that sends updates through the progress channel
+			progressWriter := &backupProgressWriter{
+				writer:     writer,
+				progressCh: p.progressCh,
+				total:      estimatedSize,
+			}
+			written, err := io.Copy(progressWriter, stdout)
+			writtenBytes = written
+			if err != nil {
+				copyErr = fmt.Errorf("failed to write backup data: %w", err)
+			}
 		} else {
-			// Send intermediate progress based on data written
-			p.progressCh <- backup.Progress{
-				Current: written,
-				Total:   0, // Unknown total
-				Message: fmt.Sprintf("Written %s", humanizeBytes(written)),
+			// No size estimate, use regular copy
+			written, err := io.Copy(writer, stdout)
+			writtenBytes = written
+			if err != nil {
+				copyErr = fmt.Errorf("failed to write backup data: %w", err)
+			} else {
+				// Send intermediate progress based on data written
+				p.progressCh <- backup.Progress{
+					Current: written,
+					Total:   0, // Unknown total
+					Message: fmt.Sprintf("Written %s", humanizeBytes(written)),
+				}
 			}
 		}
 	}()
@@ -235,7 +256,6 @@ func (p *Provider) executeInternal(ctx context.Context, opts backup.Options, wit
 
 	return nil, nil
 }
-
 
 // buildTarCommand builds the kubectl exec tar command
 func (p *Provider) buildTarCommand(opts backup.Options) []string {
@@ -307,6 +327,29 @@ func (p *Provider) monitorStderr(stderr io.Reader, opts backup.Options) {
 			}
 		}
 	}
+}
+
+// backupProgressWriter wraps an io.Writer to send progress updates
+type backupProgressWriter struct {
+	writer     io.Writer
+	progressCh chan<- backup.Progress
+	current    int64
+	total      int64
+}
+
+// Write implements io.Writer and tracks progress
+func (pw *backupProgressWriter) Write(p []byte) (n int, err error) {
+	n, err = pw.writer.Write(p)
+	pw.current += int64(n)
+
+	// Send progress update
+	pw.progressCh <- backup.Progress{
+		Current: pw.current,
+		Total:   pw.total,
+		Message: fmt.Sprintf("Backing up: %s / %s", humanizeBytes(pw.current), humanizeBytes(pw.total)),
+	}
+
+	return n, err
 }
 
 // humanizeBytes converts bytes to human readable format

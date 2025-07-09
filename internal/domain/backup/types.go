@@ -100,12 +100,12 @@ const (
 
 // Result represents the result of a backup operation
 type Result struct {
-	BackupFile  string    // Path to the created backup file
-	Size        int64     // Size of the backup in bytes
-	Checksum    string    // SHA256 checksum of the backup file
-	StartTime   time.Time // When the backup started
-	EndTime     time.Time // When the backup completed
-	FileCount   int       // Number of files backed up (if available)
+	BackupFile string    // Path to the created backup file
+	Size       int64     // Size of the backup in bytes
+	Checksum   string    // SHA256 checksum of the backup file
+	StartTime  time.Time // When the backup started
+	EndTime    time.Time // When the backup completed
+	FileCount  int       // Number of files backed up (if available)
 }
 
 // BackupError represents a domain-specific error
