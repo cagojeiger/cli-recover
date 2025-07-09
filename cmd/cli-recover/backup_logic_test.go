@@ -386,7 +386,7 @@ func TestBuildBackupOptions(t *testing.T) {
 			},
 			args:        []string{"test-pod"},
 			expected:    backup.Options{},
-			expectedErr: "filesystem backup requires [pod] [path] arguments",
+			expectedErr: "Missing required arguments",
 		},
 		{
 			name:         "unknown provider",
@@ -571,7 +571,7 @@ func TestExecuteBackup_Integration(t *testing.T) {
 		err := executeBackup("filesystem", cmd, []string{"pod-only"})
 		
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "filesystem backup requires [pod] [path] arguments")
+		assert.Contains(t, err.Error(), "Missing required arguments")
 	})
 	
 	t.Run("unknown provider error", func(t *testing.T) {
