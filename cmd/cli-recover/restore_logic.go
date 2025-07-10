@@ -107,10 +107,10 @@ func executeRestore(providerName string, cmd *cobra.Command, args []string) erro
 			log.Error("Restore failed",
 				logger.F("code", restoreErr.Code),
 				logger.F("message", restoreErr.Message))
-			
+
 			// Print user-friendly error message
 			fmt.Fprintf(os.Stderr, "\n❌ Error: %s\n", restoreErr.Message)
-			
+
 			// Provide helpful suggestions based on error code
 			switch restoreErr.Code {
 			case "POD_NOT_FOUND":
@@ -120,10 +120,10 @@ func executeRestore(providerName string, cmd *cobra.Command, args []string) erro
 			case "PERMISSION_DENIED":
 				fmt.Fprintf(os.Stderr, "   Fix: Check pod permissions or run with appropriate privileges\n")
 			}
-			
+
 			return fmt.Errorf("restore failed: %s", restoreErr.Message)
 		}
-		
+
 		// Check for context timeout
 		if ctx.Err() == context.DeadlineExceeded {
 			log.Error("Restore timed out", logger.F("timeout", "10m"))
@@ -131,7 +131,7 @@ func executeRestore(providerName string, cmd *cobra.Command, args []string) erro
 			fmt.Fprintf(os.Stderr, "   Fix: Check network connectivity and pod status\n")
 			return fmt.Errorf("restore timed out")
 		}
-		
+
 		return fmt.Errorf("restore failed: %w", err)
 	}
 
@@ -205,7 +205,7 @@ func monitorRestoreProgress(provider restore.Provider, estimatedSize int64, done
 	progressCh := provider.StreamProgress()
 
 	// Create the appropriate progress reporter without delay for restore
-	reporter := progress.NewAutoReporterWithDelay(os.Stderr, false)  // false = no 3-second delay
+	reporter := progress.NewAutoReporterWithDelay(os.Stderr, false) // false = no 3-second delay
 
 	// Start the operation immediately
 	reporter.Start("Restore", estimatedSize)

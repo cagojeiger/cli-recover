@@ -126,7 +126,7 @@ func TestRestoreProvider_EstimateSize_Integration(t *testing.T) {
 	// Create a temporary file with known size
 	tmpDir := t.TempDir()
 	backupFile := filepath.Join(tmpDir, "test.tar")
-	
+
 	testData := []byte("This is test data for size estimation")
 	err := os.WriteFile(backupFile, testData, 0644)
 	require.NoError(t, err)
@@ -144,7 +144,7 @@ func TestRestoreProvider_EstimateSize_Integration(t *testing.T) {
 func TestRestoreProvider_ProgressReporting(t *testing.T) {
 	// This test verifies that progress is reported correctly
 	provider := NewRestoreProvider(nil, nil)
-	
+
 	// Get progress channel
 	progressCh := provider.StreamProgress()
 	assert.NotNil(t, progressCh)

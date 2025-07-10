@@ -171,7 +171,7 @@ func (p *RestoreProvider) Execute(ctx context.Context, opts restore.Options) (*r
 		}
 
 		fileCount = progress.FileCount
-		
+
 		// Estimate bytes processed based on file count
 		if fileInfo.Size() > 0 && fileCount > 0 {
 			// Simple estimation: assume linear progress
@@ -210,7 +210,6 @@ func (p *RestoreProvider) Execute(ctx context.Context, opts restore.Options) (*r
 		Warnings:     []string{},
 	}, nil
 }
-
 
 // StreamProgress returns the progress channel
 func (p *RestoreProvider) StreamProgress() <-chan restore.Progress {

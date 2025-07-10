@@ -54,7 +54,7 @@ func (r *RestoreExecutor) ExecuteRestore(ctx context.Context, backupFile string,
 
 	// Build kubectl command
 	cmd := exec.CommandContext(ctx, "kubectl", kubectlArgs...)
-	
+
 	// Connect backup file directly to stdin (binary-safe)
 	cmd.Stdin = file
 
@@ -113,16 +113,16 @@ func (r *RestoreExecutor) ExecuteRestore(ctx context.Context, backupFile string,
 // monitorProgress monitors tar verbose output from stderr
 func (r *RestoreExecutor) monitorProgress(stderr io.Reader) error {
 	scanner := bufio.NewScanner(stderr)
-	
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		// Parse tar verbose output
 		// Format: "x path/to/file" or "x path/to/dir/"
 		if strings.HasPrefix(line, "x ") {
 			fileName := strings.TrimPrefix(line, "x ")
 			fileName = strings.TrimSpace(fileName)
-			
+
 			if fileName != "" {
 				r.mu.Lock()
 				r.fileCount++
@@ -163,23 +163,23 @@ func (r *RestoreExecutor) monitorProgress(stderr io.Reader) error {
 }
 
 // StreamRestore executes restore with streaming support (alternative implementation)
-func StreamRestore(ctx context.Context, backupFile string, namespace, pod, container, targetPath string, 
+func StreamRestore(ctx context.Context, backupFile string, namespace, pod, container, targetPath string,
 	preservePerms bool, overwrite bool, skipPaths []string) (<-chan RestoreProgress, error) {
-	
+
 	progressCh := make(chan RestoreProgress, 100)
-	
+
 	go func() {
 		defer close(progressCh)
-		
+
 		// Build kubectl args
 		kubectlArgs := []string{"exec", "-i", "-n", namespace, pod}
-		
+
 		if container != "" {
 			kubectlArgs = append(kubectlArgs, "-c", container)
 		}
-		
+
 		kubectlArgs = append(kubectlArgs, "--", "tar")
-		
+
 		// Detect compression from file extension
 		compression := detectCompression(backupFile)
 		switch compression {
@@ -192,35 +192,35 @@ func StreamRestore(ctx context.Context, backupFile string, namespace, pod, conta
 		default:
 			kubectlArgs = append(kubectlArgs, "-xvf")
 		}
-		
+
 		// Add stdin flag
 		kubectlArgs = append(kubectlArgs, "-")
-		
+
 		// Add target directory
 		kubectlArgs = append(kubectlArgs, "-C", targetPath)
-		
+
 		// Add overwrite flag if needed
 		if !overwrite {
 			kubectlArgs = append(kubectlArgs, "--keep-old-files")
 		}
-		
+
 		// Add preserve permissions flag
 		if preservePerms {
 			kubectlArgs = append(kubectlArgs, "-p")
 		}
-		
+
 		// Add skip paths
 		for _, skip := range skipPaths {
 			kubectlArgs = append(kubectlArgs, "--exclude="+skip)
 		}
-		
+
 		// Execute restore
 		executor := NewRestoreExecutor(progressCh)
 		if err := executor.ExecuteRestore(ctx, backupFile, kubectlArgs); err != nil {
 			progressCh <- RestoreProgress{Error: err}
 		}
 	}()
-	
+
 	return progressCh, nil
 }
 

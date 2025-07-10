@@ -15,7 +15,7 @@ func TestRestoreExecutor_ExecuteRestore(t *testing.T) {
 	// Create a temporary backup file for testing
 	tmpDir := t.TempDir()
 	backupFile := filepath.Join(tmpDir, "test-backup.tar")
-	
+
 	// Create a simple tar file
 	err := os.WriteFile(backupFile, []byte("test tar content"), 0644)
 	require.NoError(t, err)
@@ -28,10 +28,10 @@ func TestRestoreExecutor_ExecuteRestore(t *testing.T) {
 		errContains string
 	}{
 		{
-			name:       "valid backup file",
-			backupFile: backupFile,
+			name:        "valid backup file",
+			backupFile:  backupFile,
 			kubectlArgs: []string{"exec", "-i", "-n", "test", "test-pod", "--", "tar", "-xvf", "-", "-C", "/tmp"},
-			wantErr:    true, // Will fail as kubectl is not available in test
+			wantErr:     true, // Will fail as kubectl is not available in test
 			errContains: "kubectl",
 		},
 		{
@@ -74,10 +74,10 @@ func TestRestoreExecutor_ExecuteRestore(t *testing.T) {
 
 func TestRestoreExecutor_monitorProgress(t *testing.T) {
 	tests := []struct {
-		name           string
-		stderrOutput   []string
-		expectedCount  int
-		expectedFiles  []string
+		name          string
+		stderrOutput  []string
+		expectedCount int
+		expectedFiles []string
 	}{
 		{
 			name: "tar verbose output",
@@ -137,7 +137,7 @@ func TestRestoreExecutor_monitorProgress(t *testing.T) {
 
 			// Verify progress updates
 			close(progressCh)
-			
+
 			fileCount := 0
 			var files []string
 			for progress := range progressCh {
@@ -180,7 +180,7 @@ func TestStreamRestore(t *testing.T) {
 	// This is more of an integration test
 	tmpDir := t.TempDir()
 	backupFile := filepath.Join(tmpDir, "test.tar")
-	
+
 	// Create a dummy tar file
 	err := os.WriteFile(backupFile, []byte("dummy tar content"), 0644)
 	require.NoError(t, err)
