@@ -1,28 +1,22 @@
-- 현재 작업: Phase 3-1 긴급 수정 - 테스트 및 마무리
+- 현재 작업: Phase 4 - Provider 격리 실험
   - 활성 작업
-    - restore 명령어 수정 완료
-    - 테스트 및 빌드 확인
-    - 문서 업데이트
-    - 날짜: 2025-01-09
+    - experimental/ 디렉토리 전략 실행
+    - 문서 대청소 완료 (38개 → 18개)
+    - 날짜: 2025-01-10
     - 브랜치: feature/tui-backup
-    - 우선순위: P0 (긴급)
+    - 철학: "격리성 > 재사용성"
   - 완료된 작업
-    - RestoreExecutor 구현 ✅
-    - 바이너리 스트리밍 수정 ✅
-    - 진행률 즉시 표시 ✅
-    - 타임아웃 처리 ✅
-  - Phase 3 최종 현황
-    - Phase 3.9: 아키텍처 단순화 ✅ 완료
-    - Phase 3.10: 백업 무결성 ✅ 완료
-    - Phase 3.11: 진행률 보고 ✅ 완료
-    - Phase 3.12: CLI 사용성 ✅ 완료
-      - 플래그 충돌 해결 ✅
-      - CLIError 타입 구현 ✅
-      - 플래그 레지스트리 구현 ✅
-      - 하이브리드 인자 → Phase 6로 이동
-    - Phase 3.13: 도구 다운로드 → Phase 7로 이동
-  - 다음 단계 선택지
-    - Phase 4: TUI 구현 (복잡도 40/100)
-    - Phase 5: 테스트 커버리지 90% (권장)
-    - Phase 6: 하이브리드 인자 (낮은 우선순위)
-    - Phase 7: Provider 확장 + 도구 다운로드
+    - 레거시 문서 15개 삭제 ✅
+    - 아키텍처 문서 병합 ✅
+    - 새 checkpoint 작성 ✅
+    - experimental 구조 생성 ✅
+  - 다음 단계 (Phase 4 sub-phases)
+    - Phase 4-1: Experimental 구조 ✅ 완료
+    - Phase 4-2: EstimateSize 격리 구현 (TDD)
+    - Phase 4-3: A/B 테스트 인프라
+    - Phase 4-4: 평가 및 결정
+  - 핵심 원칙
+    - 기존 코드 절대 수정 금지
+    - experimental/ 명확한 격리
+    - 성공 증명 후에만 통합
+    - 실패는 폴더 삭제로 끝

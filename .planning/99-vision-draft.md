@@ -1,114 +1,94 @@
-# CLI-Recover 2.0 Vision Draft
+# CLI-Recover 2.0 Vision Draft (Revised)
 
 ## Purpose
 이 문서는 CLI-Recover의 새로운 아키텍처 비전을 담은 임시 문서입니다.
-기존 컨텍스트와 병합되기 전의 실험적 아이디어를 자유롭게 탐색합니다.
+격리성 우선 설계 철학을 바탕으로 현실적인 접근을 추구합니다.
 
 ## 핵심 통찰
 - **Filesystem restore ≈ cp**: tar 복원은 본질적으로 파일 복사
 - **Provider 다양성**: MongoDB, MinIO, PostgreSQL은 완전히 다른 패러다임
 - **공통 인터페이스의 한계**: 강제된 추상화는 오히려 복잡도 증가
-- **CLI/TUI 통합 가능성**: 메타데이터 기반 자동 UI 생성
+- **격리성 > 재사용성**: 중복을 허용하되 완벽한 격리 추구
 
 ## 새로운 비전
 
-### 1. Provider 독립 아키텍처
+### 1. Provider 격리 아키텍처
 ```
-internal/
+cli-recover/
 ├── providers/
-│   ├── filesystem/
-│   │   ├── tar_backup.go      # tar 기반 백업
-│   │   ├── cp_restore.go      # cp 스타일 복원
-│   │   ├── cli_definition.go  # CLI 명령 정의
-│   │   └── README.md          # Provider 특화 문서
+│   ├── filesystem/              # 완전 독립 모듈
+│   │   ├── backup.go           # tar 특화 구현
+│   │   ├── restore.go          # 복원 특화 구현
+│   │   ├── tui.go              # filesystem 전용 TUI
+│   │   ├── cmd.go              # cobra 명령 정의
+│   │   └── tests/              # 독립 테스트
 │   │
-│   ├── mongodb/
-│   │   ├── mongodump.go       # mongodump 래핑
-│   │   ├── mongorestore.go    # mongorestore 래핑
-│   │   ├── cli_definition.go  # MongoDB 특화 옵션
-│   │   └── README.md
-│   │
-│   └── minio/
-│       ├── s3_backup.go       # S3 API 활용
-│       ├── s3_sync.go         # 동기화 방식 복원
-│       ├── cli_definition.go  # S3 특화 옵션
-│       └── README.md
+│   └── mongodb/                 # 완전 독립 모듈 (향후)
+│       ├── dump.go             # mongodump 특화
+│       ├── restore.go          # mongorestore 특화
+│       ├── tui.go              # MongoDB 전용 TUI
+│       └── tests/              # 독립 테스트
+│
+└── internal/shared/             # 최소 공유
+    ├── logger/                  # 로그 일관성
+    └── errors/                  # 에러 구조
 ```
 
-### 2. CLI/TUI 통합 시스템
+### 2. Provider별 독립 TUI
 
-#### CLI Definition 표준
+#### 자동화 대신 특화
 ```go
-type CLIDefinition struct {
-    Provider string
-    Commands []CommandDef
+// filesystem/tui.go
+type FilesystemTUI struct {
+    // tar 특화 옵션들
+    compressionSelector *tview.DropDown
+    incrementalCheckbox *tview.Checkbox
+    excludePatterns     *tview.InputField
 }
 
-type CommandDef struct {
-    Name        string
-    Description string
-    Args        []ArgDef
-    Flags       []FlagDef
-    Handler     HandlerFunc
-    Validator   ValidatorFunc
-}
-
-type FlagDef struct {
-    Name        string
-    Type        string // "string", "bool", "int", "duration"
-    Default     interface{}
-    Required    bool
-    Description string
-    Choices     []string // for enum types
+// mongodb/tui.go  
+type MongoDBTUI struct {
+    // MongoDB 특화 옵션들
+    oplogCheckbox      *tview.Checkbox
+    collectionSelector *tview.List
+    authForm          *tview.Form
 }
 ```
 
-#### 자동 TUI 생성
+각 Provider가 자신만의 TUI를 가짐:
+- 공통 UI 컴포넌트 강제 없음
+- Provider 특성에 맞는 최적 UX
+- 독립적 진화 가능
+
+### 3. 최소 조율 원칙
+
+#### 공유는 정말 필요한 것만
 ```go
-// CLI 정의에서 TUI Form 자동 생성
-func (cmd CommandDef) GenerateTUIForm() *tview.Form {
-    form := tview.NewForm()
-    
-    // Args → Input Fields
-    for _, arg := range cmd.Args {
-        form.AddInputField(arg.Name, "", 40, nil, nil)
-    }
-    
-    // Flags → 적절한 UI 컴포넌트
-    for _, flag := range cmd.Flags {
-        switch flag.Type {
-        case "bool":
-            form.AddCheckbox(flag.Name, flag.Default.(bool), nil)
-        case "string":
-            if len(flag.Choices) > 0 {
-                form.AddDropDown(flag.Name, flag.Choices, 0, nil)
-            } else {
-                form.AddInputField(flag.Name, flag.Default.(string), 40, nil, nil)
-            }
-        }
-    }
-    
-    return form
+// internal/shared/logger/logger.go
+type Logger interface {
+    Info(msg string, fields ...Field)
+    Error(msg string, err error)
+}
+
+// internal/shared/errors/base.go
+type UserError struct {
+    Message string
+    Fix     string
 }
 ```
 
-### 3. Provider 플러그인 시스템
-
-#### Provider 인터페이스 최소화
+#### Provider는 독립적으로
 ```go
-// 각 Provider는 최소한의 인터페이스만 구현
-type Provider interface {
-    Name() string
-    CLIDefinition() CLIDefinition
+// providers/filesystem/backup.go
+func Backup(pod, path string, opts TarOptions) error {
+    // Filesystem에 최적화된 구현
+    // 다른 Provider 신경 안 씀
 }
 
-// 실제 동작은 Provider별로 특화
-type FilesystemProvider struct {
-    kubectlClient KubectlClient
-}
-
-type MongoDBProvider struct {
-    mongoClient MongoClient
+// providers/mongodb/dump.go
+func Dump(uri string, opts DumpOptions) error {
+    // MongoDB에 최적화된 구현
+    // Filesystem과 완전 무관
 }
 ```
 
@@ -129,65 +109,76 @@ type UnifiedProgressReporter struct {
 }
 ```
 
-## 마이그레이션 전략
+## 현실적 마이그레이션 전략
 
-### Phase 4: 아키텍처 리팩토링
-1. Provider 독립 구조로 전환
-2. 기존 코드를 새 구조로 이동
-3. 공통 부분만 shared 패키지로
+### Phase 4: Provider 격리 구조 (복잡도: 35/100)
+1. Filesystem Provider 완전 독립화
+2. 공유 코드는 logger, error만
+3. 기존 인터페이스 제거
 
-### Phase 5: CLI/TUI 통합
-1. CLI Definition 표준 구현
-2. 자동 TUI 생성 시스템
-3. 통합 테스트
+### Phase 5: 테스트 커버리지 90%
+1. 격리된 구조로 테스트 단순화
+2. Provider별 독립 테스트
+3. 통합 테스트는 최소화
 
-### Phase 6: Provider 확장
-1. MongoDB Provider
-2. MinIO Provider
-3. PostgreSQL Provider
+### Phase 6: 실제 수요 기반 확장
+1. MongoDB Provider (요청 시)
+2. MinIO Provider (필요 시)
+3. 각각 완전 독립 구현
 
-## 장기 비전
+## 실용적 장기 전망
 
-### 1. 플러그인 에코시스템
-- 사용자가 Provider 추가 가능
-- Go 플러그인 또는 WASM
-- Provider 마켓플레이스
+### 1. 안정적 운영
+- 각 Provider가 독립적으로 안정화
+- 버그가 격리되어 영향 최소화
+- 담당자별 전문성 확보
 
-### 2. 선언적 백업 정책
-```yaml
-# backup-policy.yaml
-providers:
-  - type: filesystem
-    schedule: "0 2 * * *"
-    retention: 7d
-    targets:
-      - namespace: production
-        pods: app-*
-        paths: ["/data", "/config"]
-```
+### 2. 점진적 개선
+- 실제 사용 피드백 기반 개선
+- Provider별 다른 속도로 진화
+- 필요한 기능만 추가
 
-### 3. 중앙 관리 대시보드
-- 모든 백업 상태 모니터링
-- 복원 이력 추적
-- 알림 시스템
+### 3. 유지보수 용이성
+- 새 개발자 온보딩 간단
+- Provider 하나만 이해하면 기여 가능
+- 명확한 경계와 책임
 
-## 위험 요소 및 대응
+## Trade-offs (의도적 선택)
 
-### 1. 기존 사용자 호환성
-- v1 명령어 호환 레이어 제공
-- 마이그레이션 가이드 제공
+### 수용하는 것
+1. **코드 중복**
+   - 각 Provider에 유사 코드 존재
+   - 격리의 이점이 더 큼
 
-### 2. 복잡도 증가
-- Provider별 독립은 코드 중복 가능
-- 하지만 각 Provider 특성에 최적화 가능
+2. **수동 일관성**
+   - 자동화하지 않고 수동 유지
+   - 복잡한 자동화보다 실용적
 
-### 3. 테스트 커버리지
-- Provider별 독립 테스트
-- 통합 테스트 자동화
+3. **바이너리 크기**
+   - 약간의 증가 (무시 가능)
+   - 안정성이 더 중요
+
+### 얻는 것
+1. **완벽한 격리**
+   - 한 Provider 문제가 다른 곳 영향 없음
+   - 독립적 배포/롤백
+
+2. **단순함**
+   - 전체 시스템 이해 불필요
+   - Provider 하나만 알면 됨
+
+3. **최적화 자유도**
+   - 각 Provider별 최선의 구현
+   - 타협 없는 성능
 
 ## 결론
-이 비전은 CLI-Recover를 단순한 백업 도구에서 
-확장 가능한 데이터 보호 플랫폼으로 진화시킵니다.
 
-각 Provider의 특성을 존중하면서도
-사용자에게는 일관된 경험을 제공합니다.
+> "Duplication is cheaper than the wrong abstraction"  
+> — Sandi Metz
+
+이 비전은 CLI-Recover를 과도한 추상화에서 벗어나
+각 Provider가 최선의 성능을 발휘하는 도구로 만듭니다.
+
+**격리성 우선, 중복 허용, 현실적 접근**
+
+이것이 우리의 새로운 방향입니다.

@@ -1,6 +1,9 @@
 # 시스템 아키텍처
 
-## Phase 3.9: 2계층 아키텍처 (2025-01-08)
+> **주의**: 이 문서는 더 상세한 아키텍처 진화 과정을 담은 [01-architecture-evolution.md](01-architecture-evolution.md)로 대체되었습니다.
+> 아래는 현재 아키텍처의 요약입니다.
+
+## 현재: 2계층 아키텍처 (2025-01-08)
 
 ### 아키텍처 단순화
 - **이전**: 3계층 (Domain → Application → Infrastructure)

@@ -249,110 +249,129 @@ type BackupMetadata struct {
 - ✅ Claude.md Occam's Razor 원칙 준수
 - ✅ 작업 이력 영구 보관
 
-## Phase 4: TUI 통합 (계획)
+## Phase 4: Provider 격리 구조 - 안전한 실험 (수정됨)
+**복잡도**: 20/100 (낮춤) ✅
+**목표**: 명확한 경계를 유지하며 Provider 격리 실험
+**전략**: Experimental 디렉토리 활용
+**진행률**: 0%
+
+### 새로운 접근 방식
+
+#### Phase 4-1: Experimental 구조 생성 (1일)
+- [ ] experimental/providers/ 디렉토리 생성
+- [ ] 명확한 README 작성 ("THIS IS EXPERIMENTAL")
+- [ ] 기존 코드 전혀 수정 안 함
+- [ ] .gitignore에 실험 설정 추가
+
+#### Phase 4-2: 최소 기능 구현 (2일)
+- [ ] EstimateSize 같은 단순 기능부터
+- [ ] TDD로 새로 작성 (기존 코드 참고만)
+- [ ] 완전히 독립적 구현
+- [ ] 테스트 커버리지 100% 목표
+
+#### Phase 4-3: A/B 테스트 인프라 (1일)
+- [ ] 환경변수 기반 전환 (USE_EXPERIMENTAL)
+- [ ] 로깅으로 사용 추적
+- [ ] 성능 비교 측정
+- [ ] 안전한 폴백 메커니즘
+
+#### Phase 4-4: 평가 및 결정 (1일)
+- [ ] 실험 성공/실패 판단
+- [ ] 코드 복잡도 비교
+- [ ] 성능 메트릭 분석
+- [ ] 계속 진행 or 롤백 결정
+
+### 디렉토리 구조 (실험적)
+```
+cli-recover/                    # 기존 구조 (변경 없음)
+├── internal/
+│   └── infrastructure/
+│       └── filesystem/        # 현재 프로덕션 코드
+│
+experimental/                   # 새로운 실험 공간
+└── providers/
+    └── filesystem_v2/         # 명확한 버전 표시
+        ├── README.md          # "EXPERIMENTAL" 경고
+        ├── backup.go
+        ├── restore.go
+        └── tests/
+```
+
+### 성공 지표
+- [ ] experimental/ 디렉토리 명확히 구분
+- [ ] 기존 코드 영향 0%
+- [ ] 언제든 롤백 가능 (폴더 삭제만으로)
+- [ ] 코드 위치 100% 명확
+- [ ] 팀원 혼란 0%
+
+### 리스크 관리
+- 실험 실패 시: experimental/ 폴더 삭제
+- 부분 성공 시: 좋은 아이디어만 선택적 적용
+- 완전 성공 시: 점진적 마이그레이션 계획 수립
+
+### 참고
+- [07-refactoring-strategy.md](../.context/07-refactoring-strategy.md) - 안전한 리팩토링 전략
+
+## Phase 5: TUI 구현 (계획)
 **복잡도**: 40/100 (목표)
-**목표**: CLI 위에 사용자 친화적 TUI 구축
-**진행률**: 0% (Phase 3.9 완료 후 시작)
+**목표**: Provider별 독립 TUI 구현
+**철학**: 각 Provider에 최적화된 UI
+**진행률**: 0%
 
 ### 작업 항목
-- [ ] CLI 명령 래핑 레이어
-- [ ] 백업 타입 선택 화면
-- [ ] 파드/경로 선택 UI
-- [ ] 실시간 진행률 뷰
-- [ ] 백업 목록 브라우저
-- [ ] 복원 마법사
-- [ ] 로그 뷰어 추가
+- [ ] Filesystem TUI 구현
+- [ ] MongoDB TUI 구현 (필요 시)
+- [ ] Provider별 독립적 UI/UX
+- [ ] 공통 UI 컴포넌트 최소화
+- [ ] CLI 명령과 연동
 
-### TUI 화면 구성
-```
-1. Main Menu
-   - Backup
-   - Restore
-   - List Backups
-   - Settings
+### 설계 원칙
+- 각 Provider가 자신의 TUI 소유
+- 공통 UI 강제 없음
+- Provider 특성에 맞는 UX
 
-2. Backup Flow
-   - Select Type (filesystem)
-   - Select Pod
-   - Select Path
-   - Options
-   - Execute with Progress
-
-3. Restore Flow
-   - Select Backup
-   - Select Target Pod
-   - Confirm
-   - Execute with Progress
-```
-
-### 성공 지표 (목표)
-- [ ] TUI에서 모든 CLI 기능 사용 가능
-- [ ] 부드러운 UI 전환 (tview 사용)
-- [ ] 실시간 상태 업데이트
-- [ ] 키보드 단축키 지원
-- [ ] 복잡도 40/100 유지
-
-## Phase 5: 테스트 커버리지 향상 (계획)
+## Phase 6: 테스트 커버리지 90% (계획)
 **복잡도**: 20/100 ✅
-**목표**: CLAUDE.md RULE_04 준수 (90% 커버리지)
-**현재**: 50.7% → 목표: 90%
+**목표**: CLAUDE.md RULE_04 준수
+**현재**: 52.9% → 목표: 90%
 
 ### 작업 항목
-- [ ] cmd/cli-recover: 38.3% → 90%
-- [ ] cmd/cli-recover/tui: 0% → 90%
-- [ ] internal/domain/log: 45% → 90%
-- [ ] internal/infrastructure/kubernetes: 61.4% → 90%
+- [ ] Provider별 독립 테스트 작성
+- [ ] 격리된 구조로 테스트 단순화
+- [ ] 통합 테스트는 최소화
+- [ ] 커버리지 90% 달성
 
-### 우선순위
-1. restore_logic_test.go 생성
-2. list_logic_test.go 생성
-3. logs_test.go 생성
-4. TUI 패키지 테스트
+### 격리된 테스트의 이점
+- 한 Provider 테스트가 다른 곳 영향 없음
+- 병렬 테스트 실행 가능
+- 빠른 피드백 사이클
+- Provider별 특화 테스트
 
-## Phase 6: 하이브리드 인자 처리 (계획)
-**복잡도**: 20/100 ✅
-**목표**: Positional args와 flags 동시 지원
-**우선순위**: 낮음 (선택사항)
+## Phase 7: Provider 확장 (실제 수요 기반)
+**복잡도**: 35/100 (Provider당) ✅
+**목표**: 필요 시 독립 Provider 추가
+**철학**: 각 Provider는 완전히 독립적
 
-### 작업 항목
-- [ ] 인자 파싱 로직 개선
-- [ ] 우선순위 규칙 정의
-- [ ] kubectl/docker 스타일 호환성
-- [ ] 백업/복원 명령어 적용
+### 작업 항목 (실제 요청 시)
+- [ ] MongoDB Provider (사용자 요청 시)
+  - mongodump/mongorestore 래핑
+  - MongoDB 전용 TUI
+  - 완전 독립 구현
+- [ ] MinIO Provider (필요 시)
+  - mc (MinIO Client) 통합
+  - S3 API 활용
+  - MinIO 전용 TUI
+- [ ] 각 Provider는 독립 모듈
 
-### 예시
-```bash
-# 모두 동일한 동작
-cli-recover backup filesystem nginx /data
-cli-recover backup filesystem --pod=nginx --path=/data
-cli-recover backup filesystem nginx --path=/data
-```
-
-## Phase 7: Provider 확장 (장기 계획)
-**복잡도**: 60/100 ⚠️⚠️
-**목표**: 다양한 백업 타입 지원
-
-### 작업 항목
-- [ ] Phase 3.13 도구 자동 다운로드 (여기로 이동)
-- [ ] MinIO Provider
-- [ ] MongoDB Provider
-- [ ] PostgreSQL Provider
-- [ ] MySQL Provider
-
-## 일정 요약 (업데이트)
-- **Phase 1 완료**: 1월 2주 (95% 완료)
-- **Phase 2 완료**: 1월 3주 초 (95% 완료)
-- **Phase 3 완료**: 1월 7일 (100% 완료)
-- **Phase 3.9 완료**: 1월 8일 (아키텍처 단순화 - 하루만에 완료!) ✅
-- **Phase 3.10 완료**: 1월 8일 (백업 무결성 - TDD로 안전하게 구현!) ✅
-- **Phase 3.11 완료**: 1월 9일 (진행률 보고 시스템) ✅
-- **Phase 3.12 완료**: 1월 9일 (CLI 사용성 개선) ✅
-- **Phase 3 완료**: 1월 9일 (전체 Phase 3 완료!) ✅
-- **Phase 4 계획**: TUI 구현
-- **Phase 5 계획**: 테스트 커버리지 90%
-- **Phase 6 계획**: 하이브리드 인자 처리 (낮은 우선순위)
-- **Phase 7 계획**: Provider 확장 + 도구 자동 다운로드
-- **총 기간**: 유동적 (사용자 요구사항 기반)
+## 일정 요약 (업데이트 - 철학 반영)
+- **Phase 1-3 완료**: 기본 기능 구현 ✅
+- **Phase 3.9-3.12 완료**: 아키텍처 개선 ✅
+- **Phase 3-1 완료**: restore 긴급 수정 ✅
+- **Phase 4 계획**: Provider 격리 구조 (복잡도: 35/100)
+- **Phase 5 계획**: TUI 구현 (Provider별 독립)
+- **Phase 6 계획**: 테스트 커버리지 90%
+- **Phase 7 계획**: 실제 수요 기반 Provider 확장
+- **총 기간**: 유동적 (격리성 우선)
 
 ## 진행률 보고 원칙 (2025-01-08 추가)
 **전체 프로젝트 적용 원칙**
@@ -382,8 +401,18 @@ cli-recover backup filesystem nginx --path=/data
 - **메타데이터 저장**: 로컬 파일 시스템 사용
 - **Provider 확장성**: 인터페이스로 보장됨
 
-## 성공 지표
-- v0.3.0: Restore 기능 포함 (1월 말)
-- v0.4.0: CLI 고도화 완료 (2월 초)
-- v1.0.0: TUI 통합 완성 (2월 중)
-- v1.1.0: 추가 Provider 지원 (2월 말)
+## 성공 지표 (수정)
+- v0.4.0: Provider 격리 구조 완성
+- v0.5.0: Filesystem TUI 추가
+- v0.6.0: 테스트 커버리지 90%
+- v1.0.0: 안정적 운영 가능
+- v2.0.0: MongoDB/MinIO 추가 (수요 기반)
+
+## 설계 철학
+> "Duplication is cheaper than the wrong abstraction"  
+> — Sandi Metz
+
+> "Isolation with minimal coordination"  
+> — 우리의 결론
+
+자세한 내용은 [94-design-philosophy.md](94-design-philosophy.md) 참조.
