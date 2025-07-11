@@ -35,9 +35,19 @@ go.work.sum
 .claude/
 
 # Built binaries
-cli-restore
-cli-restore-darwin-*
-cli-restore-linux-*
+cli-recover
+cli-recover-*
+dist/
 
 # Checksums
 checksums.txt
+
+# Backup files
+*.tar
+*.tar.gz
+*.tar.bz2
+*.zip
+
+# OS files
+.DS_Store
+Thumbs.db

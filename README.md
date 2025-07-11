@@ -1,44 +1,115 @@
-# cli-recover
+# cli-recover v2.0
 
-Kubernetes Pod 파일/폴더 백업 도구
+A simple, isolated Kubernetes backup and restore tool.
 
-## 설치
+## Philosophy
 
-### 바이너리 다운로드 (권장)
+> "Isolation > Reusability"  
+> "Simplicity > Complexity"
 
-[Releases](https://github.com/cagojeiger/cli-recover/releases) 페이지에서 플랫폼에 맞는 바이너리를 다운로드하세요.
+## Status
+
+🚧 **v2.0.0-alpha** - Complete rewrite in progress
+
+This is a fresh start based on lessons learned from v1. We're building a simpler, more focused tool with complete provider isolation.
+
+## Features (Planned)
+
+- ✅ Single provider: filesystem
+- ✅ CLI-only interface 
+- ✅ Zero external dependencies
+- ✅ Progress reporting built-in
+- ✅ Test-driven development
+
+## Installation
+
+### From Source
 
 ```bash
-# 다운로드 후 실행 권한 추가
-chmod +x cli-restore
-sudo mv cli-restore /usr/local/bin/
+go install github.com/cagojeiger/cli-recover@latest
 ```
 
-### 소스에서 빌드
+### Pre-built Binaries
+
+Coming soon...
+
+## Usage
 
 ```bash
-git clone https://github.com/cagojeiger/cli-recover.git
-cd cli-recover
+# Show version
+cli-recover version
+
+# Backup (coming soon)
+cli-recover backup <namespace> <pod> <path> -o backup.tar
+
+# Restore (coming soon)  
+cli-recover restore <namespace> <pod> <path> -i backup.tar
+```
+
+## Development
+
+### Prerequisites
+
+- Go 1.21+
+- kubectl (for runtime)
+- Access to a Kubernetes cluster
+
+### Building
+
+```bash
+# Build for current platform
 make build
-```
 
-## 사용법
+# Build for all platforms
+make build-all
 
-```bash
-cli-restore --version    # 버전 확인
-cli-restore --help       # 도움말
-```
-
-## 개발
-
-```bash
-# 개발 환경 설정
-go mod download
+# Run tests
 make test
 
-# 릴리즈 생성
-git tag v0.1.1
-git push origin v0.1.1
+# Run with coverage
+make test-coverage
 ```
 
-자세한 개발 가이드는 `make help`를 확인하세요.
+### Project Structure
+
+```
+cli-recover/
+├── main.go           # Entry point
+├── backup.go         # Backup logic (TBD)
+├── restore.go        # Restore logic (TBD)
+├── progress.go       # Progress reporting (TBD)
+└── Makefile         # Build automation
+```
+
+## Design Principles
+
+1. **No shared interfaces** - Each component is completely isolated
+2. **Direct implementation** - No unnecessary abstractions
+3. **TDD from day one** - Test first, implement second
+4. **Copy over share** - Duplication is better than wrong abstraction
+
+## Roadmap
+
+See [.planning/00-roadmap.md](.planning/00-roadmap.md) for detailed phases.
+
+- [x] Phase 1: Minimal foundation
+- [ ] Phase 2: Filesystem backup (TDD)
+- [ ] Phase 3: Progress reporting
+- [ ] Phase 4: Filesystem restore
+- [ ] Phase 5: CLI polish
+- [ ] Phase 6: Integrity & safety
+- [ ] Phase 7: Performance & scale
+- [ ] Phase 8: v2.0 release
+
+## Contributing
+
+This project follows strict TDD practices. Please ensure:
+
+1. Write tests before implementation
+2. Keep complexity below 20/100
+3. No external dependencies in v2.0
+4. Follow the isolation principle
+
+## License
+
+[Apache 2.0](LICENSE)

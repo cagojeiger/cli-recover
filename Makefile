@@ -1,84 +1,101 @@
 # Variables
-BINARY_NAME := cli-restore
-# Git 태그 기반 자동 버전 감지 (태그가 없으면 dev)
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-LDFLAGS := -ldflags "-X main.version=$(VERSION) -s -w"
+BINARY_NAME := cli-recover
+VERSION := v2.0.0-alpha
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+LDFLAGS := -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE) -s -w"
 
 # Go parameters
 GOCMD := go
 GOBUILD := $(GOCMD) build
 GOCLEAN := $(GOCMD) clean
 GOTEST := $(GOCMD) test
-GOGET := $(GOCMD) get
 GOMOD := $(GOCMD) mod
 
 # Build targets
-.PHONY: help all build build-all clean test test-coverage deps run version
+.PHONY: all build clean test test-coverage install help
 
-# Default target - show help
-help:
-	@echo "CLI-Restore Makefile Commands:"
-	@echo ""
-	@echo "  make build         - Build for current platform"
-	@echo "  make build-all     - Build for all platforms"
-	@echo "  make run           - Build and run version command"
-	@echo "  make test          - Run tests"
-	@echo "  make test-coverage - Run tests with coverage report"
-	@echo "  make clean         - Clean build artifacts"
-	@echo "  make version       - Show current version"
-	@echo "  make deps          - Download dependencies"
-	@echo ""
-	@echo "Platform-specific builds:"
-	@echo "  make build-darwin-amd64  - Build for macOS Intel"
-	@echo "  make build-darwin-arm64  - Build for macOS Apple Silicon"
-	@echo "  make build-linux-amd64   - Build for Linux x86_64"
-	@echo "  make build-linux-arm64   - Build for Linux ARM64"
-
-all: clean deps build
-
-deps:
-	$(GOMOD) download
-	$(GOMOD) tidy
+# Default target
+all: clean build
 
 build:
-	$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) ./cmd/cli-restore
+	@echo "Building $(BINARY_NAME) $(VERSION)..."
+	$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) .
 
-build-all: build-darwin-amd64 build-darwin-arm64 build-linux-amd64 build-linux-arm64
+# Cross-platform builds
+build-all: build-darwin-amd64 build-darwin-arm64 build-linux-amd64 build-linux-arm64 build-windows-amd64
 
 build-darwin-amd64:
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-darwin-amd64 ./cmd/cli-restore
+	@echo "Building for Darwin AMD64..."
+	@mkdir -p dist
+	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-amd64 .
 
 build-darwin-arm64:
-	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-darwin-arm64 ./cmd/cli-restore
+	@echo "Building for Darwin ARM64..."
+	@mkdir -p dist
+	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-arm64 .
 
 build-linux-amd64:
-	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux-amd64 ./cmd/cli-restore
+	@echo "Building for Linux AMD64..."
+	@mkdir -p dist
+	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-amd64 .
 
 build-linux-arm64:
-	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux-arm64 ./cmd/cli-restore
+	@echo "Building for Linux ARM64..."
+	@mkdir -p dist
+	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-arm64 .
+
+build-windows-amd64:
+	@echo "Building for Windows AMD64..."
+	@mkdir -p dist
+	GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o dist/$(BINARY_NAME)-windows-amd64.exe .
+
+# Development
+run:
+	$(GOCMD) run . $(ARGS)
 
 test:
-	$(GOTEST) -v ./...
+	$(GOTEST) -v -cover ./...
 
-# Test with coverage
 test-coverage:
 	$(GOTEST) -v -coverprofile=coverage.out ./...
 	$(GOCMD) tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
 
 clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)
-	rm -f $(BINARY_NAME)-*
+	rm -rf dist/
+	rm -f coverage.out coverage.html
 
-run: build
-	./$(BINARY_NAME) --version
+install:
+	$(GOCMD) install $(LDFLAGS) .
 
 # Create checksums for releases
 checksums:
-	sha256sum $(BINARY_NAME)-* > checksums.txt
+	@cd dist && sha256sum * > checksums.txt
 
-# Display current version
+# Display version
 version:
-	@echo "Current version: $(VERSION)"
+	@echo "$(VERSION)"
+
+# Help
+help:
+	@echo "cli-recover v2.0 Makefile"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  make build          - Build for current platform"
+	@echo "  make build-all      - Build for all platforms"
+	@echo "  make test           - Run tests"
+	@echo "  make test-coverage  - Run tests with coverage report"
+	@echo "  make clean          - Clean build artifacts"
+	@echo "  make install        - Install to GOPATH/bin"
+	@echo "  make run ARGS=...   - Run with arguments"
+	@echo "  make version        - Show version"
+	@echo ""
+	@echo "Platform-specific builds:"
+	@echo "  make build-darwin-amd64  - macOS Intel"
+	@echo "  make build-darwin-arm64  - macOS Apple Silicon"
+	@echo "  make build-linux-amd64   - Linux x64"
+	@echo "  make build-linux-arm64   - Linux ARM64"
+	@echo "  make build-windows-amd64 - Windows x64"
