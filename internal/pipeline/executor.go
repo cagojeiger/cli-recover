@@ -178,3 +178,144 @@ func (e *Executor) CaptureOutput(p *Pipeline) (string, error) {
 
 	return strings.TrimSpace(string(output)), nil
 }
+
+// ExecuteEnhanced executes a single step with monitoring and logging
+func (e *Executor) ExecuteEnhanced(step Step) error {
+	e.log("Executing step: %s\n", step.Name)
+	
+	// Build command and monitors
+	cmd, monitors := BuildSmartCommand(step)
+	
+	// Create the command
+	execCmd := exec.Command("bash", "-c", cmd)
+	
+	// Set up pipes for stdout and stderr
+	stdout, err := execCmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+	
+	stderr, err := execCmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+	
+	// Create writers for various outputs
+	var writers []io.Writer
+	
+	// Handle file output
+	var outputFile *os.File
+	if IsFileOutput(step.Output) {
+		filename := ExtractFilename(step.Output)
+		outputFile, err = os.Create(filename)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %w", err)
+		}
+		defer outputFile.Close()
+		writers = append(writers, outputFile)
+	}
+	
+	// Handle log file
+	var logFile *os.File
+	if step.Log != "" {
+		logFile, err = os.Create(step.Log)
+		if err != nil {
+			return fmt.Errorf("failed to create log file: %w", err)
+		}
+		defer logFile.Close()
+		writers = append(writers, logFile)
+	}
+	
+	// Add monitors that implement io.Writer
+	for _, monitor := range monitors {
+		if w, ok := monitor.(io.Writer); ok {
+			writers = append(writers, w)
+		}
+	}
+	
+	// Create TeeWriter for independent writing
+	var tee *TeeWriter
+	if len(writers) > 0 {
+		tee = NewTeeWriter(writers...)
+	}
+	
+	// Start the command
+	if err := execCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start command: %w", err)
+	}
+	
+	// Process output
+	done := make(chan error)
+	go func() {
+		if tee != nil {
+			io.Copy(io.MultiWriter(os.Stdout, tee), stdout)
+		} else {
+			io.Copy(os.Stdout, stdout)
+		}
+		io.Copy(os.Stderr, stderr)
+		done <- nil
+	}()
+	
+	// Wait for command to complete
+	cmdErr := execCmd.Wait()
+	<-done
+	
+	// Close TeeWriter
+	if tee != nil {
+		tee.Close()
+	}
+	
+	// Finish monitors
+	for _, monitor := range monitors {
+		monitor.Finish()
+	}
+	
+	// Save checksums
+	for _, monitor := range monitors {
+		if cfw, ok := monitor.(*ChecksumFileWriter); ok {
+			if err := cfw.SaveToFile(); err != nil {
+				e.log("Warning: failed to save checksum: %v\n", err)
+			}
+		}
+	}
+	
+	// Report monitor results
+	if len(monitors) > 0 {
+		e.log("\nMonitor reports:\n")
+		for _, monitor := range monitors {
+			e.log("  %s\n", monitor.Report())
+		}
+	}
+	
+	if cmdErr != nil {
+		return cmdErr
+	}
+	
+	return nil
+}
+
+// ExecutePipeline executes an entire pipeline with enhanced features
+func (e *Executor) ExecutePipeline(p *Pipeline) error {
+	e.log("Executing pipeline: %s\n", p.Name)
+	if p.Description != "" {
+		e.log("Description: %s\n", p.Description)
+	}
+	
+	// For now, execute steps sequentially
+	// TODO: Implement smart tee-based branching for non-linear pipelines
+	if !p.IsLinear() {
+		return fmt.Errorf("non-linear pipelines not yet supported in enhanced mode")
+	}
+	
+	// Execute each step
+	for i, step := range p.Steps {
+		e.log("\n[Step %d/%d] %s\n", i+1, len(p.Steps), step.Name)
+		
+		if err := e.ExecuteEnhanced(step); err != nil {
+			return fmt.Errorf("step '%s' failed: %w", step.Name, err)
+		}
+	}
+	
+	e.log("\nPipeline completed successfully\n")
+	return nil
+}

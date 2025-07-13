@@ -221,3 +221,184 @@ func TestExecutor_Execute_MultiStep(t *testing.T) {
 	assert.Contains(t, output, "Command: echo hello | tr a-z A-Z | wc -c")
 	assert.Contains(t, output, "Pipeline completed successfully")
 }
+
+func TestExecutor_ExecuteEnhanced(t *testing.T) {
+	tempDir := t.TempDir()
+
+	t.Run("simple step without monitoring", func(t *testing.T) {
+		var buf bytes.Buffer
+		executor := NewExecutor(WithLogWriter(&buf))
+		
+		step := Step{
+			Name: "echo",
+			Run:  "echo test",
+		}
+		
+		err := executor.ExecuteEnhanced(step)
+		require.NoError(t, err)
+		
+		output := buf.String()
+		assert.Contains(t, output, "Executing step: echo")
+	})
+
+	t.Run("step with byte monitoring", func(t *testing.T) {
+		var buf bytes.Buffer
+		executor := NewExecutor(WithLogWriter(&buf))
+		
+		step := Step{
+			Name: "generate",
+			Run:  "echo 'test data for monitoring'",
+			Monitor: &MonitorConfig{
+				Type: "bytes",
+			},
+		}
+		
+		err := executor.ExecuteEnhanced(step)
+		require.NoError(t, err)
+		
+		output := buf.String()
+		assert.Contains(t, output, "Monitor report")
+		assert.Contains(t, output, "bytes")
+	})
+
+	t.Run("step with checksum", func(t *testing.T) {
+		outputFile := filepath.Join(tempDir, "test.txt")
+		
+		var buf bytes.Buffer
+		executor := NewExecutor(WithLogWriter(&buf))
+		
+		step := Step{
+			Name:     "download",
+			Run:      "echo 'test content'",
+			Output:   "file:" + outputFile,
+			Checksum: []string{"sha256"},
+		}
+		
+		err := executor.ExecuteEnhanced(step)
+		require.NoError(t, err)
+		
+		// Check main file was created
+		assert.FileExists(t, outputFile)
+		
+		// Check checksum file was created
+		checksumFile := outputFile + ".sha256"
+		assert.FileExists(t, checksumFile)
+		
+		// Verify checksum content
+		content, err := os.ReadFile(checksumFile)
+		require.NoError(t, err)
+		assert.Contains(t, string(content), "test.txt")
+	})
+
+	t.Run("step with log file", func(t *testing.T) {
+		logFile := filepath.Join(tempDir, "command.log")
+		
+		var buf bytes.Buffer
+		executor := NewExecutor(WithLogWriter(&buf))
+		
+		step := Step{
+			Name: "logged",
+			Run:  "echo 'logged output'",
+			Log:  logFile,
+		}
+		
+		err := executor.ExecuteEnhanced(step)
+		require.NoError(t, err)
+		
+		// Check log file was created
+		assert.FileExists(t, logFile)
+		
+		// Verify log content
+		content, err := os.ReadFile(logFile)
+		require.NoError(t, err)
+		assert.Contains(t, string(content), "logged output")
+	})
+
+	t.Run("step with multiple features", func(t *testing.T) {
+		outputFile := filepath.Join(tempDir, "multi.tar")
+		logFile := filepath.Join(tempDir, "multi.log")
+		
+		var buf bytes.Buffer
+		executor := NewExecutor(WithLogWriter(&buf))
+		
+		step := Step{
+			Name:   "complex",
+			Run:    "echo 'complex test data'",
+			Output: "file:" + outputFile,
+			Monitor: &MonitorConfig{
+				Type: "bytes",
+			},
+			Checksum: []string{"md5", "sha256"},
+			Log:      logFile,
+		}
+		
+		err := executor.ExecuteEnhanced(step)
+		require.NoError(t, err)
+		
+		// Check all files were created
+		assert.FileExists(t, outputFile)
+		assert.FileExists(t, outputFile+".md5")
+		assert.FileExists(t, outputFile+".sha256")
+		assert.FileExists(t, logFile)
+		
+		// Check monitor report
+		output := buf.String()
+		assert.Contains(t, output, "Monitor report")
+	})
+
+	t.Run("step with error handling", func(t *testing.T) {
+		var buf bytes.Buffer
+		executor := NewExecutor(WithLogWriter(&buf))
+		
+		step := Step{
+			Name: "failing",
+			Run:  "false", // Always fails
+		}
+		
+		err := executor.ExecuteEnhanced(step)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "exit status 1")
+	})
+}
+
+func TestExecutor_ExecutePipeline(t *testing.T) {
+	tempDir := t.TempDir()
+
+	t.Run("pipeline with monitoring", func(t *testing.T) {
+		var buf bytes.Buffer
+		executor := NewExecutor(WithLogWriter(&buf))
+		
+		pipeline := &Pipeline{
+			Name: "monitored-pipeline",
+			Steps: []Step{
+				{
+					Name:   "generate",
+					Run:    "echo 'test data'",
+					Output: "data",
+					Monitor: &MonitorConfig{
+						Type: "bytes",
+					},
+				},
+				{
+					Name:     "save",
+					Run:      "cat",
+					Input:    "data",
+					Output:   "file:" + filepath.Join(tempDir, "output.txt"),
+					Checksum: []string{"sha256"},
+				},
+			},
+		}
+		
+		err := executor.ExecutePipeline(pipeline)
+		require.NoError(t, err)
+		
+		// Check output file and checksum
+		outputFile := filepath.Join(tempDir, "output.txt")
+		assert.FileExists(t, outputFile)
+		assert.FileExists(t, outputFile+".sha256")
+		
+		// Check monitor reports
+		output := buf.String()
+		assert.Contains(t, output, "Monitor report")
+	})
+}
