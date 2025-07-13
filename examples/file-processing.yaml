@@ -6,16 +6,16 @@ steps:
     run: ls -la
     output: file-list
     
-  - name: filter-yaml-files
+  - name: filter-md-files
     run: grep "\.md$"
     input: file-list
-    output: yaml-files
+    output: md-files
     
-  - name: count-yaml-files
+  - name: count-md-files
     run: wc -l
-    input: yaml-files
-    output: yaml-count
+    input: md-files
+    output: md-count
     
   - name: display-result
     run: awk '{print "Found " $1 " YAML files"}'
-    input: yaml-count
+    input: md-count

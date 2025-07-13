@@ -38,20 +38,22 @@
 
 ## Go 라이브러리 (최소화 원칙)
 ### 표준 라이브러리만 사용
-- **os/exec**: 명령 실행
-- **io**: 스트림 처리 (io.Pipe 포함)
-- **encoding/json**: 설정/로그
-- **sync**: 동시성 제어 (WaitGroup, Mutex)
+- **os/exec**: 명령 실행 (bash -c)
+- **os**: 파일 시스템 작업
 - **flag**: CLI 옵션 파싱
+- **path/filepath**: 경로 처리
+- **strings**: 문자열 처리
+- **fmt**: 포맷팅과 출력
+- **time**: 시간 처리
 
-### 외부 라이브러리 (필수)
-- **yaml.v3**: YAML 파이프라인 파싱
-- **testify**: 테스트 assertion
+### 외부 라이브러리 (필수 최소)
+- **gopkg.in/yaml.v3**: YAML 파이프라인 파싱
+- **github.com/stretchr/testify**: 테스트 assertion
 
-### 실행 전략 구현
-- **ShellPipeStrategy**: Unix pipe 활용 (데드락 방지)
-- **GoStreamStrategy**: io.Pipe 기반 (세밀한 제어)
-- **전략 패턴**: 자동 선택 또는 수동 지정
+### 실행 전략 (2025-07-13 단순화)
+- **Unix Pipe Only**: bash -c로 직접 실행
+- **제거됨**: ~~io.Pipe~~, ~~전략 패턴~~, ~~GoStreamStrategy~~
+- **이유**: 데드락 방지, 복잡도 감소
 
 ## 파일 형식
 - **YAML**: 파이프라인 정의
