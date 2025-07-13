@@ -46,6 +46,10 @@ func TestTeeWriter(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, len(data), n)
+		
+		// 비동기 처리를 위한 짧은 대기
+		time.Sleep(10 * time.Millisecond)
+		
 		assert.Equal(t, data, buf.Bytes())
 	})
 

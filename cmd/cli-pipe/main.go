@@ -39,6 +39,7 @@ func main() {
 		// Create new flag set for run command
 		runCmd := flag.NewFlagSet("run", flag.ExitOnError)
 		logDir := runCmd.String("log-dir", "", "Directory for logging")
+		enhanced := runCmd.Bool("enhanced", false, "Use enhanced executor with monitoring")
 		
 		// Parse from os.Args[2:] to skip program name and "run"
 		if err := runCmd.Parse(os.Args[2:]); err != nil {
@@ -54,7 +55,7 @@ func main() {
 			os.Exit(1)
 		}
 		
-		runPipeline(args[0], *logDir)
+		runPipeline(args[0], *logDir, *enhanced)
 	} else {
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		printUsage()
@@ -81,13 +82,15 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Options for 'run' command:")
 	fmt.Println("  --log-dir string    Directory for logging")
+	fmt.Println("  --enhanced          Use enhanced executor with monitoring")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  cli-pipe run pipeline.yaml")
 	fmt.Println("  cli-pipe run --log-dir ./logs pipeline.yaml")
+	fmt.Println("  cli-pipe run --enhanced pipeline.yaml")
 }
 
-func runPipeline(filename string, logDir string) {
+func runPipeline(filename string, logDir string, enhanced bool) {
 	// Parse pipeline file
 	p, err := pipeline.ParseFile(filename)
 	if err != nil {
@@ -115,8 +118,15 @@ func runPipeline(filename string, logDir string) {
 	executor := pipeline.NewExecutor(opts...)
 	
 	// Execute pipeline
-	if err := executor.Execute(p); err != nil {
-		fmt.Fprintf(os.Stderr, "Error executing pipeline: %v\n", err)
-		os.Exit(1)
+	if enhanced {
+		if err := executor.ExecutePipeline(p); err != nil {
+			fmt.Fprintf(os.Stderr, "Error executing pipeline: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		if err := executor.Execute(p); err != nil {
+			fmt.Fprintf(os.Stderr, "Error executing pipeline: %v\n", err)
+			os.Exit(1)
+		}
 	}
 }
