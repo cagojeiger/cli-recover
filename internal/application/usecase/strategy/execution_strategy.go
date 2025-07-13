@@ -21,12 +21,3 @@ func DetermineStrategy(pipeline *entity.Pipeline) ExecutionStrategy {
 	// Note: This returns a stub for now. In production, it should be created with dependencies
 	return NewGoStreamStrategy(nil, nil)
 }
-
-// ShellPipeStrategy executes pipeline using Unix pipes
-type ShellPipeStrategy struct{}
-
-// Execute implements ExecutionStrategy for shell pipes
-func (s *ShellPipeStrategy) Execute(pipeline *entity.Pipeline) error {
-	// TODO: Implement shell pipe execution
-	return nil
-}

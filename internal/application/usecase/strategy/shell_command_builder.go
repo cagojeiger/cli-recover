@@ -50,13 +50,13 @@ func buildShellCommandWithLogging(pipeline *entity.Pipeline, logDir string) (str
 	if len(pipeline.Steps) == 1 {
 		// Single step case
 		step := pipeline.Steps[0]
-		script.WriteString(fmt.Sprintf("%s 2>\"$LOGDIR/%s.err\" | tee \"$LOGDIR/%s.out\"\n",
+		script.WriteString(fmt.Sprintf("(%s) 2>\"$LOGDIR/%s.err\" | tee \"$LOGDIR/%s.out\"\n",
 			step.Run, step.Name, step.Name))
 	} else {
 		// Multi-step pipeline
 		var commands []string
 		for _, step := range pipeline.Steps {
-			cmd := fmt.Sprintf("(%s 2>\"$LOGDIR/%s.err\" | tee \"$LOGDIR/%s.out\")",
+			cmd := fmt.Sprintf("((%s) 2>\"$LOGDIR/%s.err\" | tee \"$LOGDIR/%s.out\")",
 				step.Run, step.Name, step.Name)
 			commands = append(commands, cmd)
 		}

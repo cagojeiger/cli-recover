@@ -101,8 +101,8 @@ LOGDIR="/tmp/logs"
 mkdir -p "$LOGDIR"
 
 # Pipeline: test-pipeline
-(echo hello 2>"$LOGDIR/echo.err" | tee "$LOGDIR/echo.out") | \
-(tr upper 2>"$LOGDIR/upper.err" | tee "$LOGDIR/upper.out")
+((echo hello) 2>"$LOGDIR/echo.err" | tee "$LOGDIR/echo.out") | \
+((tr upper) 2>"$LOGDIR/upper.err" | tee "$LOGDIR/upper.out")
 
 # Save exit code
 EXIT_CODE=$?
@@ -124,7 +124,7 @@ LOGDIR="/tmp/logs"
 mkdir -p "$LOGDIR"
 
 # Pipeline: single
-ls -la 2>"$LOGDIR/list.err" | tee "$LOGDIR/list.out"
+(ls -la) 2>"$LOGDIR/list.err" | tee "$LOGDIR/list.out"
 
 # Save exit code
 EXIT_CODE=$?
