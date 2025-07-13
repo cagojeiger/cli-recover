@@ -55,51 +55,94 @@ Step {
 }
 ```
 
-### 스트림 매니저
+### 스트림 관리 (하이브리드)
+
+#### Unix Pipe 모드
+```bash
+# 스트림은 쉘이 관리
+# 이름은 변수로 추적만 함
+STREAM_greeting="pipe:1"
+STREAM_compressed="pipe:2"
+```
+
+#### Go Stream 모드
 ```go
 type StreamManager struct {
-    streams map[string]io.ReadCloser  // 이름으로 스트림 관리
-    pipes   map[string]*io.PipeWriter // 활성 파이프
+    streams map[string]io.ReadCloser  // Go 모드에서만 사용
+    mode    ExecutionMode            // Unix/Go 모드 구분
 }
 
-// Step 실행 시 입출력 연결
+// 모드에 따라 다른 동작
 func (sm *StreamManager) Connect(step Step) (io.Reader, io.Writer) {
+    if sm.mode == UnixPipeMode {
+        return nil, nil  // 쉘이 직접 처리
+    }
+    // Go 모드: 기존 방식
     input := sm.GetInput(step.Input)
     output := sm.CreateOutput(step.Output)
     return input, output
 }
 ```
 
-## 스트림 처리 아키텍처
+## 실행 전략 아키텍처 (하이브리드)
 
-### 파이프 분기 메커니즘
-- 단일 입력 스트림을 여러 출력으로 분기
-- tee 명령어 패턴 활용
-- 체크섬, 진행률, 압축을 동시 처리
-
-### 고루틴 기반 동시 실행
+### 실행 모드 결정
 ```go
-// 각 Step을 고루틴으로 실행
-for _, step := range pipeline.Steps {
-    go func(s Step) {
-        input := streamManager.GetInput(s.Input)
-        output := streamManager.CreateOutput(s.Output)
-        
-        cmd := exec.Command("sh", "-c", s.Run)
-        cmd.Stdin = input
-        cmd.Stdout = output
-        
-        cmd.Run()
-        output.Close()
-    }(step)
+type ExecutionStrategy interface {
+    Execute(pipeline *Pipeline) error
+}
+
+// 실행 전략 선택
+func DetermineStrategy(pipeline *Pipeline) ExecutionStrategy {
+    if isSimpleLinear(pipeline) {
+        return &ShellPipeStrategy{}  // Unix pipe
+    }
+    return &GoStreamStrategy{}      // 세밀한 제어
 }
 ```
 
+### 1. Unix Pipe 전략 (기본)
+- 단순 선형 파이프라인에 사용
+- 커널 버퍼링으로 데드락 방지
+- 높은 성능과 안정성
+
+```bash
+# YAML을 쉘 명령으로 변환
+tar cf - /data | gzip -9 | tee backup.tar.gz
+```
+
+### 2. Go Stream 전략 (필요시)
+- 진행률 표시가 필요한 경우
+- 복잡한 분기가 있는 경우
+- 세밀한 에러 처리가 필요한 경우
+
+```go
+type GoStreamStrategy struct {
+    streamManager *StreamManager
+}
+
+// 진행률 표시를 위한 래퍼
+type ProgressReader struct {
+    reader    io.Reader
+    processed int64
+    total     int64
+}
+```
+
+### 로깅 아키텍처 (필수)
+모든 실행은 추적성을 위해 로깅됨:
+
+```bash
+# Unix pipe에서도 로깅 보장
+(tar cf - /data 2>step1.err | tee step1.log) | \
+(gzip -9 2>step2.err | tee step2.log) > output.gz
+```
+
 ### Go 구현 구조
-- Stream 인터페이스: Read, Split 메서드
-- StreamManager: 스트림 생명주기 관리
-- Context 인터페이스: Execute, CreatePipe 메서드
-- Engine 구조체: parser, executor, logger 포함
+- ExecutionStrategy 인터페이스: 전략 패턴
+- ShellPipeExecutor: Unix pipe 기반 실행
+- GoStreamExecutor: io.Reader/Writer 기반 실행
+- Logger: 모든 전략에서 공통 사용
 
 ## 데이터 흐름
 
@@ -112,14 +155,26 @@ for _, step := range pipeline.Steps {
 - Stream Manager → Named Streams
 - Logger → Operation Store
 
-### 입출력 연결 흐름
+### 입출력 연결 흐름 (하이브리드)
+
+#### Unix Pipe 모드
+```
+1. YAML 파싱 → Step 정의 추출
+2. 입출력 이름 매칭 → 파이프라인 검증
+3. 쉘 스크립트 생성 → 파이프(|) 연결
+4. 로깅 래퍼 추가 → tee 명령 삽입
+5. 쉘 실행 → 커널이 파이프 관리
+6. 로그 수집 → 파일로 저장
+```
+
+#### Go Stream 모드
 ```
 1. YAML 파싱 → Step 정의 추출
 2. 입출력 이름 매칭 → 연결 그래프 생성
-3. DAG 분석 → 실행 순서 결정
-4. 스트림 생성 → io.Pipe 할당
-5. Step 실행 → 입출력 연결
-6. 데이터 흐름 → 파이프를 통한 전달
+3. DAG 분석 → 동시 실행 가능 확인
+4. 스트림 생성 → io.Reader/Writer 할당
+5. Step 실행 → 고루틴으로 동시 실행
+6. 진행률 추적 → ProgressReader 적용
 ```
 
 ### 재실행 흐름
