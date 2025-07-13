@@ -5,20 +5,25 @@ import (
 	"io"
 	"sync"
 
-	"github.com/cagojeiger/cli-recover/internal/application/usecase"
 	"github.com/cagojeiger/cli-recover/internal/domain/entity"
 	"github.com/cagojeiger/cli-recover/internal/domain/service"
 )
 
+// StepExecutor interface for executing individual steps
+type StepExecutor interface {
+	Execute(step *entity.Step) error
+	SetLogWriter(w io.Writer)
+}
+
 // GoStreamStrategy implements ExecutionStrategy using Go io streams
 type GoStreamStrategy struct {
-	stepExecutor  *usecase.ExecuteStep
+	stepExecutor  StepExecutor
 	streamManager *service.StreamManager
 	logWriter     io.Writer
 }
 
 // NewGoStreamStrategy creates a new GoStreamStrategy
-func NewGoStreamStrategy(stepExecutor *usecase.ExecuteStep, streamManager *service.StreamManager) *GoStreamStrategy {
+func NewGoStreamStrategy(stepExecutor StepExecutor, streamManager *service.StreamManager) *GoStreamStrategy {
 	return &GoStreamStrategy{
 		stepExecutor:  stepExecutor,
 		streamManager: streamManager,

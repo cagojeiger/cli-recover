@@ -5,6 +5,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/cagojeiger/cli-recover/internal/application/usecase/strategy"
 	"github.com/cagojeiger/cli-recover/internal/domain/entity"
 	"github.com/cagojeiger/cli-recover/internal/domain/service"
 )
@@ -33,8 +34,63 @@ func (e *ExecutePipeline) SetLogWriter(w io.Writer) {
 	e.stepExecutor.SetLogWriter(w)
 }
 
-// Execute runs the entire pipeline
+// ExecuteOptions contains options for pipeline execution
+type ExecuteOptions struct {
+	UseStrategy   bool   // Whether to use strategy pattern
+	ForceStrategy string // Force specific strategy: "shell-pipe" or "go-stream"
+	LogDir        string // Directory for logging (shell strategy)
+}
+
+// Execute runs the entire pipeline (backward compatibility)
 func (e *ExecutePipeline) Execute(pipeline *entity.Pipeline) error {
+	// Use original implementation for backward compatibility
+	return e.executeOriginal(pipeline)
+}
+
+// ExecuteWithOptions runs the pipeline with strategy selection
+func (e *ExecutePipeline) ExecuteWithOptions(pipeline *entity.Pipeline, options ExecuteOptions) error {
+	// Validate pipeline first
+	if err := pipeline.Validate(); err != nil {
+		return fmt.Errorf("pipeline validation failed: %w", err)
+	}
+
+	if !options.UseStrategy {
+		return e.executeOriginal(pipeline)
+	}
+
+	// Select strategy
+	var executionStrategy strategy.ExecutionStrategy
+	
+	switch options.ForceStrategy {
+	case "shell-pipe":
+		executionStrategy = &strategy.ShellPipeStrategy{
+			LogDir: options.LogDir,
+		}
+	case "go-stream":
+		goStrategy := strategy.NewGoStreamStrategy(e.stepExecutor, e.streamManager)
+		goStrategy.SetLogWriter(e.logWriter)
+		executionStrategy = goStrategy
+	default:
+		// Auto-determine strategy
+		executionStrategy = strategy.DetermineStrategy(pipeline)
+		
+		// Configure based on type
+		switch s := executionStrategy.(type) {
+		case *strategy.ShellPipeStrategy:
+			s.LogDir = options.LogDir
+		case *strategy.GoStreamStrategy:
+			// Re-create with dependencies if we got a stub
+			executionStrategy = strategy.NewGoStreamStrategy(e.stepExecutor, e.streamManager)
+			executionStrategy.(*strategy.GoStreamStrategy).SetLogWriter(e.logWriter)
+		}
+	}
+
+	// Execute using selected strategy
+	return executionStrategy.Execute(pipeline)
+}
+
+// executeOriginal contains the original implementation
+func (e *ExecutePipeline) executeOriginal(pipeline *entity.Pipeline) error {
 	// Validate pipeline first
 	if err := pipeline.Validate(); err != nil {
 		return fmt.Errorf("pipeline validation failed: %w", err)
