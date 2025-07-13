@@ -39,15 +39,19 @@
 ## Go 라이브러리 (최소화 원칙)
 ### 표준 라이브러리만 사용
 - **os/exec**: 명령 실행
-- **io**: 스트림 처리
+- **io**: 스트림 처리 (io.Pipe 포함)
 - **encoding/json**: 설정/로그
-- **database/sql**: SQLite (인덱스)
+- **sync**: 동시성 제어 (WaitGroup, Mutex)
+- **flag**: CLI 옵션 파싱
 
-### 외부 라이브러리 (필요시)
-- **cobra**: CLI 프레임워크
-- **viper**: 설정 관리
-- **bubble tea**: TUI (선택적)
-- **yaml.v3**: YAML 파싱
+### 외부 라이브러리 (필수)
+- **yaml.v3**: YAML 파이프라인 파싱
+- **testify**: 테스트 assertion
+
+### 실행 전략 구현
+- **ShellPipeStrategy**: Unix pipe 활용 (데드락 방지)
+- **GoStreamStrategy**: io.Pipe 기반 (세밀한 제어)
+- **전략 패턴**: 자동 선택 또는 수동 지정
 
 ## 파일 형식
 - **YAML**: 파이프라인 정의

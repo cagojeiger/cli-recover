@@ -94,7 +94,7 @@ type ExecutionStrategy interface {
 
 // 실행 전략 선택
 func DetermineStrategy(pipeline *Pipeline) ExecutionStrategy {
-    if isSimpleLinear(pipeline) {
+    if isSimpleLinear(pipeline) && !requiresProgress(pipeline) {
         return &ShellPipeStrategy{}  // Unix pipe
     }
     return &GoStreamStrategy{}      // 세밀한 제어
@@ -103,29 +103,35 @@ func DetermineStrategy(pipeline *Pipeline) ExecutionStrategy {
 
 ### 1. Unix Pipe 전략 (기본)
 - 단순 선형 파이프라인에 사용
-- 커널 버퍼링으로 데드락 방지
+- 커널 버퍼링(64KB)으로 데드락 방지
 - 높은 성능과 안정성
+- grep, sed 등 블로킹 명령어 안전하게 처리
 
 ```bash
 # YAML을 쉘 명령으로 변환
 tar cf - /data | gzip -9 | tee backup.tar.gz
+
+# 멀티라인 명령어도 지원
+(echo "line1"
+ echo "line2") | grep "pattern"
 ```
 
 ### 2. Go Stream 전략 (필요시)
 - 진행률 표시가 필요한 경우
 - 복잡한 분기가 있는 경우
 - 세밀한 에러 처리가 필요한 경우
+- 의존성 기반 그룹 실행으로 데드락 방지
 
 ```go
 type GoStreamStrategy struct {
+    stepExecutor  StepExecutor
     streamManager *StreamManager
 }
 
-// 진행률 표시를 위한 래퍼
-type ProgressReader struct {
-    reader    io.Reader
-    processed int64
-    total     int64
+// 의존성 기반 실행 그룹화
+func (g *GoStreamStrategy) groupStepsByDependencies(pipeline *Pipeline) [][]int {
+    // 동시 실행 가능한 Step들을 그룹화
+    // 각 그룹은 순차적으로 실행됨
 }
 ```
 

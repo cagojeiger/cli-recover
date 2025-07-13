@@ -20,16 +20,25 @@ func buildShellCommand(pipeline *entity.Pipeline) (string, error) {
 
 	// For single step, just return the command
 	if len(pipeline.Steps) == 1 {
-		return pipeline.Steps[0].Run, nil
+		return wrapCommand(pipeline.Steps[0].Run), nil
 	}
 
 	// Build the pipe chain
 	var commands []string
 	for _, step := range pipeline.Steps {
-		commands = append(commands, step.Run)
+		commands = append(commands, wrapCommand(step.Run))
 	}
 
 	return strings.Join(commands, " | "), nil
+}
+
+// wrapCommand wraps multiline commands in parentheses
+func wrapCommand(cmd string) string {
+	// If command contains newlines, wrap it in parentheses
+	if strings.Contains(cmd, "\n") {
+		return fmt.Sprintf("(%s)", cmd)
+	}
+	return cmd
 }
 
 // buildShellCommandWithLogging converts a pipeline to a shell script with logging
