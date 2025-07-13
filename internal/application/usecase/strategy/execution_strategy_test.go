@@ -9,9 +9,16 @@ import (
 
 // Test that ExecutionStrategy interface is properly defined
 func TestExecutionStrategyInterface(t *testing.T) {
-	// This test will fail until we create the interface
+	// Test that interface is properly defined by checking nil interface
 	var strategy ExecutionStrategy
-	assert.NotNil(t, strategy) // Interface should exist
+	assert.Nil(t, strategy) // Uninitialized interface should be nil
+	
+	// Test that we can assign implementations
+	strategy = &ShellPipeStrategy{}
+	assert.NotNil(t, strategy)
+	
+	strategy = &GoStreamStrategy{}
+	assert.NotNil(t, strategy)
 }
 
 // Mock implementation for testing
@@ -87,7 +94,16 @@ func TestDetermineStrategy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			strategy := DetermineStrategy(tt.pipeline)
 			assert.NotNil(t, strategy)
-			// We'll check the actual type once implementations exist
+			
+			// Check the actual type
+			switch tt.wantType {
+			case "ShellPipeStrategy":
+				_, ok := strategy.(*ShellPipeStrategy)
+				assert.True(t, ok, "Expected ShellPipeStrategy but got %T", strategy)
+			case "GoStreamStrategy":
+				_, ok := strategy.(*GoStreamStrategy)
+				assert.True(t, ok, "Expected GoStreamStrategy but got %T", strategy)
+			}
 		})
 	}
 }
