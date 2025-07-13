@@ -190,3 +190,220 @@ func TestChecksumFileWriter(t *testing.T) {
 		assert.NotEqual(t, oldContent, string(content))
 	})
 }
+
+func TestChecksumWriterMonitorInterface(t *testing.T) {
+	t.Run("implements Monitor interface", func(t *testing.T) {
+		cw := NewChecksumWriter("sha256")
+		
+		// Monitor 인터페이스 구현 확인
+		var _ Monitor = cw
+		
+		// Update 메서드
+		cw.Update(100)
+		// Update는 ChecksumWriter에서 무시됨
+		
+		// Finish 메서드
+		cw.Finish()
+		// Finish는 ChecksumWriter에서 특별한 동작 없음
+		
+		// Report 메서드
+		testData := []byte("test data")
+		cw.Write(testData)
+		
+		report := cw.Report()
+		expected := sha256.Sum256(testData)
+		expectedReport := "Checksum (sha256): " + hex.EncodeToString(expected[:])
+		assert.Equal(t, expectedReport, report)
+	})
+	
+	t.Run("Algorithm method", func(t *testing.T) {
+		tests := []struct {
+			input    string
+			expected string
+		}{
+			{"md5", "md5"},
+			{"sha256", "sha256"},
+			{"sha512", "sha512"},
+			{"unknown", "unknown"},
+		}
+		
+		for _, tc := range tests {
+			cw := NewChecksumWriter(tc.input)
+			assert.Equal(t, tc.expected, cw.Algorithm())
+		}
+	})
+}
+
+func TestMultiChecksumWriter(t *testing.T) {
+	testData := []byte("multi checksum test data")
+	
+	t.Run("calculates multiple checksums", func(t *testing.T) {
+		algorithms := []string{"md5", "sha256", "sha512"}
+		mcw := NewMultiChecksumWriter(algorithms)
+		
+		// 데이터 쓰기
+		n, err := mcw.Write(testData)
+		assert.NoError(t, err)
+		assert.Equal(t, len(testData), n)
+		
+		// 모든 체크섬 가져오기
+		sums := mcw.Sums()
+		assert.Len(t, sums, 3)
+		
+		// 각 체크섬 검증
+		expectedMD5 := md5.Sum(testData)
+		assert.Equal(t, hex.EncodeToString(expectedMD5[:]), sums["md5"])
+		
+		expectedSHA256 := sha256.Sum256(testData)
+		assert.Equal(t, hex.EncodeToString(expectedSHA256[:]), sums["sha256"])
+		
+		expectedSHA512 := sha512.Sum512(testData)
+		assert.Equal(t, hex.EncodeToString(expectedSHA512[:]), sums["sha512"])
+	})
+	
+	t.Run("handles empty algorithms list", func(t *testing.T) {
+		mcw := NewMultiChecksumWriter([]string{})
+		
+		n, err := mcw.Write(testData)
+		assert.NoError(t, err)
+		assert.Equal(t, len(testData), n)
+		
+		sums := mcw.Sums()
+		assert.Empty(t, sums)
+	})
+	
+	t.Run("thread safe writes", func(t *testing.T) {
+		mcw := NewMultiChecksumWriter([]string{"sha256"})
+		
+		// 동시에 여러 고루틴에서 쓰기
+		done := make(chan bool, 5)
+		chunk := []byte("chunk")
+		
+		for i := 0; i < 5; i++ {
+			go func() {
+				mcw.Write(chunk)
+				done <- true
+			}()
+		}
+		
+		// 모든 고루틴 완료 대기
+		for i := 0; i < 5; i++ {
+			<-done
+		}
+		
+		sums := mcw.Sums()
+		// 5개의 "chunk" = "chunkchunkchunkchunkchunk"
+		expected := sha256.Sum256([]byte("chunkchunkchunkchunkchunk"))
+		assert.Equal(t, hex.EncodeToString(expected[:]), sums["sha256"])
+	})
+}
+
+func TestChecksumVerifier(t *testing.T) {
+	tempDir := t.TempDir()
+	
+	t.Run("verifies valid checksum", func(t *testing.T) {
+		// 테스트 파일 생성
+		testFile := filepath.Join(tempDir, "test.txt")
+		testData := []byte("verification test data")
+		err := os.WriteFile(testFile, testData, 0644)
+		require.NoError(t, err)
+		
+		// 체크섬 파일 생성
+		expected := sha256.Sum256(testData)
+		checksumContent := hex.EncodeToString(expected[:]) + "  test.txt\n"
+		checksumFile := testFile + ".sha256"
+		err = os.WriteFile(checksumFile, []byte(checksumContent), 0644)
+		require.NoError(t, err)
+		
+		// 검증
+		verifier := NewChecksumVerifier("sha256")
+		valid, err := verifier.VerifyFile(testFile, hex.EncodeToString(expected[:]))
+		assert.NoError(t, err)
+		assert.True(t, valid)
+	})
+	
+	t.Run("detects invalid checksum", func(t *testing.T) {
+		// 테스트 파일 생성
+		testFile := filepath.Join(tempDir, "invalid.txt")
+		testData := []byte("invalid verification test")
+		err := os.WriteFile(testFile, testData, 0644)
+		require.NoError(t, err)
+		
+		// 잘못된 체크섬 파일 생성
+		checksumContent := "invalidchecksum1234567890abcdef1234567890abcdef1234567890abcdef12  invalid.txt\n"
+		checksumFile := testFile + ".sha256"
+		err = os.WriteFile(checksumFile, []byte(checksumContent), 0644)
+		require.NoError(t, err)
+		
+		// 검증
+		verifier := NewChecksumVerifier("sha256")
+		valid, err := verifier.VerifyFile(testFile, "invalidchecksum1234567890abcdef1234567890abcdef1234567890abcdef12")
+		assert.NoError(t, err)
+		assert.False(t, valid)
+	})
+	
+	t.Run("handles missing checksum file", func(t *testing.T) {
+		// 체크섬 파일이 없는 파일
+		testFile := filepath.Join(tempDir, "no-checksum.txt")
+		err := os.WriteFile(testFile, []byte("no checksum"), 0644)
+		require.NoError(t, err)
+		
+		verifier := NewChecksumVerifier("sha256")
+		// 체크섬 검증은 체크섬 값을 제공해야 함
+		expected := sha256.Sum256([]byte("no checksum"))
+		valid, err := verifier.VerifyFile(testFile, hex.EncodeToString(expected[:]))
+		assert.NoError(t, err)
+		assert.True(t, valid)
+	})
+	
+	t.Run("handles missing target file", func(t *testing.T) {
+		// 존재하지 않는 파일
+		testFile := filepath.Join(tempDir, "nonexistent.txt")
+		
+		verifier := NewChecksumVerifier("sha256")
+		valid, err := verifier.VerifyFile(testFile, "dummychecksum")
+		assert.Error(t, err)
+		assert.False(t, valid)
+	})
+	
+	t.Run("supports different algorithms", func(t *testing.T) {
+		algorithms := []string{"md5", "sha256", "sha512"}
+		
+		for _, algo := range algorithms {
+			// 각 알고리즘에 대한 verifier 생성
+			verifier := NewChecksumVerifier(algo)
+			assert.NotNil(t, verifier)
+			
+			// 실제 파일로 테스트
+			testFile := filepath.Join(tempDir, "algo-"+algo+".txt")
+			testData := []byte("algorithm test: " + algo)
+			err := os.WriteFile(testFile, testData, 0644)
+			require.NoError(t, err)
+			
+			// 체크섬 계산
+			var checksumHex string
+			switch algo {
+			case "md5":
+				sum := md5.Sum(testData)
+				checksumHex = hex.EncodeToString(sum[:])
+			case "sha256":
+				sum := sha256.Sum256(testData)
+				checksumHex = hex.EncodeToString(sum[:])
+			case "sha512":
+				sum := sha512.Sum512(testData)
+				checksumHex = hex.EncodeToString(sum[:])
+			}
+			
+			// 체크섬 파일 생성
+			checksumContent := checksumHex + "  " + filepath.Base(testFile) + "\n"
+			checksumFile := testFile + "." + algo
+			err = os.WriteFile(checksumFile, []byte(checksumContent), 0644)
+			require.NoError(t, err)
+			
+			// 검증
+			valid, err := verifier.VerifyFile(testFile, checksumHex)
+			assert.NoError(t, err)
+			assert.True(t, valid)
+		}
+	})
+}

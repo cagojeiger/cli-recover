@@ -271,3 +271,77 @@ run: echo hello
 func parseYAMLString(yamlStr string, v interface{}) error {
 	return yaml.Unmarshal([]byte(yamlStr), v)
 }
+
+func TestPipeline_IsLinear_EdgeCases(t *testing.T) {
+	t.Run("empty pipeline", func(t *testing.T) {
+		p := Pipeline{
+			Steps: []Step{},
+		}
+		// Empty pipeline is considered linear
+		assert.True(t, p.IsLinear())
+	})
+	
+	t.Run("multiple outputs same name", func(t *testing.T) {
+		p := Pipeline{
+			Steps: []Step{
+				{Name: "step1", Run: "echo 1", Output: "data"},
+				{Name: "step2", Run: "echo 2", Output: "data"}, // Reuses same output name
+				{Name: "step3", Run: "cat", Input: "data"},
+			},
+		}
+		// This is still linear because step3 uses the last "data"
+		assert.True(t, p.IsLinear())
+	})
+	
+	t.Run("circular reference", func(t *testing.T) {
+		p := Pipeline{
+			Steps: []Step{
+				{Name: "step1", Run: "echo 1", Input: "data3", Output: "data1"},
+				{Name: "step2", Run: "cat", Input: "data1", Output: "data2"},
+				{Name: "step3", Run: "wc", Input: "data2", Output: "data3"},
+			},
+		}
+		// Circular reference but still linear flow
+		assert.True(t, p.IsLinear())
+	})
+	
+	t.Run("unused intermediate output", func(t *testing.T) {
+		p := Pipeline{
+			Steps: []Step{
+				{Name: "step1", Run: "echo 1", Output: "data1"},
+				{Name: "step2", Run: "echo 2", Output: "data2"},
+				{Name: "step3", Run: "echo 3", Output: "data3"},
+				{Name: "step4", Run: "cat", Input: "data3"},
+			},
+		}
+		// Actually linear - IsLinear only checks if steps form a chain
+		// It doesn't verify all outputs are used
+		assert.True(t, p.IsLinear())
+	})
+	
+	t.Run("complex branching", func(t *testing.T) {
+		p := Pipeline{
+			Steps: []Step{
+				{Name: "source", Run: "echo data", Output: "raw"},
+				{Name: "process1", Run: "tr a-z A-Z", Input: "raw", Output: "upper"},
+				{Name: "process2", Run: "tr A-Z a-z", Input: "raw", Output: "lower"},
+				{Name: "combine", Run: "cat", Input: "upper"}, // Only uses one branch
+			},
+		}
+		// Not linear due to branching
+		assert.False(t, p.IsLinear())
+	})
+	
+	t.Run("linear with skipped step", func(t *testing.T) {
+		p := Pipeline{
+			Steps: []Step{
+				{Name: "step1", Run: "echo 1", Output: "data1"},
+				{Name: "step2", Run: "cat", Input: "data1", Output: "data2"},
+				{Name: "independent", Run: "date"}, // No input/output
+				{Name: "step3", Run: "wc", Input: "data2"},
+			},
+		}
+		// Still linear despite independent step
+		assert.True(t, p.IsLinear())
+	})
+}

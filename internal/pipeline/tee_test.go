@@ -199,3 +199,152 @@ type ErrorWriter struct {
 func (w *ErrorWriter) Write(p []byte) (n int, err error) {
 	return 0, w.err
 }
+
+func TestTeeWriter_ErrorHandling(t *testing.T) {
+	t.Run("write after close returns error", func(t *testing.T) {
+		var buf bytes.Buffer
+		tee := NewTeeWriter(&buf)
+		
+		// Close the writer
+		err := tee.Close()
+		assert.NoError(t, err)
+		
+		// Try to write after close
+		data := []byte("should not write")
+		n, err := tee.Write(data)
+		
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "closed pipe")
+		assert.Equal(t, 0, n)
+		
+		// Buffer should be empty
+		assert.Equal(t, 0, buf.Len())
+	})
+	
+	t.Run("close multiple times", func(t *testing.T) {
+		var buf bytes.Buffer
+		tee := NewTeeWriter(&buf)
+		
+		// Write some data
+		tee.Write([]byte("test"))
+		
+		// First close
+		err := tee.Close()
+		assert.NoError(t, err)
+		
+		// Second close should be safe
+		err = tee.Close()
+		assert.NoError(t, err)
+	})
+	
+	t.Run("handles nil writer", func(t *testing.T) {
+		// This should not panic
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("NewTeeWriter panicked with nil writer: %v", r)
+			}
+		}()
+		
+		// Create with nil writer should be handled gracefully
+		var buf bytes.Buffer
+		tee := NewTeeWriter(nil, &buf)
+		
+		data := []byte("test with nil")
+		n, err := tee.Write(data)
+		
+		assert.NoError(t, err)
+		assert.Equal(t, len(data), n)
+		
+		// Wait for async processing
+		time.Sleep(10 * time.Millisecond)
+		
+		// Only the valid writer should have data
+		assert.Equal(t, data, buf.Bytes())
+		
+		// Close should also work
+		err = tee.Close()
+		assert.NoError(t, err)
+	})
+	
+	t.Run("queue overflow handling", func(t *testing.T) {
+		// Use a very slow writer that will cause queue to back up
+		slowWriter := &SlowWriter{delay: 100 * time.Millisecond}
+		tee := NewTeeWriter(slowWriter)
+		
+		// Write a lot of data quickly
+		for i := 0; i < 200; i++ {
+			data := []byte("overflow test data")
+			n, err := tee.Write(data)
+			assert.NoError(t, err)
+			assert.Equal(t, len(data), n)
+		}
+		
+		// Close should wait for all data to be processed
+		err := tee.Close()
+		assert.NoError(t, err)
+		
+		// All data should have been written
+		expectedLen := 200 * len("overflow test data")
+		assert.Equal(t, expectedLen, slowWriter.Len())
+	})
+}
+
+func TestTeeWriter_RealWorldScenarios(t *testing.T) {
+	t.Run("pipeline with monitoring", func(t *testing.T) {
+		// Simulate a real pipeline scenario
+		var output bytes.Buffer
+		var logFile bytes.Buffer
+		monitor := NewByteMonitor()
+		monitorWriter := NewMonitorWriter(monitor)
+		
+		tee := NewTeeWriter(&output, &logFile, monitorWriter)
+		
+		// Simulate pipeline data
+		data := []byte("Pipeline output data\nLine 2\nLine 3\n")
+		n, err := tee.Write(data)
+		
+		assert.NoError(t, err)
+		assert.Equal(t, len(data), n)
+		
+		// Close and wait
+		err = tee.Close()
+		assert.NoError(t, err)
+		
+		// All writers should have the data
+		assert.Equal(t, data, output.Bytes())
+		assert.Equal(t, data, logFile.Bytes())
+		assert.Equal(t, int64(len(data)), monitor.Total())
+	})
+	
+	t.Run("checksum calculation", func(t *testing.T) {
+		// Simulate checksum calculation during write
+		var mainOutput bytes.Buffer
+		checksumWriter := NewChecksumWriter("sha256")
+		
+		tee := NewTeeWriter(&mainOutput, checksumWriter)
+		
+		// Write data in chunks
+		chunks := [][]byte{
+			[]byte("chunk1 "),
+			[]byte("chunk2 "),
+			[]byte("chunk3"),
+		}
+		
+		for _, chunk := range chunks {
+			n, err := tee.Write(chunk)
+			assert.NoError(t, err)
+			assert.Equal(t, len(chunk), n)
+		}
+		
+		err := tee.Close()
+		assert.NoError(t, err)
+		
+		// Verify both outputs
+		expected := []byte("chunk1 chunk2 chunk3")
+		assert.Equal(t, expected, mainOutput.Bytes())
+		
+		// Checksum should be calculated correctly
+		checksum := checksumWriter.Sum()
+		assert.NotEmpty(t, checksum)
+	})
+}

@@ -20,12 +20,20 @@ type writerWorker struct {
 
 // NewTeeWriter 는 새로운 TeeWriter를 생성
 func NewTeeWriter(writers ...io.Writer) *TeeWriter {
+	// Filter out nil writers
+	validWriters := make([]io.Writer, 0, len(writers))
+	for _, w := range writers {
+		if w != nil {
+			validWriters = append(validWriters, w)
+		}
+	}
+	
 	t := &TeeWriter{
-		writers: make([]writerWorker, len(writers)),
+		writers: make([]writerWorker, len(validWriters)),
 	}
 
 	// 각 writer에 독립적인 큐와 고루틴 생성
-	for i, w := range writers {
+	for i, w := range validWriters {
 		t.writers[i] = writerWorker{
 			writer: w,
 			queue:  make(chan []byte, 100),

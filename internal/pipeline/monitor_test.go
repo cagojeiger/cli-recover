@@ -57,6 +57,30 @@ func TestByteMonitor(t *testing.T) {
 		// Finish 후에도 Total은 유지됨
 		assert.Equal(t, int64(100), monitor.Total())
 	})
+
+	t.Run("humanizeBytes different units", func(t *testing.T) {
+		testCases := []struct {
+			bytes    int64
+			expected string
+		}{
+			{0, "0 B"},
+			{512, "512 B"},
+			{1023, "1023 B"},
+			{1024, "1.0 KB"},
+			{1536, "1.5 KB"},
+			{1048576, "1.0 MB"},
+			{2097152, "2.0 MB"},
+			{1073741824, "1.0 GB"},
+			{5368709120, "5.0 GB"},
+		}
+
+		for _, tc := range testCases {
+			monitor := NewByteMonitor()
+			monitor.Update(tc.bytes)
+			report := monitor.Report()
+			assert.Contains(t, report, tc.expected)
+		}
+	})
 }
 
 func TestLineMonitor(t *testing.T) {
@@ -100,6 +124,21 @@ func TestLineMonitor(t *testing.T) {
 		report := monitor.Report()
 		assert.Contains(t, report, "42 lines")
 	})
+
+	t.Run("Update method for Monitor interface", func(t *testing.T) {
+		monitor := NewLineMonitor()
+		// Update는 LineMonitor에서 무시됨
+		monitor.Update(100)
+		assert.Equal(t, int64(0), monitor.Total())
+	})
+
+	t.Run("Finish method", func(t *testing.T) {
+		monitor := NewLineMonitor()
+		monitor.ProcessLine()
+		monitor.ProcessLine()
+		monitor.Finish() // LineMonitor는 특별한 종료 처리가 없음
+		assert.Equal(t, int64(2), monitor.Total())
+	})
 }
 
 func TestTimeMonitor(t *testing.T) {
@@ -138,5 +177,92 @@ func TestTimeMonitor(t *testing.T) {
 
 		report := monitor.Report()
 		assert.Contains(t, report, "not started")
+	})
+
+	t.Run("Update method for Monitor interface", func(t *testing.T) {
+		monitor := NewTimeMonitor()
+		// Update는 TimeMonitor에서 무시됨
+		monitor.Update(100)
+		// Update는 시간 측정에 영향을 주지 않음
+		assert.Equal(t, time.Duration(0), monitor.Elapsed())
+	})
+
+	t.Run("elapsed while running", func(t *testing.T) {
+		monitor := NewTimeMonitor()
+		monitor.Start()
+		time.Sleep(50 * time.Millisecond)
+		
+		// 아직 Finish 호출 전
+		elapsed := monitor.Elapsed()
+		assert.GreaterOrEqual(t, elapsed.Milliseconds(), int64(50))
+	})
+
+	t.Run("report formats seconds", func(t *testing.T) {
+		monitor := NewTimeMonitor()
+		monitor.Start()
+		time.Sleep(1100 * time.Millisecond)
+		monitor.Finish()
+		
+		report := monitor.Report()
+		assert.Contains(t, report, "seconds")
+		assert.NotContains(t, report, "ms")
+	})
+}
+
+func TestMonitorWriter(t *testing.T) {
+	t.Run("wraps ByteMonitor", func(t *testing.T) {
+		monitor := NewByteMonitor()
+		writer := NewMonitorWriter(monitor)
+		
+		data := []byte("Hello, World!")
+		n, err := writer.Write(data)
+		
+		assert.NoError(t, err)
+		assert.Equal(t, len(data), n)
+		assert.Equal(t, int64(len(data)), monitor.Total())
+	})
+
+	t.Run("multiple writes", func(t *testing.T) {
+		monitor := NewByteMonitor()
+		writer := NewMonitorWriter(monitor)
+		
+		writer.Write([]byte("First "))
+		writer.Write([]byte("Second "))
+		writer.Write([]byte("Third"))
+		
+		assert.Equal(t, int64(18), monitor.Total())
+	})
+}
+
+func TestLineMonitorWriter(t *testing.T) {
+	t.Run("counts newlines", func(t *testing.T) {
+		monitor := NewLineMonitor()
+		writer := NewLineMonitorWriter(monitor)
+		
+		data := []byte("Line 1\nLine 2\nLine 3\n")
+		n, err := writer.Write(data)
+		
+		assert.NoError(t, err)
+		assert.Equal(t, len(data), n)
+		assert.Equal(t, int64(3), monitor.Total())
+	})
+
+	t.Run("handles partial lines", func(t *testing.T) {
+		monitor := NewLineMonitor()
+		writer := NewLineMonitorWriter(monitor)
+		
+		writer.Write([]byte("First line\nSec"))
+		writer.Write([]byte("ond line\nThird"))
+		writer.Write([]byte(" line\n"))
+		
+		assert.Equal(t, int64(3), monitor.Total())
+	})
+
+	t.Run("no newlines", func(t *testing.T) {
+		monitor := NewLineMonitor()
+		writer := NewLineMonitorWriter(monitor)
+		
+		writer.Write([]byte("No newline here"))
+		assert.Equal(t, int64(0), monitor.Total())
 	})
 }
