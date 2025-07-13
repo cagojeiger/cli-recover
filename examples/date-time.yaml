@@ -6,19 +6,8 @@ steps:
     run: date
     output: current-date
     
-  - name: extract-year
-    run: date +%Y
-    output: year
-    
   - name: format-message
     run: |
       echo "Current date and time:"
       cat
     input: current-date
-    output: formatted-date
-    
-  - name: add-year-info
-    run: |
-      cat
-      echo "Year: $(cat)"
-    input: formatted-date

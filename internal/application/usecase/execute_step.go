@@ -54,12 +54,8 @@ func (e *ExecuteStep) Execute(step *entity.Step) error {
 	
 	// Setup output
 	if outputWriter != nil {
-		// If we have a log writer, tee stdout to both output and log
-		if e.logWriter != io.Discard {
-			cmd.Stdout = io.MultiWriter(outputWriter, e.logWriter)
-		} else {
-			cmd.Stdout = outputWriter
-		}
+		// Direct stdout to the output stream only to avoid deadlocks
+		cmd.Stdout = outputWriter
 	} else if e.logWriter != io.Discard {
 		// No output stream, but we have a log writer
 		cmd.Stdout = e.logWriter

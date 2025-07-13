@@ -15,5 +15,5 @@ steps:
     output: word-count
     
   - name: format-output
-    run: awk '{print "Total words: " $1}'
+    run: "awk '{print \"Total words: \" $1}'"
     input: word-count
