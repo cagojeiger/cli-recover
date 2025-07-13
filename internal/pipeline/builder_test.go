@@ -141,6 +141,137 @@ func TestWrapCommand(t *testing.T) {
 	}
 }
 
+func TestBuildSmartCommand(t *testing.T) {
+	t.Run("simple command without monitoring", func(t *testing.T) {
+		step := Step{
+			Name: "simple",
+			Run:  "echo hello",
+		}
+		
+		cmd, monitors := BuildSmartCommand(step)
+		
+		assert.Equal(t, "echo hello", cmd)
+		assert.Empty(t, monitors)
+	})
+
+	t.Run("command with byte monitoring", func(t *testing.T) {
+		step := Step{
+			Name: "backup",
+			Run:  "tar cf - /data",
+			Monitor: &MonitorConfig{
+				Type:     "bytes",
+				Interval: 1000,
+			},
+		}
+		
+		cmd, monitors := BuildSmartCommand(step)
+		
+		assert.Equal(t, "tar cf - /data", cmd)
+		assert.Len(t, monitors, 1)
+		
+		// Verify monitor is ByteMonitor
+		_, ok := monitors[0].(*ByteMonitor)
+		assert.True(t, ok)
+	})
+
+	t.Run("command with line monitoring", func(t *testing.T) {
+		step := Step{
+			Name: "count",
+			Run:  "grep pattern",
+			Monitor: &MonitorConfig{
+				Type: "lines",
+			},
+		}
+		
+		cmd, monitors := BuildSmartCommand(step)
+		
+		assert.Equal(t, "grep pattern", cmd)
+		assert.Len(t, monitors, 1)
+		
+		// Verify monitor is LineMonitor
+		_, ok := monitors[0].(*LineMonitor)
+		assert.True(t, ok)
+	})
+
+	t.Run("command with checksum", func(t *testing.T) {
+		step := Step{
+			Name:     "download",
+			Run:      "curl -L https://example.com/file.zip",
+			Output:   "file:download.zip",
+			Checksum: []string{"sha256", "md5"},
+		}
+		
+		cmd, monitors := BuildSmartCommand(step)
+		
+		assert.Equal(t, "curl -L https://example.com/file.zip", cmd)
+		assert.Len(t, monitors, 2)
+	})
+
+	t.Run("command with log", func(t *testing.T) {
+		step := Step{
+			Name: "process",
+			Run:  "long-running-command",
+			Log:  "process.log",
+		}
+		
+		cmd, monitors := BuildSmartCommand(step)
+		
+		// Log is handled in executor, not in builder
+		assert.Equal(t, "long-running-command", cmd)
+		assert.Empty(t, monitors)
+	})
+
+	t.Run("command with multiple features", func(t *testing.T) {
+		step := Step{
+			Name: "complex",
+			Run:  "tar czf - /data",
+			Output: "file:backup.tar.gz",
+			Monitor: &MonitorConfig{
+				Type: "bytes",
+			},
+			Checksum: []string{"sha256"},
+			Log:      "backup.log",
+		}
+		
+		cmd, monitors := BuildSmartCommand(step)
+		
+		assert.Equal(t, "tar czf - /data", cmd)
+		assert.Len(t, monitors, 2) // ByteMonitor + ChecksumMonitor
+	})
+
+	t.Run("file output parsing", func(t *testing.T) {
+		step := Step{
+			Name:   "save",
+			Run:    "generate-data",
+			Output: "file:output.txt",
+		}
+		
+		cmd, monitors := BuildSmartCommand(step)
+		
+		assert.Equal(t, "generate-data", cmd)
+		assert.Empty(t, monitors)
+		
+		// File output is handled in executor
+		assert.True(t, IsFileOutput(step.Output))
+		assert.Equal(t, "output.txt", ExtractFilename(step.Output))
+	})
+}
+
+func TestHelperFunctions(t *testing.T) {
+	t.Run("IsFileOutput", func(t *testing.T) {
+		assert.True(t, IsFileOutput("file:test.txt"))
+		assert.True(t, IsFileOutput("file:path/to/file.gz"))
+		assert.False(t, IsFileOutput("stream"))
+		assert.False(t, IsFileOutput(""))
+	})
+
+	t.Run("ExtractFilename", func(t *testing.T) {
+		assert.Equal(t, "test.txt", ExtractFilename("file:test.txt"))
+		assert.Equal(t, "path/to/file.gz", ExtractFilename("file:path/to/file.gz"))
+		assert.Equal(t, "", ExtractFilename("not-a-file"))
+	})
+}
+
 func TestBuildCommandWithLogging_SingleStep(t *testing.T) {
 	pipeline := &Pipeline{
 		Name: "single-step",

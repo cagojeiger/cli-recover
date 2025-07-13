@@ -98,3 +98,80 @@ func wrapCommand(cmd string) string {
 	}
 	return cmd
 }
+
+// BuildSmartCommand builds a command with monitoring support
+func BuildSmartCommand(step Step) (string, []Monitor) {
+	var monitors []Monitor
+	
+	// Add monitors based on step configuration
+	if step.Monitor != nil {
+		switch step.Monitor.Type {
+		case "bytes":
+			monitors = append(monitors, NewByteMonitor())
+		case "lines":
+			monitors = append(monitors, NewLineMonitor())
+		case "time":
+			// TimeMonitor is handled differently (start/stop)
+			timeMonitor := NewTimeMonitor()
+			timeMonitor.Start()
+			monitors = append(monitors, timeMonitor)
+		}
+	}
+	
+	// Add checksum monitors
+	for _, algo := range step.Checksum {
+		// For file outputs, we need ChecksumFileWriter
+		if IsFileOutput(step.Output) {
+			filename := ExtractFilename(step.Output)
+			monitors = append(monitors, NewChecksumFileWriter(algo, filename))
+		} else {
+			monitors = append(monitors, NewChecksumWriter(algo))
+		}
+	}
+	
+	// Return the command as-is (monitoring is handled in executor)
+	return step.Run, monitors
+}
+
+// IsFileOutput checks if the output is a file (starts with "file:")
+func IsFileOutput(output string) bool {
+	return strings.HasPrefix(output, "file:")
+}
+
+// ExtractFilename extracts the filename from a file output specifier
+func ExtractFilename(output string) string {
+	if !IsFileOutput(output) {
+		return ""
+	}
+	return strings.TrimPrefix(output, "file:")
+}
+
+// BuildEnhancedPipeline builds a pipeline with smart features
+func BuildEnhancedPipeline(p *Pipeline) ([]StepExecution, error) {
+	if err := p.Validate(); err != nil {
+		return nil, err
+	}
+	
+	var executions []StepExecution
+	
+	for _, step := range p.Steps {
+		cmd, monitors := BuildSmartCommand(step)
+		
+		exec := StepExecution{
+			Step:     step,
+			Command:  cmd,
+			Monitors: monitors,
+		}
+		
+		executions = append(executions, exec)
+	}
+	
+	return executions, nil
+}
+
+// StepExecution contains execution details for a step
+type StepExecution struct {
+	Step     Step
+	Command  string
+	Monitors []Monitor
+}

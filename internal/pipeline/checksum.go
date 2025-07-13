@@ -50,6 +50,22 @@ func (w *ChecksumWriter) Write(p []byte) (n int, err error) {
 	return w.hash.Write(p)
 }
 
+// Update 는 Monitor 인터페이스 구현 (Write와 동일)
+func (w *ChecksumWriter) Update(bytes int64) {
+	// ChecksumWriter는 Write를 통해 데이터를 받으므로
+	// Update는 사용하지 않음
+}
+
+// Finish 는 Monitor 인터페이스 구현
+func (w *ChecksumWriter) Finish() {
+	// ChecksumWriter는 특별한 종료 처리가 필요 없음
+}
+
+// Report 는 Monitor 인터페이스 구현
+func (w *ChecksumWriter) Report() string {
+	return fmt.Sprintf("Checksum (%s): %s", w.algorithm, w.Sum())
+}
+
 // Sum 은 현재까지 계산된 체크섬을 16진수 문자열로 반환
 func (w *ChecksumWriter) Sum() string {
 	w.mu.Lock()
