@@ -81,9 +81,9 @@ func (e *Executor) ExecuteParallel(p *Pipeline) error {
 }
 ```
 
-### 3. 스트림 분기
+### 3. 스트림 분기 (Hidden tee 전략)
 
-#### YAML 정의
+#### YAML 정의 (사용자 관점 - 단순함 유지)
 ```yaml
 steps:
   - name: source
@@ -101,22 +101,49 @@ steps:
     output: file:backup.sha256
 ```
 
+#### 핵심 전략: 자동 tee 삽입
+```go
+// 내부적으로 생성되는 명령어
+// tar cf - /data | tee >(sha256sum > backup.sha256) | gzip -9 > backup.gz
+```
+
 #### 구현
 ```go
-type StreamManager struct {
-    streams map[string]*Stream
+type StreamAnalyzer struct {
+    usage map[string]*StreamUsage
 }
 
-type Stream struct {
-    source io.Reader
-    readers []io.Reader
+type StreamUsage struct {
+    producer  string   // output을 생성하는 step
+    consumers []string // input으로 사용하는 steps
 }
 
-func (s *Stream) NewReader() io.Reader {
-    // io.TeeReader 사용
-    // 또는 임시 파일 활용
+func (a *StreamAnalyzer) Analyze(p *Pipeline) {
+    // 각 output이 몇 번 사용되는지 분석
+    // 분기점 자동 감지
+}
+
+func BuildSmartCommand(p *Pipeline, usage map[string]*StreamUsage) string {
+    // 분기가 필요한 곳에 자동으로 tee 삽입
+    // 사용자는 복잡한 Unix 명령을 몰라도 됨
+    
+    for _, step := range p.Steps {
+        if len(usage[step.Output].consumers) > 1 {
+            // tee 명령 자동 생성
+            cmd = buildTeeCommand(step, usage)
+        } else {
+            // 일반 파이프
+            cmd = step.Run
+        }
+    }
 }
 ```
+
+#### 장점
+- **사용자 단순성**: YAML 변경 없음 (복잡도 20/100)
+- **내부 스마트함**: 자동 최적화 (복잡도 40/100)
+- **Unix 네이티브**: tee는 POSIX 표준
+- **메모리 효율**: 스트리밍 처리
 
 ### 4. 에러 처리
 

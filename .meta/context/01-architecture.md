@@ -176,6 +176,44 @@ log-dir/
    └─> 로깅 및 에러 리포트
 ```
 
+## Phase 1: Hidden tee 아키텍처
+
+### 핵심 개념
+- YAML의 input/output을 실제로 활용
+- 내부적으로 tee를 자동 삽입
+- 사용자에게는 단순함 제공
+
+### 동작 방식
+```yaml
+# 사용자 YAML (단순)
+steps:
+  - name: archive
+    run: tar cf - /data
+    output: data
+  - name: compress
+    run: gzip -9 > backup.gz
+    input: data
+  - name: checksum
+    run: sha256sum > hash.txt
+    input: data  # 재사용!
+
+# 내부 생성 명령어 (스마트)
+tar cf - /data | tee >(sha256sum > hash.txt) | gzip -9 > backup.gz
+```
+
+### 구현 구조
+```
+internal/pipeline/
+├── analyzer.go     # Stream 사용 분석
+├── builder.go      # 기존 + Smart Builder
+└── executor.go     # 변경 없음
+```
+
+### 복잡도 관리
+- 사용자 인터페이스: 20/100 ✅
+- 내부 구현: 40/100 ✅
+- 전체: 40/100 (Phase 1 목표 달성)
+
 ## 확장 포인트
 
 ### Phase 2: 파라미터 시스템
