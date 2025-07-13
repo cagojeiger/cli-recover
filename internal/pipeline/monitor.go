@@ -67,9 +67,10 @@ func (m *LineMonitor) ProcessLine() {
 	m.lines++
 }
 
-// Update 는 Monitor 인터페이스 구현 (사용하지 않음)
+// Update 는 Monitor 인터페이스 구현
 func (m *LineMonitor) Update(bytes int64) {
-	// LineMonitor는 ProcessLine을 사용
+	// LineMonitor는 MonitorWriter를 통해 바이트를 받으므로 무시
+	// 실제 라인 카운팅은 LineMonitorWriter에서 처리
 }
 
 // Total 은 총 처리된 라인 수를 반환
@@ -166,4 +167,41 @@ func humanizeBytes(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// MonitorWriter wraps a Monitor to implement io.Writer
+type MonitorWriter struct {
+	monitor Monitor
+}
+
+// NewMonitorWriter creates a new MonitorWriter
+func NewMonitorWriter(m Monitor) *MonitorWriter {
+	return &MonitorWriter{monitor: m}
+}
+
+// Write implements io.Writer
+func (w *MonitorWriter) Write(p []byte) (n int, err error) {
+	w.monitor.Update(int64(len(p)))
+	return len(p), nil
+}
+
+// LineMonitorWriter wraps a LineMonitor to count lines properly
+type LineMonitorWriter struct {
+	monitor *LineMonitor
+}
+
+// NewLineMonitorWriter creates a new LineMonitorWriter
+func NewLineMonitorWriter(m *LineMonitor) *LineMonitorWriter {
+	return &LineMonitorWriter{monitor: m}
+}
+
+// Write implements io.Writer and counts newlines
+func (w *LineMonitorWriter) Write(p []byte) (n int, err error) {
+	// Count newlines in the data
+	for _, b := range p {
+		if b == '\n' {
+			w.monitor.ProcessLine()
+		}
+	}
+	return len(p), nil
 }

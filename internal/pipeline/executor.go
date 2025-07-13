@@ -226,10 +226,17 @@ func (e *Executor) ExecuteEnhanced(step Step) error {
 		writers = append(writers, logFile)
 	}
 	
-	// Add monitors that implement io.Writer
+	// Add monitors wrapped as io.Writer
 	for _, monitor := range monitors {
 		if w, ok := monitor.(io.Writer); ok {
+			// Already implements io.Writer (e.g., ChecksumWriter)
 			writers = append(writers, w)
+		} else if lm, ok := monitor.(*LineMonitor); ok {
+			// Special handling for LineMonitor
+			writers = append(writers, NewLineMonitorWriter(lm))
+		} else {
+			// Wrap with MonitorWriter for other monitors
+			writers = append(writers, NewMonitorWriter(monitor))
 		}
 	}
 	
@@ -296,26 +303,6 @@ func (e *Executor) ExecuteEnhanced(step Step) error {
 
 // ExecutePipeline executes an entire pipeline with enhanced features
 func (e *Executor) ExecutePipeline(p *Pipeline) error {
-	e.log("Executing pipeline: %s\n", p.Name)
-	if p.Description != "" {
-		e.log("Description: %s\n", p.Description)
-	}
-	
-	// For now, execute steps sequentially
-	// TODO: Implement smart tee-based branching for non-linear pipelines
-	if !p.IsLinear() {
-		return fmt.Errorf("non-linear pipelines not yet supported in enhanced mode")
-	}
-	
-	// Execute each step
-	for i, step := range p.Steps {
-		e.log("\n[Step %d/%d] %s\n", i+1, len(p.Steps), step.Name)
-		
-		if err := e.ExecuteEnhanced(step); err != nil {
-			return fmt.Errorf("step '%s' failed: %w", step.Name, err)
-		}
-	}
-	
-	e.log("\nPipeline completed successfully\n")
-	return nil
+	// Use the enhanced pipeline executor for proper data flow
+	return e.ExecutePipelineEnhanced(p)
 }
