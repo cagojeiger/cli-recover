@@ -7,7 +7,7 @@ steps:
     output: file-list
     
   - name: filter-yaml-files
-    run: grep "\.yaml$"
+    run: grep "\.md$"
     input: file-list
     output: yaml-files
     

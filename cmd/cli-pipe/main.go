@@ -6,9 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	
-	"github.com/cagojeiger/cli-recover/internal/application/usecase"
-	"github.com/cagojeiger/cli-recover/internal/domain/service"
-	"github.com/cagojeiger/cli-recover/internal/infrastructure/persistence"
+	"github.com/cagojeiger/cli-pipe/internal/pipeline"
 )
 
 // Version information (set during build)
@@ -16,12 +14,6 @@ var (
 	version = "dev"
 	commit  = "none"
 	date    = "unknown"
-)
-
-// Command-line options
-var (
-	strategyFlag = flag.String("strategy", "auto", "Execution strategy: auto, shell-pipe, go-stream")
-	logDirFlag   = flag.String("log-dir", "", "Directory for logging (shell strategy only)")
 )
 
 func main() {
@@ -46,11 +38,13 @@ func main() {
 	if command == "run" {
 		// Create new flag set for run command
 		runCmd := flag.NewFlagSet("run", flag.ExitOnError)
-		strategy := runCmd.String("strategy", "auto", "Execution strategy: auto, shell-pipe, go-stream")
-		logDir := runCmd.String("log-dir", "", "Directory for logging (shell strategy only)")
+		logDir := runCmd.String("log-dir", "", "Directory for logging")
 		
 		// Parse from os.Args[2:] to skip program name and "run"
-		runCmd.Parse(os.Args[2:])
+		if err := runCmd.Parse(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
+			os.Exit(1)
+		}
 		
 		// Get remaining args after flags
 		args := runCmd.Args()
@@ -60,11 +54,7 @@ func main() {
 			os.Exit(1)
 		}
 		
-		// Set global flags for runPipeline
-		*strategyFlag = *strategy
-		*logDirFlag = *logDir
-		
-		runPipeline(args[0])
+		runPipeline(args[0], *logDir)
 	} else {
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		printUsage()
@@ -90,70 +80,42 @@ func printUsage() {
 	fmt.Println("  help       Show this help message")
 	fmt.Println()
 	fmt.Println("Options for 'run' command:")
-	fmt.Println("  --strategy string   Execution strategy: auto, shell-pipe, go-stream (default \"auto\")")
-	fmt.Println("  --log-dir string    Directory for logging (shell strategy only)")
+	fmt.Println("  --log-dir string    Directory for logging")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  cli-pipe run pipeline.yaml")
-	fmt.Println("  cli-pipe run --strategy shell-pipe --log-dir ./logs pipeline.yaml")
+	fmt.Println("  cli-pipe run --log-dir ./logs pipeline.yaml")
 }
 
-func runPipeline(filename string) {
-	// Create dependencies
-	parser := persistence.NewYAMLParser()
-	streamManager := service.NewStreamManager()
-	stepExecutor := usecase.NewExecuteStep(streamManager)
-	pipelineExecutor := usecase.NewExecutePipeline(stepExecutor, streamManager)
-	
-	// Set log output to stdout
-	pipelineExecutor.SetLogWriter(os.Stdout)
-	
+func runPipeline(filename string, logDir string) {
 	// Parse pipeline file
-	config, err := parser.ParseFile(filename)
+	p, err := pipeline.ParseFile(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing pipeline file: %v\n", err)
 		os.Exit(1)
 	}
 	
-	// Convert to domain model
-	pipeline, err := parser.ToPipeline(config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating pipeline: %v\n", err)
-		os.Exit(1)
-	}
-	
-	// Prepare execution options
-	options := usecase.ExecuteOptions{
-		UseStrategy: true, // Always use strategy pattern
-	}
-	
-	// Handle strategy flag
-	switch *strategyFlag {
-	case "shell-pipe":
-		options.ForceStrategy = "shell-pipe"
-	case "go-stream":
-		options.ForceStrategy = "go-stream"
-	case "auto":
-		// Let the system determine the best strategy
-	default:
-		fmt.Fprintf(os.Stderr, "Invalid strategy: %s\n", *strategyFlag)
-		os.Exit(1)
+	// Create executor with options
+	opts := []pipeline.Option{
+		pipeline.WithLogWriter(os.Stdout),
 	}
 	
 	// Handle log directory
-	if *logDirFlag != "" {
+	if logDir != "" {
 		// Expand ~ to home directory
-		if (*logDirFlag)[0] == '~' {
+		if logDir[0] == '~' {
 			home, err := os.UserHomeDir()
 			if err == nil {
-				*logDirFlag = filepath.Join(home, (*logDirFlag)[1:])
+				logDir = filepath.Join(home, logDir[1:])
 			}
 		}
-		options.LogDir = *logDirFlag
+		opts = append(opts, pipeline.WithLogDir(logDir))
 	}
 	
-	// Execute pipeline with options
-	if err := pipelineExecutor.ExecuteWithOptions(pipeline, options); err != nil {
+	executor := pipeline.NewExecutor(opts...)
+	
+	// Execute pipeline
+	if err := executor.Execute(p); err != nil {
 		fmt.Fprintf(os.Stderr, "Error executing pipeline: %v\n", err)
 		os.Exit(1)
 	}
