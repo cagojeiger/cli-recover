@@ -1,0 +1,19 @@
+name: word-count
+description: Count words in a text file
+
+steps:
+  - name: create-text
+    run: |
+      echo "The quick brown fox jumps over the lazy dog.
+      This is a test of the word counting pipeline.
+      It should count all the words in this text."
+    output: text-content
+    
+  - name: count-words
+    run: wc -w
+    input: text-content
+    output: word-count
+    
+  - name: format-output
+    run: awk '{print "Total words: " $1}'
+    input: word-count

@@ -1,0 +1,16 @@
+name: hello-world
+description: A simple hello world pipeline
+
+steps:
+  - name: generate-greeting
+    run: echo "Hello, World!"
+    output: greeting
+    
+  - name: uppercase
+    run: tr '[:lower:]' '[:upper:]'
+    input: greeting
+    output: loud-greeting
+    
+  - name: save-to-file
+    run: tee hello.txt
+    input: loud-greeting

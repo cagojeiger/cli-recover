@@ -1,0 +1,21 @@
+name: file-processing
+description: Process and analyze files
+
+steps:
+  - name: list-files
+    run: ls -la
+    output: file-list
+    
+  - name: filter-yaml-files
+    run: grep "\.yaml$"
+    input: file-list
+    output: yaml-files
+    
+  - name: count-yaml-files
+    run: wc -l
+    input: yaml-files
+    output: yaml-count
+    
+  - name: display-result
+    run: awk '{print "Found " $1 " YAML files"}'
+    input: yaml-count

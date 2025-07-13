@@ -1,0 +1,6 @@
+name: simple-test
+description: A very simple test pipeline
+
+steps:
+  - name: echo-test
+    run: echo "Testing cli-pipe!"
