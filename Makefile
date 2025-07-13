@@ -9,7 +9,7 @@ LDFLAGS := -ldflags "-X main.version=$(VERSION) -s -w"
 
 # Core targets
 build:
-	go build $(LDFLAGS) -o $(BINARY) .
+	go build $(LDFLAGS) -o $(BINARY) ./cmd/cli-recover
 
 test:
 	go test -v -cover ./...
@@ -36,8 +36,8 @@ release: clean
 
 release-build:
 	mkdir -p dist
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-amd64 .
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-arm64 .
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-amd64 .
-	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-arm64 .
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-amd64 ./cmd/cli-recover
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-arm64 ./cmd/cli-recover
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-amd64 ./cmd/cli-recover
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-arm64 ./cmd/cli-recover
 	cd dist && sha256sum * > checksums.txt

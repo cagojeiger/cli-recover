@@ -21,7 +21,7 @@ TRIGGER:
   - Task direction change
   - User request for status
 ACTION:
-  - MAINTAIN directories: [.context/, .memory/, .planning/, .checkpoint/]
+  - MAINTAIN directories: [.meta/context/, .meta/memory/, .meta/planning/, .meta/checkpoint/]
   - CREATE files with pattern: 00-*.md
   - ENFORCE limits: 500 lines per file
   - USE format: Bullet points only
@@ -189,7 +189,7 @@ EVALUATION:
 
 ## Directory Structure
 
-### .context/
+### .meta/context/
 ```
 PURPOSE: Project runtime context
 CONTAINS (minimum):
@@ -200,7 +200,7 @@ CONTAINS (minimum):
 NOTE: Additional files may be added as needed following 00-*.md pattern
 ```
 
-### .memory/
+### .meta/memory/
 ```
 PURPOSE: AI memory system
 STRUCTURE:
@@ -215,7 +215,7 @@ STRUCTURE:
     - Additional files as needed (00-*.md pattern)
 ```
 
-### .planning/
+### .meta/planning/
 ```
 PURPOSE: Task and execution planning
 CONTAINS (minimum):
@@ -225,7 +225,7 @@ CONTAINS (minimum):
 NOTE: Additional files may be added as needed following 00-*.md pattern
 ```
 
-### .checkpoint/
+### .meta/checkpoint/
 ```
 PURPOSE: Project state snapshots
 PATTERN: 00-descriptor.md (e.g., 01-mvp.md)
