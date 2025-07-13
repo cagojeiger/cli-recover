@@ -38,11 +38,6 @@ func (e *ExecuteStep) Execute(step *entity.Step) error {
 			return fmt.Errorf("failed to create output stream '%s': %w", step.Output, err)
 		}
 		outputWriter = writer
-		defer func() {
-			if outputWriter != nil {
-				outputWriter.Close()
-			}
-		}()
 	}
 	
 	// Create command
@@ -77,6 +72,11 @@ func (e *ExecuteStep) Execute(step *entity.Step) error {
 	
 	// Run the command
 	err := cmd.Run()
+	
+	// Always close output writer after command completes
+	if outputWriter != nil {
+		outputWriter.Close()
+	}
 	
 	if err != nil {
 		return fmt.Errorf("command failed: %w", err)
