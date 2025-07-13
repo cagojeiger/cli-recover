@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func TestPipeline_Validate(t *testing.T) {
@@ -171,4 +172,102 @@ func TestPipeline_IsLinear(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestStep_EnhancedFields(t *testing.T) {
+	t.Run("parses monitor config", func(t *testing.T) {
+		yaml := `
+name: test-step
+run: tar cf - /data
+output: archive
+monitor:
+  type: bytes
+  interval: 1000
+`
+		var step Step
+		err := parseYAMLString(yaml, &step)
+		
+		assert.NoError(t, err)
+		assert.NotNil(t, step.Monitor)
+		assert.Equal(t, "bytes", step.Monitor.Type)
+		assert.Equal(t, 1000, step.Monitor.Interval)
+	})
+
+	t.Run("parses checksum array", func(t *testing.T) {
+		yaml := `
+name: test-step
+run: tar cf - /data
+output: file:backup.tar
+checksum: [sha256, md5]
+`
+		var step Step
+		err := parseYAMLString(yaml, &step)
+		
+		assert.NoError(t, err)
+		assert.Len(t, step.Checksum, 2)
+		assert.Contains(t, step.Checksum, "sha256")
+		assert.Contains(t, step.Checksum, "md5")
+	})
+
+	t.Run("parses log field", func(t *testing.T) {
+		yaml := `
+name: test-step
+run: long-running-command
+log: output.log
+`
+		var step Step
+		err := parseYAMLString(yaml, &step)
+		
+		assert.NoError(t, err)
+		assert.Equal(t, "output.log", step.Log)
+	})
+
+	t.Run("parses progress field", func(t *testing.T) {
+		yaml := `
+name: test-step
+run: gzip -9
+progress: true
+`
+		var step Step
+		err := parseYAMLString(yaml, &step)
+		
+		assert.NoError(t, err)
+		assert.True(t, step.Progress)
+	})
+
+	t.Run("handles empty optional fields", func(t *testing.T) {
+		yaml := `
+name: test-step
+run: echo hello
+`
+		var step Step
+		err := parseYAMLString(yaml, &step)
+		
+		assert.NoError(t, err)
+		assert.Nil(t, step.Monitor)
+		assert.Nil(t, step.Checksum)
+		assert.Empty(t, step.Log)
+		assert.False(t, step.Progress)
+	})
+
+	t.Run("backward compatibility", func(t *testing.T) {
+		// 기존 Step이 여전히 작동하는지 확인
+		step := Step{
+			Name:   "old-step",
+			Run:    "echo test",
+			Input:  "input",
+			Output: "output",
+		}
+		
+		// 새 필드들은 기본값을 가져야 함
+		assert.Nil(t, step.Monitor)
+		assert.Nil(t, step.Checksum)
+		assert.Empty(t, step.Log)
+		assert.False(t, step.Progress)
+	})
+}
+
+// parseYAMLString is a helper function for testing YAML parsing
+func parseYAMLString(yamlStr string, v interface{}) error {
+	return yaml.Unmarshal([]byte(yamlStr), v)
 }
