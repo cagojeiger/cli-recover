@@ -2,11 +2,12 @@ package pipeline
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
-// BuildCommand converts a pipeline to a shell command string
-func BuildCommand(p *Pipeline) (string, error) {
+// BuildCommand converts a pipeline to a shell command string with logging to specific directory
+func BuildCommand(p *Pipeline, logDir string) (string, error) {
 	if len(p.Steps) == 0 {
 		return "", fmt.Errorf("empty pipeline")
 	}
@@ -16,7 +17,7 @@ func BuildCommand(p *Pipeline) (string, error) {
 		return "", fmt.Errorf("non-linear pipeline cannot be converted to shell command")
 	}
 
-	// For single step, just return the command
+	// For single step, just return the command (no tee needed for single step)
 	if len(p.Steps) == 1 {
 		return wrapCommand(p.Steps[0].Run), nil
 	}
@@ -29,9 +30,9 @@ func BuildCommand(p *Pipeline) (string, error) {
 
 	pipelineCmd := strings.Join(commands, " | ")
 	
-	// Add tee for debug logging (1단계: 간단한 디버그 로깅 추가)
-	debugLog := "/tmp/cli-pipe-debug.log"
-	return pipelineCmd + " | tee " + debugLog, nil
+	// Add tee for pipeline logging to specific directory
+	pipelineLog := filepath.Join(logDir, "pipeline.out")
+	return pipelineCmd + " | tee " + pipelineLog, nil
 }
 
 

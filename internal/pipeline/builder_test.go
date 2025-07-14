@@ -22,7 +22,7 @@ func TestBuildCommand(t *testing.T) {
 					{Name: "step2", Run: "cat", Input: "data"},
 				},
 			},
-			expected: "echo hello | cat | tee /tmp/cli-pipe-debug.log",
+			expected: "echo hello | cat | tee /tmp/test-logs/pipeline.out",
 			wantErr:  false,
 		},
 		{
@@ -46,7 +46,7 @@ func TestBuildCommand(t *testing.T) {
 					{Name: "count", Run: "wc -w", Input: "upper"},
 				},
 			},
-			expected: "echo test | tr a-z A-Z | wc -w | tee /tmp/cli-pipe-debug.log",
+			expected: "echo test | tr a-z A-Z | wc -w | tee /tmp/test-logs/pipeline.out",
 			wantErr:  false,
 		},
 		{
@@ -58,7 +58,7 @@ func TestBuildCommand(t *testing.T) {
 					{Name: "save", Run: "cat", Input: "stream", Output: "file:output.txt"},
 				},
 			},
-			expected: "echo data | cat | tee /tmp/cli-pipe-debug.log",
+			expected: "echo data | cat | tee /tmp/test-logs/pipeline.out",
 			wantErr:  false,
 		},
 		{
@@ -106,7 +106,8 @@ echo "line2")`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := BuildCommand(tt.pipeline)
+			// Use temporary directory for test
+			result, err := BuildCommand(tt.pipeline, "/tmp/test-logs")
 			
 			if tt.wantErr {
 				assert.Error(t, err)

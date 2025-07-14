@@ -1,0 +1,15 @@
+name: slow-pipeline
+description: Test progress tracking with slow execution
+
+steps:
+  - name: generate-data
+    run: seq 1 1000
+    output: data
+    
+  - name: slow-processing
+    run: while read line; do echo "Processing: $line"; sleep 0.01; done
+    input: data
+    
+  - name: final-output
+    run: wc -l
+    input: data

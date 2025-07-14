@@ -289,9 +289,10 @@ echo "line 3"`,
 	require.NoError(t, err)
 	
 	summaryStr := string(summary)
-	assert.Contains(t, summaryStr, "Bytes:")
-	assert.Contains(t, summaryStr, "Lines:")
+	// Check basic execution info (simplified Phase 1)
+	assert.Contains(t, summaryStr, "Pipeline:")
 	assert.Contains(t, summaryStr, "Duration:")
+	assert.Contains(t, summaryStr, "Status:")
 }
 
 func TestExecutor_Execute_MultilineCommand(t *testing.T) {
@@ -456,7 +457,7 @@ func TestExecutor_CaptureOutput_Errors(t *testing.T) {
 
 func TestExecutor_BuildCommand_Errors(t *testing.T) {
 	// Test empty pipeline
-	_, err := BuildCommand(&Pipeline{Steps: []Step{}})
+	_, err := BuildCommand(&Pipeline{Steps: []Step{}}, "/tmp")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "empty pipeline")
 }

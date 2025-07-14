@@ -13,6 +13,39 @@ import (
 	"github.com/cagojeiger/cli-pipe/internal/logger"
 )
 
+// OutputLimiter limits output to screen while preserving full output in logs
+type OutputLimiter struct {
+	maxLines    int
+	currentLine int
+	prefix      string
+	truncated   bool
+}
+
+// Write implements io.Writer for output limiting
+func (ol *OutputLimiter) Write(p []byte) (n int, err error) {
+	lines := strings.Split(string(p), "\n")
+	
+	for i, line := range lines {
+		// Skip last empty line from split
+		if i == len(lines)-1 && line == "" {
+			continue
+		}
+		
+		ol.currentLine++
+		
+		if ol.currentLine <= ol.maxLines {
+			fmt.Printf("%s%s\n", ol.prefix, line)
+		} else if !ol.truncated {
+			truncatedCount := len(lines) - i + 1
+			fmt.Printf("... (%d more lines in log file)\n", truncatedCount)
+			ol.truncated = true
+			break
+		}
+	}
+	
+	return len(p), nil
+}
+
 // Executor handles pipeline execution
 type Executor struct {
 	config    *config.Config
@@ -56,53 +89,20 @@ func (e *Executor) Execute(p *Pipeline) error {
 		e.config = cfg
 	}
 
-	// Create log directory
-	timestamp := time.Now().Format("20060102_150405")
-	logDir := filepath.Join(e.config.Logs.Directory, fmt.Sprintf("%s_%s", p.Name, timestamp))
-	
-	log.Debug("creating log directory", "path", logDir)
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		log.Error("failed to create log directory", "path", logDir, "error", err)
-		return fmt.Errorf("failed to create log directory: %w", err)
-	}
-	
-	// Clean old logs if retention is configured
-	if e.config.Logs.RetentionDays > 0 {
-		cleaner := logger.NewLogCleaner(log)
-		go func() {
-			log.Debug("starting background log cleanup", "retention_days", e.config.Logs.RetentionDays)
-			if err := cleaner.CleanOldLogs(e.config.Logs.Directory, e.config.Logs.RetentionDays); err != nil {
-				log.Error("failed to clean old logs", "error", err)
-			}
-		}()
-	}
-
-	// Log detailed pipeline information
+	// Simple pipeline information (1단계: 단순화)
 	log.Info("executing pipeline",
 		"description", p.Description,
-		"log_directory", logDir,
 		"steps", len(p.Steps))
 	
-	// Log each step information
-	for i, step := range p.Steps {
-		log.Debug("pipeline step configured",
-			"index", i,
-			"name", step.Name,
-			"command", step.Run,
-			"input", step.Input,
-			"output", step.Output)
-	}
-	
-	// Keep console output for user-facing messages
+	// Simple console output
 	e.log("Executing pipeline: %s\n", p.Name)
 	if p.Description != "" {
 		e.log("Description: %s\n", p.Description)
 	}
-	e.log("Logging to: %s\n", logDir)
 
 	// For linear pipelines, execute as single command
 	if p.IsLinear() {
-		return e.executeLinearPipeline(p, logDir, log)
+		return e.executeLinearPipeline(p, log)
 	}
 	
 	// Non-linear pipelines not yet supported
@@ -111,10 +111,18 @@ func (e *Executor) Execute(p *Pipeline) error {
 }
 
 // executeLinearPipeline executes a linear pipeline with tee logging
-func (e *Executor) executeLinearPipeline(p *Pipeline, logDir string, log logger.Logger) error {
+func (e *Executor) executeLinearPipeline(p *Pipeline, log logger.Logger) error {
 	log.Debug("building shell command")
-	// Build shell command
-	shellCmd, err := BuildCommand(p)
+	// Create log directory for this execution
+	timestamp := time.Now().Format("20060102_150405")
+	logDir := filepath.Join(e.config.Logs.Directory, fmt.Sprintf("%s_%s", p.Name, timestamp))
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		log.Error("failed to create log directory", "error", err, "path", logDir)
+		return fmt.Errorf("failed to create log directory: %w", err)
+	}
+	
+	// Build shell command with log directory
+	shellCmd, err := BuildCommand(p, logDir)
 	if err != nil {
 		log.Error("failed to build pipeline command", "error", err)
 		return fmt.Errorf("failed to build pipeline command: %w", err)
@@ -135,23 +143,53 @@ func (e *Executor) executeLinearPipeline(p *Pipeline, logDir string, log logger.
 			e.log("      Output: %s\n", step.Output)
 		}
 	}
-	e.log("\nFull command: %s\n\n", shellCmd)
+	e.log("\nFull command: %s\n", shellCmd)
+	e.log("Log directory: %s\n\n", logDir)
 	
 	// Create the command (1단계: 단순화)
 	log.Debug("creating command")
 	cmd := exec.Command("bash", "-c", shellCmd)
 	
-	// Simple direct output (고루틴 없이 직접 출력)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Create output limiters for screen display
+	stdoutLimiter := &OutputLimiter{maxLines: 50, prefix: ""}
+	stderrLimiter := &OutputLimiter{maxLines: 20, prefix: "[STDERR] "}
 	
-	// Execute the command (1단계: 단순 실행)
+	// Set up output handling
+	cmd.Stdout = stdoutLimiter
+	cmd.Stderr = stderrLimiter
+	
+	// Execute the command with progress tracking
 	log.Info("starting pipeline command")
+	e.log("Starting execution...\n")
 	startTime := time.Now()
 	
+	// Start a goroutine to show progress (only time elapsed, no complex monitoring)
+	done := make(chan bool)
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				elapsed := time.Since(startTime)
+				e.log("\r⏱️  Running: %v", elapsed.Round(time.Second))
+			}
+		}
+	}()
+	
 	cmdErr := cmd.Run()
+	done <- true
 	
 	duration := time.Since(startTime)
+	e.log("\n") // New line after progress
+	
+	// Show output summary
+	totalStdoutLines := stdoutLimiter.currentLine
+	if stdoutLimiter.truncated {
+		e.log("[Output truncated: showing first %d of %d+ lines]\n", stdoutLimiter.maxLines, totalStdoutLines)
+	}
 	
 	// Simple result logging (1단계: 단순 결과 로깅)
 	if cmdErr != nil {
@@ -169,12 +207,18 @@ func (e *Executor) executeLinearPipeline(p *Pipeline, logDir string, log logger.
 		"duration", duration,
 		"status", status)
 	
-	// Simple user feedback (1단계: 단순 사용자 피드백)
+	// Create summary file
+	if err := e.writeSummary(logDir, p, duration, status); err != nil {
+		log.Error("failed to write summary", "error", err)
+	}
+	
+	// User feedback
 	e.log("\n%s\n", strings.Repeat("=", 50))
 	e.log("Pipeline completed\n")
 	e.log("• Duration: %v\n", duration)
 	e.log("• Status: %s\n", status)
-	e.log("• Debug log: /tmp/cli-pipe-debug.log\n")
+	e.log("• Full output: %s\n", filepath.Join(logDir, "pipeline.out"))
+	e.log("• Summary: %s\n", filepath.Join(logDir, "summary.txt"))
 	
 	return cmdErr
 }
@@ -200,6 +244,26 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
+// writeSummary creates a summary file for the pipeline execution
+func (e *Executor) writeSummary(logDir string, p *Pipeline, duration time.Duration, status string) error {
+	summaryPath := filepath.Join(logDir, "summary.txt")
+	content := fmt.Sprintf(`Pipeline: %s
+Description: %s
+Executed: %s
+Duration: %v
+Status: %s
+Log Directory: %s
+`,
+		p.Name,
+		p.Description,
+		time.Now().Format("2006-01-02 15:04:05"),
+		duration,
+		status,
+		logDir)
+	
+	return os.WriteFile(summaryPath, []byte(content), 0644)
+}
+
 // CaptureOutput runs a pipeline and captures its output
 func (e *Executor) CaptureOutput(p *Pipeline) (string, error) {
 	// Ensure logger exists
@@ -210,11 +274,17 @@ func (e *Executor) CaptureOutput(p *Pipeline) (string, error) {
 	log := e.logger.With("pipeline", p.Name, "mode", "capture")
 	log.Debug("capturing pipeline output")
 	
-	// Build shell command
-	shellCmd, err := BuildCommand(p)
+	// Build shell command (for capture, we don't need persistent logging)
+	shellCmd, err := BuildCommand(p, "/tmp")
 	if err != nil {
 		log.Error("failed to build shell command", "error", err)
 		return "", fmt.Errorf("failed to build shell command: %w", err)
+	}
+	
+	// Remove tee for capture mode to get clean output
+	if strings.Contains(shellCmd, " | tee ") {
+		parts := strings.Split(shellCmd, " | tee ")
+		shellCmd = parts[0]
 	}
 
 	// Execute using bash

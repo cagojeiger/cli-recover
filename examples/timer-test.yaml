@@ -1,0 +1,6 @@
+name: timer-test
+description: Test progress display with 5 second delay
+
+steps:
+  - name: wait-and-output
+    run: sleep 5 && echo "Done waiting!"

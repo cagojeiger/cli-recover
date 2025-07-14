@@ -1,0 +1,11 @@
+name: large-output
+description: Test large output handling with 100 lines
+
+steps:
+  - name: generate-lines
+    run: seq 1 100
+    output: numbers
+    
+  - name: format-output
+    run: cat
+    input: numbers
