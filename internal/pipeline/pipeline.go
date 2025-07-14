@@ -18,18 +18,6 @@ type Step struct {
 	Run    string `yaml:"run"`
 	Input  string `yaml:"input,omitempty"`
 	Output string `yaml:"output,omitempty"`
-	
-	// Enhanced fields for monitoring and logging
-	Monitor  *MonitorConfig `yaml:"monitor,omitempty"`
-	Checksum []string       `yaml:"checksum,omitempty"`
-	Log      string         `yaml:"log,omitempty"`
-	Progress bool           `yaml:"progress,omitempty"`
-}
-
-// MonitorConfig defines monitoring settings for a step
-type MonitorConfig struct {
-	Type     string `yaml:"type"`     // bytes, lines, time
-	Interval int    `yaml:"interval"` // update interval
 }
 
 // Validate validates the pipeline structure

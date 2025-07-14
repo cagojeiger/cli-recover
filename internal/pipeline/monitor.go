@@ -205,3 +205,72 @@ func (w *LineMonitorWriter) Write(p []byte) (n int, err error) {
 	}
 	return len(p), nil
 }
+
+// UnifiedMonitor combines bytes, lines, and time monitoring
+type UnifiedMonitor struct {
+	byteMonitor *ByteMonitor
+	lineMonitor *LineMonitor
+	timeMonitor *TimeMonitor
+}
+
+// NewUnifiedMonitor creates a monitor that tracks everything
+func NewUnifiedMonitor() *UnifiedMonitor {
+	timeMonitor := NewTimeMonitor()
+	timeMonitor.Start()
+	
+	return &UnifiedMonitor{
+		byteMonitor: NewByteMonitor(),
+		lineMonitor: NewLineMonitor(),
+		timeMonitor: timeMonitor,
+	}
+}
+
+// Write implements io.Writer and updates all monitors
+func (m *UnifiedMonitor) Write(p []byte) (n int, err error) {
+	// Update byte count
+	m.byteMonitor.Update(int64(len(p)))
+	
+	// Count lines
+	for _, b := range p {
+		if b == '\n' {
+			m.lineMonitor.ProcessLine()
+		}
+	}
+	
+	return len(p), nil
+}
+
+// Update implements Monitor interface
+func (m *UnifiedMonitor) Update(bytes int64) {
+	m.byteMonitor.Update(bytes)
+}
+
+// Finish implements Monitor interface
+func (m *UnifiedMonitor) Finish() {
+	m.byteMonitor.Finish()
+	m.lineMonitor.Finish()
+	m.timeMonitor.Finish()
+}
+
+// Report implements Monitor interface
+func (m *UnifiedMonitor) Report() string {
+	return fmt.Sprintf("%s | %s | %s", 
+		m.byteMonitor.Report(),
+		m.lineMonitor.Report(),
+		m.timeMonitor.Report())
+}
+
+// GetBytes returns total bytes processed
+func (m *UnifiedMonitor) GetBytes() int64 {
+	return m.byteMonitor.total
+}
+
+// GetLines returns total lines processed
+func (m *UnifiedMonitor) GetLines() int64 {
+	return m.lineMonitor.lines
+}
+
+// GetDuration returns elapsed time
+func (m *UnifiedMonitor) GetDuration() time.Duration {
+	return m.timeMonitor.GetDuration()
+}

@@ -99,38 +99,10 @@ func wrapCommand(cmd string) string {
 	return cmd
 }
 
-// BuildSmartCommand builds a command with monitoring support
+// BuildSmartCommand builds a command with unified monitor
 func BuildSmartCommand(step Step) (string, []Monitor) {
-	var monitors []Monitor
-	
-	// Add monitors based on step configuration
-	if step.Monitor != nil {
-		switch step.Monitor.Type {
-		case "bytes":
-			monitors = append(monitors, NewByteMonitor())
-		case "lines":
-			monitors = append(monitors, NewLineMonitor())
-		case "time":
-			// TimeMonitor is handled differently (start/stop)
-			timeMonitor := NewTimeMonitor()
-			timeMonitor.Start()
-			monitors = append(monitors, timeMonitor)
-		}
-	}
-	
-	// Add checksum monitors
-	for _, algo := range step.Checksum {
-		// For file outputs, we need ChecksumFileWriter
-		if IsFileOutput(step.Output) {
-			filename := ExtractFilename(step.Output)
-			monitors = append(monitors, NewChecksumFileWriter(algo, filename))
-		} else {
-			monitors = append(monitors, NewChecksumWriter(algo))
-		}
-	}
-	
-	// Return the command as-is (monitoring is handled in executor)
-	return step.Run, monitors
+	// Always use UnifiedMonitor for all steps
+	return step.Run, []Monitor{NewUnifiedMonitor()}
 }
 
 // IsFileOutput checks if the output is a file (starts with "file:")
@@ -146,7 +118,7 @@ func ExtractFilename(output string) string {
 	return strings.TrimPrefix(output, "file:")
 }
 
-// BuildEnhancedPipeline builds a pipeline with smart features
+// BuildEnhancedPipeline builds a pipeline with unified monitoring
 func BuildEnhancedPipeline(p *Pipeline) ([]StepExecution, error) {
 	if err := p.Validate(); err != nil {
 		return nil, err
@@ -155,12 +127,10 @@ func BuildEnhancedPipeline(p *Pipeline) ([]StepExecution, error) {
 	var executions []StepExecution
 	
 	for _, step := range p.Steps {
-		cmd, monitors := BuildSmartCommand(step)
-		
 		exec := StepExecution{
 			Step:     step,
-			Command:  cmd,
-			Monitors: monitors,
+			Command:  step.Run,
+			Monitors: []Monitor{NewUnifiedMonitor()},
 		}
 		
 		executions = append(executions, exec)
