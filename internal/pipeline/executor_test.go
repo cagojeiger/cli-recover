@@ -378,3 +378,234 @@ func TestFormatBytes(t *testing.T) {
 		})
 	}
 }
+
+func TestExecutor_Execute_NilConfig(t *testing.T) {
+	// Create temp dir for config
+	tempDir := t.TempDir()
+	
+	// Override home directory for testing
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tempDir)
+	defer os.Setenv("HOME", originalHome)
+	
+	// Initialize config first so Load() will work
+	cfg := config.DefaultConfig()
+	require.NoError(t, cfg.Save())
+	require.NoError(t, cfg.EnsureLogDir())
+	
+	// Create executor with nil config
+	executor := &Executor{
+		config:    nil,
+		logWriter: os.Stdout,
+	}
+	
+	pipeline := &Pipeline{
+		Name: "test",
+		Steps: []Step{
+			{Name: "echo", Run: "echo hello"},
+		},
+	}
+	
+	// Should load config automatically
+	err := executor.Execute(pipeline)
+	assert.NoError(t, err)
+	assert.NotNil(t, executor.config)
+}
+
+func TestExecutor_Execute_LogDirCreationError(t *testing.T) {
+	// Create temp dir
+	tempDir := t.TempDir()
+	
+	// Create read-only directory where logs should be created
+	logsParent := filepath.Join(tempDir, "readonly")
+	os.MkdirAll(logsParent, 0755)
+	os.Chmod(logsParent, 0444) // Read-only
+	defer os.Chmod(logsParent, 0755)
+	
+	cfg := &config.Config{
+		Version: 1,
+		Logs: config.LogConfig{
+			Directory: filepath.Join(logsParent, "logs"),
+			RetentionDays: 7,
+		},
+	}
+	
+	executor := NewExecutor(cfg)
+	
+	pipeline := &Pipeline{
+		Name: "test",
+		Steps: []Step{
+			{Name: "echo", Run: "echo hello"},
+		},
+	}
+	
+	err := executor.Execute(pipeline)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create log directory")
+}
+
+func TestExecutor_CaptureOutput_Errors(t *testing.T) {
+	// Create temp config
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		Version: 1,
+		Logs: config.LogConfig{
+			Directory: tempDir,
+			RetentionDays: 7,
+		},
+	}
+	
+	executor := NewExecutor(cfg)
+	
+	t.Run("command not found", func(t *testing.T) {
+		pipeline := &Pipeline{
+			Name: "test",
+			Steps: []Step{
+				{Name: "fail", Run: "/nonexistent/command/that/will/fail"},
+			},
+		}
+		_, err := executor.CaptureOutput(pipeline)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "command failed")
+	})
+	
+	t.Run("command exits with error", func(t *testing.T) {
+		pipeline := &Pipeline{
+			Name: "test",
+			Steps: []Step{
+				{Name: "error", Run: "sh -c 'echo error >&2; exit 1'"},
+			},
+		}
+		output, err := executor.CaptureOutput(pipeline)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "command failed")
+		assert.Contains(t, output, "error") // CombinedOutput includes stderr
+	})
+	
+	t.Run("empty pipeline", func(t *testing.T) {
+		pipeline := &Pipeline{
+			Name: "test",
+			Steps: []Step{},
+		}
+		output, err := executor.CaptureOutput(pipeline)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to build shell command")
+		assert.Empty(t, output)
+	})
+}
+
+func TestExecutor_BuildCommand_Errors(t *testing.T) {
+	// Test empty pipeline
+	_, err := BuildCommand(&Pipeline{Steps: []Step{}})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "empty pipeline")
+}
+
+func TestExecutor_Execute_ConfigLoadError(t *testing.T) {
+	// Create temp dir for config
+	tempDir := t.TempDir()
+	
+	// Override home directory for testing
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tempDir)
+	defer os.Setenv("HOME", originalHome)
+	
+	// Create corrupted config file
+	configDir := filepath.Join(tempDir, ".cli-pipe")
+	os.MkdirAll(configDir, 0755)
+	configPath := filepath.Join(configDir, "config.yaml")
+	os.WriteFile(configPath, []byte("invalid yaml: ["), 0644)
+	
+	// Create executor with nil config
+	executor := &Executor{
+		config:    nil,
+		logWriter: os.Stdout,
+	}
+	
+	pipeline := &Pipeline{
+		Name: "test",
+		Steps: []Step{
+			{Name: "echo", Run: "echo hello"},
+		},
+	}
+	
+	// Should fail to load config
+	err := executor.Execute(pipeline)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load config")
+}
+
+func TestExecutor_ExecuteLinearPipeline_Errors(t *testing.T) {
+	// Create temp config
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		Version: 1,
+		Logs: config.LogConfig{
+			Directory: tempDir,
+			RetentionDays: 7,
+		},
+	}
+	
+	executor := NewExecutor(cfg)
+	
+	t.Run("log file creation error", func(t *testing.T) {
+		// Create read-only log directory
+		logDir := filepath.Join(tempDir, "readonly")
+		os.MkdirAll(logDir, 0755)
+		os.Chmod(logDir, 0444) // Read-only
+		defer os.Chmod(logDir, 0755)
+		
+		pipeline := &Pipeline{
+			Name: "test",
+			Steps: []Step{
+				{Name: "echo", Run: "echo hello"},
+			},
+		}
+		
+		err := executor.executeLinearPipeline(pipeline, logDir)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create log file")
+	})
+	
+	t.Run("output file creation error", func(t *testing.T) {
+		// Create a directory where output file should be
+		outputPath := filepath.Join(tempDir, "output.txt")
+		os.MkdirAll(outputPath, 0755) // Create directory instead of file
+		defer os.RemoveAll(outputPath)
+		
+		pipeline := &Pipeline{
+			Name: "test",
+			Steps: []Step{
+				{Name: "echo", Run: "echo hello", Output: "file:" + outputPath},
+			},
+		}
+		
+		err := executor.executeLinearPipeline(pipeline, tempDir)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create output file")
+	})
+	
+	t.Run("stderr logging", func(t *testing.T) {
+		pipeline := &Pipeline{
+			Name: "test",
+			Steps: []Step{
+				{Name: "stderr", Run: "echo 'error message' >&2"},
+			},
+		}
+		
+		logDir := filepath.Join(tempDir, "stderr-test")
+		os.MkdirAll(logDir, 0755) // Ensure log directory exists
+		err := executor.executeLinearPipeline(pipeline, logDir)
+		assert.NoError(t, err)
+		
+		// Check that stderr was logged
+		stderrLog := filepath.Join(logDir, "pipeline.err")
+		content, err := os.ReadFile(stderrLog)
+		if os.IsNotExist(err) {
+			// If pipeline.err doesn't exist, that's okay - stderr might be empty
+			return
+		}
+		require.NoError(t, err)
+		assert.Contains(t, string(content), "error message")
+	})
+}

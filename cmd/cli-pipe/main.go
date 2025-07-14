@@ -16,40 +16,43 @@ var (
 )
 
 func main() {
+	os.Exit(run(os.Args))
+}
+
+func run(args []string) int {
 	// Check if we have at least a command
-	if len(os.Args) < 2 {
+	if len(args) < 2 {
 		printUsage()
-		os.Exit(1)
+		return 1
 	}
 	
 	// Handle special cases before flag parsing
-	command := os.Args[1]
+	command := args[1]
 	switch command {
 	case "version", "--version", "-v":
 		printVersion()
-		return
+		return 0
 	case "help", "--help", "-h":
 		printUsage()
-		return
+		return 0
 	case "init":
-		initConfig()
-		return
+		return initConfigCmd()
 	}
 	
 	// For 'run' command
 	if command == "run" {
 		// Get pipeline file
-		if len(os.Args) < 3 {
+		if len(args) < 3 {
 			fmt.Fprintf(os.Stderr, "Error: missing pipeline file\n")
 			fmt.Println("Usage: cli-pipe run <pipeline.yaml>")
-			os.Exit(1)
+			return 1
 		}
 		
-		runPipeline(os.Args[2])
+		return runPipelineCmd(args[2])
 	} else {
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		printUsage()
-		os.Exit(1)
+		return 1
 	}
 }
 
@@ -76,19 +79,19 @@ func printUsage() {
 	fmt.Println("  cli-pipe run pipeline.yaml")
 }
 
-func runPipeline(filename string) {
+func runPipelineCmd(filename string) int {
 	// Parse pipeline file
 	p, err := pipeline.ParseFile(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing pipeline file: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	
 	// Create executor with config
@@ -97,27 +100,31 @@ func runPipeline(filename string) {
 	// Execute pipeline
 	if err := executor.Execute(p); err != nil {
 		fmt.Fprintf(os.Stderr, "Error executing pipeline: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
+	
+	return 0
 }
 
-func initConfig() {
+func initConfigCmd() int {
 	// Create default config
 	cfg := config.DefaultConfig()
 	
 	// Save config
 	if err := cfg.Save(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	
 	// Ensure log directory exists
 	if err := cfg.EnsureLogDir(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating log directory: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	
 	fmt.Printf("Initialized cli-pipe configuration at %s\n", config.ConfigDir())
 	fmt.Printf("Configuration file: %s\n", config.ConfigPath())
 	fmt.Printf("Log directory: %s\n", cfg.Logs.Directory)
+	
+	return 0
 }

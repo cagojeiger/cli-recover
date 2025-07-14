@@ -294,4 +294,28 @@ func TestPipeline_IsLinear_EdgeCases(t *testing.T) {
 		// Still linear despite independent step
 		assert.True(t, p.IsLinear())
 	})
+	
+	t.Run("non-linear unused output", func(t *testing.T) {
+		p := Pipeline{
+			Steps: []Step{
+				{Name: "step1", Run: "echo 1", Output: "data1"},
+				{Name: "step2", Run: "echo 2", Output: "data2"}, // data1 is not used by step2
+				{Name: "step3", Run: "cat", Input: "data3"},     // and data1 is not used later
+			},
+		}
+		// Not linear because data1 is never used
+		assert.False(t, p.IsLinear())
+	})
+	
+	t.Run("non-linear with mismatched chain", func(t *testing.T) {
+		p := Pipeline{
+			Steps: []Step{
+				{Name: "step1", Run: "echo 1", Output: "data1"},
+				{Name: "step2", Run: "cat", Input: "data2", Output: "data3"}, // Input doesn't match previous output
+				{Name: "step3", Run: "wc", Input: "data3"},
+			},
+		}
+		// Not linear because step2's input doesn't match step1's output
+		assert.False(t, p.IsLinear())
+	})
 }
