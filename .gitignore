@@ -48,6 +48,7 @@ checksums.txt
 *.tar.gz
 *.tar.bz2
 *.zip
+*.gz
 
 # OS files
 .DS_Store
