@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cagojeiger/cli-pipe/internal/config"
+	"github.com/cagojeiger/cli-pipe/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -562,7 +563,7 @@ func TestExecutor_ExecuteLinearPipeline_Errors(t *testing.T) {
 			},
 		}
 		
-		err := executor.executeLinearPipeline(pipeline, logDir)
+		err := executor.executeLinearPipeline(pipeline, logDir, logger.Default())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create log file")
 	})
@@ -580,7 +581,7 @@ func TestExecutor_ExecuteLinearPipeline_Errors(t *testing.T) {
 			},
 		}
 		
-		err := executor.executeLinearPipeline(pipeline, tempDir)
+		err := executor.executeLinearPipeline(pipeline, tempDir, logger.Default())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create output file")
 	})
@@ -595,7 +596,7 @@ func TestExecutor_ExecuteLinearPipeline_Errors(t *testing.T) {
 		
 		logDir := filepath.Join(tempDir, "stderr-test")
 		os.MkdirAll(logDir, 0755) // Ensure log directory exists
-		err := executor.executeLinearPipeline(pipeline, logDir)
+		err := executor.executeLinearPipeline(pipeline, logDir, logger.Default())
 		assert.NoError(t, err)
 		
 		// Check that stderr was logged
