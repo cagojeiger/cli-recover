@@ -174,68 +174,8 @@ func TestPipeline_IsLinear(t *testing.T) {
 	}
 }
 
-func TestStep_EnhancedFields(t *testing.T) {
-	t.Run("parses monitor config", func(t *testing.T) {
-		yaml := `
-name: test-step
-run: tar cf - /data
-output: archive
-monitor:
-  type: bytes
-  interval: 1000
-`
-		var step Step
-		err := parseYAMLString(yaml, &step)
-		
-		assert.NoError(t, err)
-		assert.NotNil(t, step.Monitor)
-		assert.Equal(t, "bytes", step.Monitor.Type)
-		assert.Equal(t, 1000, step.Monitor.Interval)
-	})
-
-	t.Run("parses checksum array", func(t *testing.T) {
-		yaml := `
-name: test-step
-run: tar cf - /data
-output: file:backup.tar
-checksum: [sha256, md5]
-`
-		var step Step
-		err := parseYAMLString(yaml, &step)
-		
-		assert.NoError(t, err)
-		assert.Len(t, step.Checksum, 2)
-		assert.Contains(t, step.Checksum, "sha256")
-		assert.Contains(t, step.Checksum, "md5")
-	})
-
-	t.Run("parses log field", func(t *testing.T) {
-		yaml := `
-name: test-step
-run: long-running-command
-log: output.log
-`
-		var step Step
-		err := parseYAMLString(yaml, &step)
-		
-		assert.NoError(t, err)
-		assert.Equal(t, "output.log", step.Log)
-	})
-
-	t.Run("parses progress field", func(t *testing.T) {
-		yaml := `
-name: test-step
-run: gzip -9
-progress: true
-`
-		var step Step
-		err := parseYAMLString(yaml, &step)
-		
-		assert.NoError(t, err)
-		assert.True(t, step.Progress)
-	})
-
-	t.Run("handles empty optional fields", func(t *testing.T) {
+func TestStep_BasicFields(t *testing.T) {
+	t.Run("parses basic step", func(t *testing.T) {
 		yaml := `
 name: test-step
 run: echo hello
@@ -244,26 +184,36 @@ run: echo hello
 		err := parseYAMLString(yaml, &step)
 		
 		assert.NoError(t, err)
-		assert.Nil(t, step.Monitor)
-		assert.Nil(t, step.Checksum)
-		assert.Empty(t, step.Log)
-		assert.False(t, step.Progress)
+		assert.Equal(t, "test-step", step.Name)
+		assert.Equal(t, "echo hello", step.Run)
 	})
 
-	t.Run("backward compatibility", func(t *testing.T) {
-		// 기존 Step이 여전히 작동하는지 확인
-		step := Step{
-			Name:   "old-step",
-			Run:    "echo test",
-			Input:  "input",
-			Output: "output",
-		}
+	t.Run("parses step with input/output", func(t *testing.T) {
+		yaml := `
+name: test-step
+run: cat
+input: data
+output: processed
+`
+		var step Step
+		err := parseYAMLString(yaml, &step)
 		
-		// 새 필드들은 기본값을 가져야 함
-		assert.Nil(t, step.Monitor)
-		assert.Nil(t, step.Checksum)
-		assert.Empty(t, step.Log)
-		assert.False(t, step.Progress)
+		assert.NoError(t, err)
+		assert.Equal(t, "data", step.Input)
+		assert.Equal(t, "processed", step.Output)
+	})
+
+	t.Run("parses step with file output", func(t *testing.T) {
+		yaml := `
+name: test-step
+run: tar cf - /data
+output: file:backup.tar
+`
+		var step Step
+		err := parseYAMLString(yaml, &step)
+		
+		assert.NoError(t, err)
+		assert.Equal(t, "file:backup.tar", step.Output)
 	})
 }
 

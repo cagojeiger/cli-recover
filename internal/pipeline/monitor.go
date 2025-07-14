@@ -272,5 +272,5 @@ func (m *UnifiedMonitor) GetLines() int64 {
 
 // GetDuration returns elapsed time
 func (m *UnifiedMonitor) GetDuration() time.Duration {
-	return m.timeMonitor.GetDuration()
+	return m.timeMonitor.Elapsed()
 }

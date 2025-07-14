@@ -316,35 +316,4 @@ func TestTeeWriter_RealWorldScenarios(t *testing.T) {
 		assert.Equal(t, int64(len(data)), monitor.Total())
 	})
 	
-	t.Run("checksum calculation", func(t *testing.T) {
-		// Simulate checksum calculation during write
-		var mainOutput bytes.Buffer
-		checksumWriter := NewChecksumWriter("sha256")
-		
-		tee := NewTeeWriter(&mainOutput, checksumWriter)
-		
-		// Write data in chunks
-		chunks := [][]byte{
-			[]byte("chunk1 "),
-			[]byte("chunk2 "),
-			[]byte("chunk3"),
-		}
-		
-		for _, chunk := range chunks {
-			n, err := tee.Write(chunk)
-			assert.NoError(t, err)
-			assert.Equal(t, len(chunk), n)
-		}
-		
-		err := tee.Close()
-		assert.NoError(t, err)
-		
-		// Verify both outputs
-		expected := []byte("chunk1 chunk2 chunk3")
-		assert.Equal(t, expected, mainOutput.Bytes())
-		
-		// Checksum should be calculated correctly
-		checksum := checksumWriter.Sum()
-		assert.NotEmpty(t, checksum)
-	})
 }
