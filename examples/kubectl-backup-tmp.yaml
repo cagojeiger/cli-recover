@@ -1,0 +1,7 @@
+name: kubectl-backup-tmp
+description: Backup /tmp directory from vscode pod using kubectl exec and tar
+
+steps:
+  - name: backup-tmp-directory
+    run: kubectl exec vscode -- tar czf - /tmp
+    output: file:backup-vscode-tmp-$(date +%Y%m%d-%H%M%S).tar.gz

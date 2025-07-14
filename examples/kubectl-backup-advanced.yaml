@@ -1,0 +1,15 @@
+name: kubectl-backup-advanced
+description: Comprehensive backup of multiple directories from vscode pod
+
+steps:
+  - name: backup-tmp
+    run: kubectl exec vscode -- tar czf - /tmp
+    output: file:backup-vscode-tmp-$(date +%Y%m%d-%H%M%S).tar.gz
+    
+  - name: backup-home-coder
+    run: kubectl exec vscode -- tar czf - /home/coder --exclude='/home/coder/.cache' --exclude='/home/coder/node_modules'
+    output: file:backup-vscode-home-$(date +%Y%m%d-%H%M%S).tar.gz
+    
+  - name: backup-workspace
+    run: kubectl exec vscode -- tar czf - /workspace
+    output: file:backup-vscode-workspace-$(date +%Y%m%d-%H%M%S).tar.gz
