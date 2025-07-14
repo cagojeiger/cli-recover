@@ -120,24 +120,6 @@ echo "line2")`,
 
 
 
-func TestBuildSmartCommand(t *testing.T) {
-	t.Run("always returns UnifiedMonitor", func(t *testing.T) {
-		step := Step{
-			Name: "test",
-			Run:  "echo hello",
-		}
-		
-		cmd, monitors := BuildSmartCommand(step)
-		
-		assert.Equal(t, "echo hello", cmd)
-		assert.Len(t, monitors, 1)
-		
-		// Verify monitor is UnifiedMonitor
-		_, ok := monitors[0].(*UnifiedMonitor)
-		assert.True(t, ok)
-	})
-}
-
 func TestIsFileOutput(t *testing.T) {
 	tests := []struct {
 		output string
@@ -176,39 +158,5 @@ func TestExtractFilename(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
-}
-
-func TestBuildEnhancedPipeline(t *testing.T) {
-	t.Run("valid pipeline", func(t *testing.T) {
-		p := &Pipeline{
-			Name: "test",
-			Steps: []Step{
-				{Name: "step1", Run: "echo hello", Output: "data"},
-				{Name: "step2", Run: "cat", Input: "data"},
-			},
-		}
-		
-		executions, err := BuildEnhancedPipeline(p)
-		
-		assert.NoError(t, err)
-		assert.Len(t, executions, 2)
-		
-		// Verify each execution has UnifiedMonitor
-		for _, exec := range executions {
-			assert.Len(t, exec.Monitors, 1)
-			_, ok := exec.Monitors[0].(*UnifiedMonitor)
-			assert.True(t, ok)
-		}
-	})
-	
-	t.Run("invalid pipeline", func(t *testing.T) {
-		p := &Pipeline{
-			Name: "invalid",
-			Steps: []Step{}, // Empty steps
-		}
-		
-		_, err := BuildEnhancedPipeline(p)
-		assert.Error(t, err)
-	})
 }
 

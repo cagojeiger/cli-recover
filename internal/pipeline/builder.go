@@ -40,12 +40,6 @@ func wrapCommand(cmd string) string {
 	return cmd
 }
 
-// BuildSmartCommand builds a command with unified monitor
-func BuildSmartCommand(step Step) (string, []Monitor) {
-	// Always use UnifiedMonitor for all steps
-	return step.Run, []Monitor{NewUnifiedMonitor()}
-}
-
 // IsFileOutput checks if the output is a file (starts with "file:")
 func IsFileOutput(output string) bool {
 	return strings.HasPrefix(output, "file:")
@@ -57,32 +51,4 @@ func ExtractFilename(output string) string {
 		return ""
 	}
 	return strings.TrimPrefix(output, "file:")
-}
-
-// BuildEnhancedPipeline builds a pipeline with unified monitoring
-func BuildEnhancedPipeline(p *Pipeline) ([]StepExecution, error) {
-	if err := p.Validate(); err != nil {
-		return nil, err
-	}
-	
-	var executions []StepExecution
-	
-	for _, step := range p.Steps {
-		exec := StepExecution{
-			Step:     step,
-			Command:  step.Run,
-			Monitors: []Monitor{NewUnifiedMonitor()},
-		}
-		
-		executions = append(executions, exec)
-	}
-	
-	return executions, nil
-}
-
-// StepExecution contains execution details for a step
-type StepExecution struct {
-	Step     Step
-	Command  string
-	Monitors []Monitor
 }
