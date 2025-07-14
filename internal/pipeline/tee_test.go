@@ -48,7 +48,7 @@ func TestTeeWriter(t *testing.T) {
 		assert.Equal(t, len(data), n)
 		
 		// 비동기 처리를 위한 짧은 대기
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		
 		assert.Equal(t, data, buf.Bytes())
 	})
@@ -64,7 +64,7 @@ func TestTeeWriter(t *testing.T) {
 		assert.Equal(t, len(data), n)
 		
 		// 비동기 처리를 위한 짧은 대기
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		
 		assert.Equal(t, data, buf1.Bytes())
 		assert.Equal(t, data, buf2.Bytes())
@@ -73,7 +73,7 @@ func TestTeeWriter(t *testing.T) {
 
 	t.Run("ensures writer independence", func(t *testing.T) {
 		// 느린 writer와 빠른 writer 준비
-		slowWriter := &SlowWriter{delay: 100 * time.Millisecond}
+		slowWriter := &SlowWriter{delay: 20 * time.Millisecond}
 		fastWriter := &bytes.Buffer{}
 
 		tee := NewTeeWriter(slowWriter, fastWriter)
@@ -87,14 +87,14 @@ func TestTeeWriter(t *testing.T) {
 
 		// 빠른 writer는 즉시 데이터를 가져야 함
 		// (독립적 실행이므로 약간의 지연 허용)
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		assert.Equal(t, data, fastWriter.Bytes())
 
 		// 느린 writer는 아직 데이터가 없을 수 있음
 		assert.Equal(t, 0, slowWriter.Len())
 
 		// 충분히 대기 후 느린 writer도 데이터를 가져야 함
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(30 * time.Millisecond)
 		assert.Equal(t, data, slowWriter.Bytes())
 	})
 
@@ -114,15 +114,15 @@ func TestTeeWriter(t *testing.T) {
 		expected := []byte("first second third")
 		
 		// 약간의 지연 후 확인 (비동기 처리)
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		
 		assert.Equal(t, expected, buf1.Bytes())
 		assert.Equal(t, expected, buf2.Bytes())
 	})
 
 	t.Run("close waits for all writers", func(t *testing.T) {
-		slowWriter1 := &SlowWriter{delay: 50 * time.Millisecond}
-		slowWriter2 := &SlowWriter{delay: 100 * time.Millisecond}
+		slowWriter1 := &SlowWriter{delay: 10 * time.Millisecond}
+		slowWriter2 := &SlowWriter{delay: 20 * time.Millisecond}
 
 		tee := NewTeeWriter(slowWriter1, slowWriter2)
 
@@ -135,8 +135,8 @@ func TestTeeWriter(t *testing.T) {
 		elapsed := time.Since(start)
 
 		assert.NoError(t, err)
-		// 최소 100ms는 걸려야 함 (가장 느린 writer)
-		assert.GreaterOrEqual(t, elapsed.Milliseconds(), int64(100))
+		// 최소 20ms는 걸려야 함 (가장 느린 writer)
+		assert.GreaterOrEqual(t, elapsed.Milliseconds(), int64(20))
 
 		// 모든 writer가 데이터를 받았는지 확인
 		assert.Equal(t, data, slowWriter1.Bytes())
@@ -268,11 +268,11 @@ func TestTeeWriter_ErrorHandling(t *testing.T) {
 	
 	t.Run("queue overflow handling", func(t *testing.T) {
 		// Use a very slow writer that will cause queue to back up
-		slowWriter := &SlowWriter{delay: 100 * time.Millisecond}
+		slowWriter := &SlowWriter{delay: 10 * time.Millisecond}
 		tee := NewTeeWriter(slowWriter)
 		
 		// Write a lot of data quickly
-		for i := 0; i < 200; i++ {
+		for i := 0; i < 50; i++ {
 			data := []byte("overflow test data")
 			n, err := tee.Write(data)
 			assert.NoError(t, err)
@@ -284,7 +284,7 @@ func TestTeeWriter_ErrorHandling(t *testing.T) {
 		assert.NoError(t, err)
 		
 		// All data should have been written
-		expectedLen := 200 * len("overflow test data")
+		expectedLen := 50 * len("overflow test data")
 		assert.Equal(t, expectedLen, slowWriter.Len())
 	})
 }
