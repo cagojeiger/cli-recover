@@ -6,10 +6,10 @@ steps:
     run: kubectl exec vscode -- tar czf - /tmp
     output: file:backup-vscode-tmp-$(date +%Y%m%d-%H%M%S).tar.gz
     
-  - name: backup-home-coder
-    run: kubectl exec vscode -- tar czf - /home/coder --exclude='/home/coder/.cache' --exclude='/home/coder/node_modules'
-    output: file:backup-vscode-home-$(date +%Y%m%d-%H%M%S).tar.gz
+  - name: backup-etc-small
+    run: kubectl exec vscode -- tar czf - /etc/passwd /etc/hosts /etc/hostname /etc/resolv.conf
+    output: file:backup-vscode-etc-$(date +%Y%m%d-%H%M%S).tar.gz
     
-  - name: backup-workspace
-    run: kubectl exec vscode -- tar czf - /workspace
-    output: file:backup-vscode-workspace-$(date +%Y%m%d-%H%M%S).tar.gz
+  - name: backup-var-log-recent
+    run: kubectl exec vscode -- find /var/log -name "*.log" -mtime -1 | kubectl exec vscode -- tar czf - -T -
+    output: file:backup-vscode-logs-$(date +%Y%m%d-%H%M%S).tar.gz

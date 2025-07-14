@@ -44,19 +44,19 @@ cli-pipe run kubectl-backup-tmp.yaml
 ```bash
 cli-pipe run kubectl-backup-advanced.yaml
 ```
-- /tmp, /home/coder, /workspace 디렉토리를 각각 별도 파일로 백업
-- 불필요한 파일들 (.cache, node_modules) 제외
-- 여러 백업 작업을 순차적으로 실행
+- /tmp, /etc 설정파일, /var/log 최근 로그를 각각 별도 파일로 백업
+- 시스템 중요 설정 파일들 (/etc/passwd, /etc/hosts 등) 포함
+- 적당한 크기로 빠른 백업 실행
 
 ### 🌊 kubectl-streaming-backup.yaml
 **스트리밍 백업 with 진행률 모니터링**
 ```bash
 cli-pipe run kubectl-streaming-backup.yaml
 ```
-- 대용량 파일 스트리밍 백업
+- /tmp 디렉토리 스트리밍 백업 (50MB 예상 크기)
 - `pv` 명령어로 진행률 표시
 - GPG를 사용한 암호화 백업
-- 특정 파일 타입만 선별 백업
+- 특정 파일 타입만 선별 백업 (/usr/local에서 코드 파일들)
 
 ### 🎯 kubectl-pod-specific-backup.yaml
 **특정 파드 지정 백업**
@@ -64,8 +64,18 @@ cli-pipe run kubectl-streaming-backup.yaml
 cli-pipe run kubectl-pod-specific-backup.yaml
 ```
 - 네임스페이스와 파드명을 정확히 지정
-- 동적으로 파드 이름 조회
-- 파드 정보를 파일명에 포함
+- 동적으로 파드 이름 조회하여 /var/log 백업
+- 시스템 설정 파일들 (/etc/hostname, /etc/hosts 등) 백업
+
+### 🪶 kubectl-lightweight-backup.yaml
+**가벼운 파일들만 선별 백업**
+```bash
+cli-pipe run kubectl-lightweight-backup.yaml
+```
+- /tmp에서 로그/임시파일 제외하고 깨끗한 백업
+- 시스템 설정 파일들만 선별 백업
+- 최근 1일간의 작은 로그 파일들만 백업
+- 시스템 정보 파일들 (/proc/version, /proc/cpuinfo 등) 백업
 
 ### 🗄️ kubectl-app-backup.yaml
 **애플리케이션별 전문 백업**
