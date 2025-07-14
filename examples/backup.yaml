@@ -1,0 +1,12 @@
+name: backup-example
+description: Backup data with compression
+
+steps:
+  - name: create-data
+    run: echo "Important data that needs to be backed up"
+    output: data
+    
+  - name: compress
+    run: gzip -c
+    input: data
+    output: file:backup.gz

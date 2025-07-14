@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -9,148 +8,184 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	
+	"github.com/cagojeiger/cli-pipe/internal/config"
 )
 
 // Executor handles pipeline execution
 type Executor struct {
-	logDir    string
+	config    *config.Config
 	logWriter io.Writer
 }
 
-// Option is a functional option for Executor
-type Option func(*Executor)
-
-// WithLogDir sets the log directory
-func WithLogDir(dir string) Option {
-	return func(e *Executor) {
-		e.logDir = dir
-	}
-}
-
-// WithLogWriter sets the log writer for console output
-func WithLogWriter(w io.Writer) Option {
-	return func(e *Executor) {
-		e.logWriter = w
-	}
-}
-
-// NewExecutor creates a new Executor
-func NewExecutor(opts ...Option) *Executor {
-	e := &Executor{
+// NewExecutor creates a new Executor with config
+func NewExecutor(cfg *config.Config) *Executor {
+	return &Executor{
+		config:    cfg,
 		logWriter: os.Stdout,
 	}
-
-	for _, opt := range opts {
-		opt(e)
-	}
-
-	return e
 }
 
-// Execute runs the pipeline using Unix pipes
+// Execute runs the pipeline with monitoring and logging
 func (e *Executor) Execute(p *Pipeline) error {
 	// Validate pipeline
 	if err := p.Validate(); err != nil {
 		return fmt.Errorf("pipeline validation failed: %w", err)
 	}
 
-	// Log pipeline execution start
+	// Ensure config is loaded
+	if e.config == nil {
+		cfg, err := config.Load()
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
+		}
+		e.config = cfg
+	}
+
+	// Create log directory
+	timestamp := time.Now().Format("20060102_150405")
+	logDir := filepath.Join(e.config.Logs.Directory, fmt.Sprintf("%s_%s", p.Name, timestamp))
+	
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return fmt.Errorf("failed to create log directory: %w", err)
+	}
+
 	e.log("Executing pipeline: %s\n", p.Name)
 	if p.Description != "" {
 		e.log("Description: %s\n", p.Description)
 	}
+	e.log("Logging to: %s\n", logDir)
 
-	// Execute based on logging requirement
-	if e.logDir != "" {
-		return e.executeWithLogging(p)
+	// For linear pipelines, execute as single command
+	if p.IsLinear() {
+		return e.executeLinearPipeline(p, logDir)
 	}
-	return e.executeSimple(p)
+	
+	// Non-linear pipelines not yet supported
+	return fmt.Errorf("non-linear pipelines not yet supported")
 }
 
-// executeSimple runs the pipeline without file logging
-func (e *Executor) executeSimple(p *Pipeline) error {
+// executeLinearPipeline executes a linear pipeline with unified monitoring
+func (e *Executor) executeLinearPipeline(p *Pipeline, logDir string) error {
 	// Build shell command
 	shellCmd, err := BuildCommand(p)
 	if err != nil {
-		return fmt.Errorf("failed to build shell command: %w", err)
+		return fmt.Errorf("failed to build pipeline command: %w", err)
 	}
-
+	
 	e.log("\nCommand: %s\n\n", shellCmd)
-
-	// Execute using bash
+	
+	// Create unified monitor for entire pipeline
+	monitor := NewUnifiedMonitor()
+	
+	// Track output file from last step
+	var outputFile string
+	for _, step := range p.Steps {
+		if IsFileOutput(step.Output) {
+			outputFile = ExtractFilename(step.Output)
+		}
+	}
+	
+	// Create the command
 	cmd := exec.Command("bash", "-c", shellCmd)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	start := time.Now()
-	err = cmd.Run()
-	duration := time.Since(start)
-
-	if err != nil {
-		e.log("\nPipeline failed after %v: %v\n", duration, err)
-		return fmt.Errorf("command failed: %w", err)
-	}
-
-	e.log("\nPipeline completed successfully in %v\n", duration)
-	return nil
-}
-
-// executeWithLogging runs the pipeline with file logging
-func (e *Executor) executeWithLogging(p *Pipeline) error {
-	// Create log directory with timestamp
-	timestamp := time.Now().Format("20060102_150405")
-	runDir := filepath.Join(e.logDir, fmt.Sprintf("%s_%s", p.Name, timestamp))
 	
-	if err := os.MkdirAll(runDir, 0755); err != nil {
-		return fmt.Errorf("failed to create log directory: %w", err)
-	}
-
-	e.log("Logging to: %s\n", runDir)
-
-	// Build shell script with logging
-	script, err := BuildCommandWithLogging(p, runDir)
+	// Set up pipes
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("failed to build logging script: %w", err)
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
-
-	// Write script to file for debugging
-	scriptPath := filepath.Join(runDir, "pipeline.sh")
-	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
-		return fmt.Errorf("failed to write script: %w", err)
-	}
-
-	// Execute the script
-	cmd := exec.Command("bash", "-c", script)
 	
-	// Capture output for console
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = io.MultiWriter(os.Stdout, &stdout)
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
-
-	start := time.Now()
-	err = cmd.Run()
-	duration := time.Since(start)
-
-	// Write console output to log files
-	if stdout.Len() > 0 {
-		os.WriteFile(filepath.Join(runDir, "console.out"), stdout.Bytes(), 0644)
-	}
-	if stderr.Len() > 0 {
-		os.WriteFile(filepath.Join(runDir, "console.err"), stderr.Bytes(), 0644)
-	}
-
-	// Write execution summary
-	summary := fmt.Sprintf("Pipeline: %s\nDuration: %v\nStatus: ", p.Name, duration)
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		summary += fmt.Sprintf("Failed\nError: %v\n", err)
-		e.log("\nPipeline failed after %v: %v\n", duration, err)
-	} else {
-		summary += "Success\n"
-		e.log("\nPipeline completed successfully in %v\n", duration)
+		return fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
-	os.WriteFile(filepath.Join(runDir, "summary.txt"), []byte(summary), 0644)
-
-	return err
+	
+	// Create writers
+	var writers []io.Writer
+	
+	// Add console output
+	writers = append(writers, os.Stdout)
+	
+	// Add monitor
+	writers = append(writers, monitor)
+	
+	// Add log file
+	logFile, err := os.Create(filepath.Join(logDir, "pipeline.log"))
+	if err != nil {
+		return fmt.Errorf("failed to create log file: %w", err)
+	}
+	defer logFile.Close()
+	writers = append(writers, logFile)
+	
+	// Add output file if specified
+	if outputFile != "" {
+		f, err := os.Create(outputFile)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %w", err)
+		}
+		defer f.Close()
+		writers = append(writers, f)
+	}
+	
+	// Create multi-writer
+	multiWriter := io.MultiWriter(writers...)
+	
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start pipeline: %w", err)
+	}
+	
+	// Process output
+	done := make(chan error, 2)
+	
+	go func() {
+		io.Copy(multiWriter, stdout)
+		done <- nil
+	}()
+	
+	go func() {
+		stderrFile, _ := os.Create(filepath.Join(logDir, "stderr.log"))
+		defer stderrFile.Close()
+		io.Copy(io.MultiWriter(os.Stderr, stderrFile), stderr)
+		done <- nil
+	}()
+	
+	// Wait for command completion
+	cmdErr := cmd.Wait()
+	
+	// Wait for goroutines
+	<-done
+	<-done
+	
+	// Finish monitoring
+	monitor.Finish()
+	
+	// Write summary
+	duration := monitor.GetDuration()
+	status := "Success"
+	if cmdErr != nil {
+		status = fmt.Sprintf("Failed: %v", cmdErr)
+	}
+	
+	summary := fmt.Sprintf("Pipeline: %s\nDuration: %v\nBytes: %s\nLines: %d\nStatus: %s\n",
+		p.Name,
+		duration,
+		formatBytes(monitor.GetBytes()),
+		monitor.GetLines(),
+		status)
+	
+	os.WriteFile(filepath.Join(logDir, "summary.txt"), []byte(summary), 0644)
+	
+	// Report results
+	e.log("\n%s\n", strings.Repeat("=", 50))
+	e.log("Pipeline completed\n")
+	e.log("• Duration: %v\n", duration)
+	e.log("• Bytes processed: %s\n", formatBytes(monitor.GetBytes()))
+	e.log("• Lines processed: %d\n", monitor.GetLines())
+	e.log("• Status: %s\n", status)
+	e.log("• Logs: %s\n", logDir)
+	
+	return cmdErr
 }
 
 // log writes to the log writer
@@ -158,6 +193,20 @@ func (e *Executor) log(format string, args ...interface{}) {
 	if e.logWriter != nil {
 		fmt.Fprintf(e.logWriter, format, args...)
 	}
+}
+
+// formatBytes formats bytes in human readable format
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 // CaptureOutput runs a pipeline and captures its output
@@ -177,132 +226,4 @@ func (e *Executor) CaptureOutput(p *Pipeline) (string, error) {
 	}
 
 	return strings.TrimSpace(string(output)), nil
-}
-
-// ExecuteEnhanced executes a single step with monitoring and logging
-func (e *Executor) ExecuteEnhanced(step Step) error {
-	e.log("Executing step: %s\n", step.Name)
-	
-	// Build command and monitors
-	cmd, monitors := BuildSmartCommand(step)
-	
-	// Create the command
-	execCmd := exec.Command("bash", "-c", cmd)
-	
-	// Set up pipes for stdout and stderr
-	stdout, err := execCmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
-	
-	stderr, err := execCmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
-	
-	// Create writers for various outputs
-	var writers []io.Writer
-	
-	// Handle file output
-	var outputFile *os.File
-	if IsFileOutput(step.Output) {
-		filename := ExtractFilename(step.Output)
-		outputFile, err = os.Create(filename)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %w", err)
-		}
-		defer outputFile.Close()
-		writers = append(writers, outputFile)
-	}
-	
-	// Handle log file
-	var logFile *os.File
-	if step.Log != "" {
-		logFile, err = os.Create(step.Log)
-		if err != nil {
-			return fmt.Errorf("failed to create log file: %w", err)
-		}
-		defer logFile.Close()
-		writers = append(writers, logFile)
-	}
-	
-	// Add monitors wrapped as io.Writer
-	for _, monitor := range monitors {
-		if w, ok := monitor.(io.Writer); ok {
-			// Already implements io.Writer (e.g., ChecksumWriter)
-			writers = append(writers, w)
-		} else if lm, ok := monitor.(*LineMonitor); ok {
-			// Special handling for LineMonitor
-			writers = append(writers, NewLineMonitorWriter(lm))
-		} else {
-			// Wrap with MonitorWriter for other monitors
-			writers = append(writers, NewMonitorWriter(monitor))
-		}
-	}
-	
-	// Create TeeWriter for independent writing
-	var tee *TeeWriter
-	if len(writers) > 0 {
-		tee = NewTeeWriter(writers...)
-	}
-	
-	// Start the command
-	if err := execCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start command: %w", err)
-	}
-	
-	// Process output
-	done := make(chan error)
-	go func() {
-		if tee != nil {
-			io.Copy(io.MultiWriter(os.Stdout, tee), stdout)
-		} else {
-			io.Copy(os.Stdout, stdout)
-		}
-		io.Copy(os.Stderr, stderr)
-		done <- nil
-	}()
-	
-	// Wait for command to complete
-	cmdErr := execCmd.Wait()
-	<-done
-	
-	// Close TeeWriter
-	if tee != nil {
-		tee.Close()
-	}
-	
-	// Finish monitors
-	for _, monitor := range monitors {
-		monitor.Finish()
-	}
-	
-	// Save checksums
-	for _, monitor := range monitors {
-		if cfw, ok := monitor.(*ChecksumFileWriter); ok {
-			if err := cfw.SaveToFile(); err != nil {
-				e.log("Warning: failed to save checksum: %v\n", err)
-			}
-		}
-	}
-	
-	// Report monitor results
-	if len(monitors) > 0 {
-		e.log("\nMonitor reports:\n")
-		for _, monitor := range monitors {
-			e.log("  %s\n", monitor.Report())
-		}
-	}
-	
-	if cmdErr != nil {
-		return cmdErr
-	}
-	
-	return nil
-}
-
-// ExecutePipeline executes an entire pipeline with enhanced features
-func (e *Executor) ExecutePipeline(p *Pipeline) error {
-	// Use the enhanced pipeline executor for proper data flow
-	return e.ExecutePipelineEnhanced(p)
 }

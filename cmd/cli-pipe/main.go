@@ -1,10 +1,8 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	
 	"github.com/cagojeiger/cli-pipe/internal/config"
 	"github.com/cagojeiger/cli-pipe/internal/pipeline"
@@ -38,28 +36,16 @@ func main() {
 		return
 	}
 	
-	// For 'run' command, parse flags
+	// For 'run' command
 	if command == "run" {
-		// Create new flag set for run command
-		runCmd := flag.NewFlagSet("run", flag.ExitOnError)
-		logDir := runCmd.String("log-dir", "", "Directory for logging")
-		enhanced := runCmd.Bool("enhanced", false, "Use enhanced executor with monitoring")
-		
-		// Parse from os.Args[2:] to skip program name and "run"
-		if err := runCmd.Parse(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
-			os.Exit(1)
-		}
-		
-		// Get remaining args after flags
-		args := runCmd.Args()
-		if len(args) < 1 {
+		// Get pipeline file
+		if len(os.Args) < 3 {
 			fmt.Fprintf(os.Stderr, "Error: missing pipeline file\n")
-			fmt.Println("Usage: cli-pipe run [options] <pipeline.yaml>")
+			fmt.Println("Usage: cli-pipe run <pipeline.yaml>")
 			os.Exit(1)
 		}
 		
-		runPipeline(args[0], *logDir, *enhanced)
+		runPipeline(os.Args[2])
 	} else {
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		printUsage()
@@ -85,17 +71,12 @@ func printUsage() {
 	fmt.Println("  version    Show version information")
 	fmt.Println("  help       Show this help message")
 	fmt.Println()
-	fmt.Println("Options for 'run' command:")
-	fmt.Println("  --log-dir string    Directory for logging")
-	fmt.Println("  --enhanced          Use enhanced executor with monitoring")
-	fmt.Println()
 	fmt.Println("Examples:")
+	fmt.Println("  cli-pipe init")
 	fmt.Println("  cli-pipe run pipeline.yaml")
-	fmt.Println("  cli-pipe run --log-dir ./logs pipeline.yaml")
-	fmt.Println("  cli-pipe run --enhanced pipeline.yaml")
 }
 
-func runPipeline(filename string, logDir string, enhanced bool) {
+func runPipeline(filename string) {
 	// Parse pipeline file
 	p, err := pipeline.ParseFile(filename)
 	if err != nil {
@@ -103,36 +84,20 @@ func runPipeline(filename string, logDir string, enhanced bool) {
 		os.Exit(1)
 	}
 	
-	// Create executor with options
-	opts := []pipeline.Option{
-		pipeline.WithLogWriter(os.Stdout),
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
 	}
 	
-	// Handle log directory
-	if logDir != "" {
-		// Expand ~ to home directory
-		if logDir[0] == '~' {
-			home, err := os.UserHomeDir()
-			if err == nil {
-				logDir = filepath.Join(home, logDir[1:])
-			}
-		}
-		opts = append(opts, pipeline.WithLogDir(logDir))
-	}
-	
-	executor := pipeline.NewExecutor(opts...)
+	// Create executor with config
+	executor := pipeline.NewExecutor(cfg)
 	
 	// Execute pipeline
-	if enhanced {
-		if err := executor.ExecutePipeline(p); err != nil {
-			fmt.Fprintf(os.Stderr, "Error executing pipeline: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		if err := executor.Execute(p); err != nil {
-			fmt.Fprintf(os.Stderr, "Error executing pipeline: %v\n", err)
-			os.Exit(1)
-		}
+	if err := executor.Execute(p); err != nil {
+		fmt.Fprintf(os.Stderr, "Error executing pipeline: %v\n", err)
+		os.Exit(1)
 	}
 }
 

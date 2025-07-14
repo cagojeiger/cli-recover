@@ -1,28 +1,22 @@
 name: enhanced-demo
-description: Demonstrate enhanced monitoring features
+description: Demonstrate monitoring features
 
 steps:
   - name: generate-data
     run: |
       echo "Line 1: This is a test"
-      echo "Line 2: of the enhanced"
-      echo "Line 3: monitoring system"
-      echo "Line 4: with line counting"
-      echo "Line 5: and byte tracking"
+      echo "Line 2: of the monitoring"
+      echo "Line 3: system that tracks"
+      echo "Line 4: bytes, lines"
+      echo "Line 5: and execution time"
     output: data
-    monitor:
-      type: lines
       
   - name: process
     run: tr '[:lower:]' '[:upper:]'
     input: data
     output: processed
-    monitor:
-      type: bytes
-    log: process.log
     
-  - name: save-with-checksum
+  - name: save
     run: cat
     input: processed
     output: file:output.txt
-    checksum: [sha256]
