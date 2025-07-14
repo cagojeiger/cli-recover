@@ -27,7 +27,11 @@ func BuildCommand(p *Pipeline) (string, error) {
 		commands = append(commands, wrapCommand(step.Run))
 	}
 
-	return strings.Join(commands, " | "), nil
+	pipelineCmd := strings.Join(commands, " | ")
+	
+	// Add tee for debug logging (1단계: 간단한 디버그 로깅 추가)
+	debugLog := "/tmp/cli-pipe-debug.log"
+	return pipelineCmd + " | tee " + debugLog, nil
 }
 
 

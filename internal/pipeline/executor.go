@@ -29,7 +29,7 @@ func NewExecutor(cfg *config.Config) *Executor {
 	}
 }
 
-// Execute runs the pipeline with monitoring and logging
+// Execute runs the pipeline with logging
 func (e *Executor) Execute(p *Pipeline) error {
 	// Ensure logger exists
 	if e.logger == nil {
@@ -110,7 +110,7 @@ func (e *Executor) Execute(p *Pipeline) error {
 	return fmt.Errorf("non-linear pipelines not yet supported")
 }
 
-// executeLinearPipeline executes a linear pipeline with unified monitoring
+// executeLinearPipeline executes a linear pipeline with tee logging
 func (e *Executor) executeLinearPipeline(p *Pipeline, logDir string, log logger.Logger) error {
 	log.Debug("building shell command")
 	// Build shell command
@@ -137,161 +137,44 @@ func (e *Executor) executeLinearPipeline(p *Pipeline, logDir string, log logger.
 	}
 	e.log("\nFull command: %s\n\n", shellCmd)
 	
-	// Create unified monitor for entire pipeline
-	monitor := NewUnifiedMonitor()
-	
-	// Track output file from last step
-	var outputFile string
-	for _, step := range p.Steps {
-		if IsFileOutput(step.Output) {
-			outputFile = ExtractFilename(step.Output)
-		}
-	}
-	
-	// Create the command
+	// Create the command (1단계: 단순화)
 	log.Debug("creating command")
 	cmd := exec.Command("bash", "-c", shellCmd)
 	
-	// Set up pipes
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Error("failed to create stdout pipe", "error", err)
-		return fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
+	// Simple direct output (고루틴 없이 직접 출력)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		log.Error("failed to create stderr pipe", "error", err)
-		return fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
-	
-	// Create writers
-	var writers []io.Writer
-	
-	// Add console output
-	writers = append(writers, os.Stdout)
-	
-	// Add monitor
-	writers = append(writers, monitor)
-	
-	// Add log file
-	logFilePath := filepath.Join(logDir, "pipeline.log")
-	log.Debug("creating log file", "path", logFilePath)
-	logFile, err := os.Create(logFilePath)
-	if err != nil {
-		log.Error("failed to create log file", "path", logFilePath, "error", err)
-		return fmt.Errorf("failed to create log file: %w", err)
-	}
-	defer logFile.Close()
-	writers = append(writers, logFile)
-	
-	// Add output file if specified
-	if outputFile != "" {
-		log.Debug("creating output file", "path", outputFile)
-		f, err := os.Create(outputFile)
-		if err != nil {
-			log.Error("failed to create output file", "path", outputFile, "error", err)
-			return fmt.Errorf("failed to create output file: %w", err)
-		}
-		defer f.Close()
-		writers = append(writers, f)
-	}
-	
-	// Create multi-writer
-	multiWriter := io.MultiWriter(writers...)
-	
-	// Start the command
+	// Execute the command (1단계: 단순 실행)
 	log.Info("starting pipeline command")
-	if err := cmd.Start(); err != nil {
-		log.Error("failed to start pipeline", "error", err)
-		return fmt.Errorf("failed to start pipeline: %w", err)
-	}
+	startTime := time.Now()
 	
-	// Process output
-	done := make(chan error, 2)
+	cmdErr := cmd.Run()
 	
-	go func() {
-		log.Debug("processing stdout")
-		n, err := io.Copy(multiWriter, stdout)
-		log.Debug("stdout processing complete", "bytes", n, "error", err)
-		done <- err
-	}()
+	duration := time.Since(startTime)
 	
-	go func() {
-		log.Debug("processing stderr")
-		stderrPath := filepath.Join(logDir, "stderr.log")
-		stderrFile, err := os.Create(stderrPath)
-		if err != nil {
-			log.Error("failed to create stderr log", "path", stderrPath, "error", err)
-			done <- err
-			return
-		}
-		defer stderrFile.Close()
-		n, err := io.Copy(io.MultiWriter(os.Stderr, stderrFile), stderr)
-		log.Debug("stderr processing complete", "bytes", n, "error", err)
-		done <- err
-	}()
-	
-	// Wait for command completion
-	log.Debug("waiting for command completion")
-	cmdErr := cmd.Wait()
-	
-	// Wait for goroutines
-	err1 := <-done
-	err2 := <-done
-	
-	// Check for goroutine errors
-	if err1 != nil {
-		log.Error("error processing output", "error", err1)
-	}
-	if err2 != nil {
-		log.Error("error processing output", "error", err2)
-	}
-	
-	// Finish monitoring
-	monitor.Finish()
-	
+	// Simple result logging (1단계: 단순 결과 로깅)
 	if cmdErr != nil {
 		log.Error("pipeline command failed", "error", cmdErr)
 	} else {
 		log.Info("pipeline command completed successfully")
 	}
 	
-	// Write summary
-	duration := monitor.GetDuration()
 	status := "Success"
 	if cmdErr != nil {
 		status = fmt.Sprintf("Failed: %v", cmdErr)
 	}
 	
-	bytesProcessed := monitor.GetBytes()
-	linesProcessed := monitor.GetLines()
-	
 	log.Info("pipeline execution completed",
 		"duration", duration,
-		"bytes_processed", bytesProcessed,
-		"lines_processed", linesProcessed,
 		"status", status)
 	
-	summary := fmt.Sprintf("Pipeline: %s\nDuration: %v\nBytes: %s\nLines: %d\nStatus: %s\n",
-		p.Name,
-		duration,
-		formatBytes(bytesProcessed),
-		linesProcessed,
-		status)
-	
-	summaryPath := filepath.Join(logDir, "summary.txt")
-	log.Debug("writing summary", "path", summaryPath)
-	os.WriteFile(summaryPath, []byte(summary), 0644)
-	
-	// Report results
+	// Simple user feedback (1단계: 단순 사용자 피드백)
 	e.log("\n%s\n", strings.Repeat("=", 50))
 	e.log("Pipeline completed\n")
 	e.log("• Duration: %v\n", duration)
-	e.log("• Bytes processed: %s\n", formatBytes(monitor.GetBytes()))
-	e.log("• Lines processed: %d\n", monitor.GetLines())
 	e.log("• Status: %s\n", status)
-	e.log("• Logs: %s\n", logDir)
+	e.log("• Debug log: /tmp/cli-pipe-debug.log\n")
 	
 	return cmdErr
 }
@@ -347,3 +230,4 @@ func (e *Executor) CaptureOutput(p *Pipeline) (string, error) {
 	log.Debug("command completed successfully", "output_length", len(output))
 	return strings.TrimSpace(string(output)), nil
 }
+
