@@ -12,6 +12,7 @@
 ┌─────────────────────────────────────┐
 │         main.go                     │
 │  - 명령어 파싱 (run, init, version) │
+│  - initializeLogger() 로거 초기화   │
 │  - runPipelineCmd() 호출            │
 └──────┬──────────────────────────────┘
        │
@@ -45,6 +46,8 @@
 │  - Execute(): bash -c로 실행        │
 │  - UnifiedMonitor로 메트릭 수집     │
 │  - io.MultiWriter로 다중 출력       │
+│  - 구조화된 로깅 (logger 사용)      │
+│  - 백그라운드 로그 정리             │
 └─────────────────────────────────────┘
 ```
 
@@ -120,7 +123,9 @@ stderr ──▶ MultiWriter ├─▶ os.Stderr (콘솔 에러)
 
 ```
 ~/.cli-pipe/logs/
-└── word-count_20240114_150405/
+├── cli-pipe.log                    # 애플리케이션 로그 (logger 출력)
+├── cli-pipe-20240114-150405.log.gz # 로테이션된 압축 로그
+└── word-count_20240114_150405/     # 파이프라인 실행 로그
     ├── pipeline.log    # 표준 출력
     ├── stderr.log      # 표준 에러
     └── summary.txt     # 실행 요약
@@ -168,6 +173,14 @@ version: 1
 logs:
   directory: ~/.cli-pipe/logs
   retention_days: 30
+logger:
+  level: info          # debug, info, warn, error
+  format: text         # text, json
+  output: stderr       # stdout, stderr, file, both
+  file_path: ~/.cli-pipe/logs/cli-pipe.log
+  max_size: 10         # MB 단위
+  max_backups: 3       # 보관할 이전 로그 파일 수
+  max_age: 30          # 일 단위
 ```
 
 ### 초기화:
@@ -181,7 +194,9 @@ cli-pipe init  # 설정 파일과 로그 디렉토리 생성
 - ✅ 선형 파이프라인 (단순 파이프 체인)
 - ✅ 멀티라인 명령어
 - ✅ 자동 모니터링 (바이트, 라인, 시간)
-- ✅ 로그 파일 자동 생성
+- ✅ 구조화된 로깅 (slog 기반, 레벨별/포맷별 설정)
+- ✅ 로그 파일 자동 생성 및 로테이션
+- ✅ 오래된 로그 자동 정리
 - ✅ 파일 출력 (마지막 스텝만)
 
 ### 지원되지 않는 기능:

@@ -105,14 +105,17 @@ The project follows a simplified clean architecture:
 ```
 internal/
 ├── config/        # Configuration management
-├── pipeline/      # Core pipeline execution logic
-│   ├── builder.go    # Command building
-│   ├── executor.go   # Pipeline execution with monitoring
-│   ├── monitor.go    # Unified monitoring (bytes, lines, time)
-│   ├── parser.go     # YAML parsing
-│   ├── pipeline.go   # Data structures
-│   └── tee.go        # Multi-output streaming
-└── cmd/cli-pipe/  # CLI entry point
+├── logger/        # Structured logging system
+│   ├── logger.go     # Core logger interface and implementation
+│   ├── rotator.go    # Log file rotation with compression
+│   └── cleaner.go    # Old log cleanup functionality
+└── pipeline/      # Core pipeline execution logic
+    ├── builder.go    # Command building
+    ├── executor.go   # Pipeline execution with monitoring
+    ├── monitor.go    # Unified monitoring (bytes, lines, time)
+    ├── parser.go     # YAML parsing
+    └── pipeline.go   # Data structures
+cmd/cli-pipe/      # CLI entry point
 ```
 
 Key design decisions:
