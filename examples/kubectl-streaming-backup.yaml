@@ -1,15 +1,15 @@
 name: kubectl-streaming-backup
-description: Stream moderate-size backup with progress monitoring and compression
+description: Stream large directory backup with progress monitoring and compression
 
 steps:
-  - name: stream-tmp-with-progress
-    run: kubectl exec vscode -- tar cf - /tmp | pv -s 50M | gzip
-    output: file:backup-vscode-tmp-progress-$(date +%Y%m%d-%H%M%S).tar.gz
+  - name: stream-large-backup
+    run: kubectl exec vscode -- tar cf - /home/coder | pv -s 1G | gzip
+    output: file:backup-vscode-large-$(date +%Y%m%d-%H%M%S).tar.gz
     
   - name: encrypted-backup
     run: kubectl exec vscode -- tar czf - /tmp | gpg --cipher-algo AES256 --symmetric --no-tty --batch --yes --passphrase="your-secure-password"
     output: file:backup-vscode-encrypted-$(date +%Y%m%d-%H%M%S).tar.gz.gpg
     
-  - name: selective-code-backup
-    run: kubectl exec vscode -- find /usr/local -name "*.go" -o -name "*.yaml" -o -name "*.md" | kubectl exec vscode -- tar czf - -T -
+  - name: selective-backup
+    run: kubectl exec vscode -- find /home/coder -name "*.go" -o -name "*.yaml" -o -name "*.md" | kubectl exec vscode -- tar czf - -T -
     output: file:backup-vscode-code-$(date +%Y%m%d-%H%M%S).tar.gz

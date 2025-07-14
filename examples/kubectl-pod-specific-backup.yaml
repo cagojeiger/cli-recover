@@ -9,9 +9,9 @@ steps:
   - name: backup-with-pod-info
     run: |
       POD_NAME=$(kubectl get pods -l app=vscode -o jsonpath='{.items[0].metadata.name}')
-      kubectl exec $POD_NAME -- tar czf - /var/log
-    output: file:backup-vscode-logs-$(date +%Y%m%d-%H%M%S).tar.gz
+      kubectl exec $POD_NAME -- tar czf - /home/coder/code
+    output: file:backup-vscode-code-$(date +%Y%m%d-%H%M%S).tar.gz
     
-  - name: small-config-backup
-    run: kubectl exec vscode -- tar czf - /etc/hostname /etc/hosts /proc/version
-    output: file:backup-vscode-$(kubectl exec vscode -- hostname)-config.tar
+  - name: mirror-directory-structure
+    run: kubectl exec vscode -- tar czf - /home/coder/code/mirror
+    output: file:backup-vscode-$(kubectl exec vscode -- hostname)-$(kubectl exec vscode -- basename /home/coder/code/mirror).tar
