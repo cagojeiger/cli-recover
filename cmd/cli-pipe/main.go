@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	
+	"github.com/cagojeiger/cli-pipe/internal/config"
 	"github.com/cagojeiger/cli-pipe/internal/pipeline"
 )
 
@@ -31,6 +32,9 @@ func main() {
 		return
 	case "help", "--help", "-h":
 		printUsage()
+		return
+	case "init":
+		initConfig()
 		return
 	}
 	
@@ -76,6 +80,7 @@ func printUsage() {
 	fmt.Println("  cli-pipe <command> [options]")
 	fmt.Println()
 	fmt.Println("Commands:")
+	fmt.Println("  init       Initialize cli-pipe configuration")
 	fmt.Println("  run        Run a pipeline from a YAML file")
 	fmt.Println("  version    Show version information")
 	fmt.Println("  help       Show this help message")
@@ -129,4 +134,25 @@ func runPipeline(filename string, logDir string, enhanced bool) {
 			os.Exit(1)
 		}
 	}
+}
+
+func initConfig() {
+	// Create default config
+	cfg := config.DefaultConfig()
+	
+	// Save config
+	if err := cfg.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// Ensure log directory exists
+	if err := cfg.EnsureLogDir(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating log directory: %v\n", err)
+		os.Exit(1)
+	}
+	
+	fmt.Printf("Initialized cli-pipe configuration at %s\n", config.ConfigDir())
+	fmt.Printf("Configuration file: %s\n", config.ConfigPath())
+	fmt.Printf("Log directory: %s\n", cfg.Logs.Directory)
 }
