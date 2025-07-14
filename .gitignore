@@ -37,6 +37,7 @@ go.work.sum
 # Built binaries
 cli-recover
 cli-recover-*
+cli-pipe
 dist/
 
 # Checksums
