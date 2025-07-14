@@ -65,6 +65,17 @@ func (e *Executor) Execute(p *Pipeline) error {
 		log.Error("failed to create log directory", "path", logDir, "error", err)
 		return fmt.Errorf("failed to create log directory: %w", err)
 	}
+	
+	// Clean old logs if retention is configured
+	if e.config.Logs.RetentionDays > 0 {
+		cleaner := logger.NewLogCleaner(log)
+		go func() {
+			log.Debug("starting background log cleanup", "retention_days", e.config.Logs.RetentionDays)
+			if err := cleaner.CleanOldLogs(e.config.Logs.Directory, e.config.Logs.RetentionDays); err != nil {
+				log.Error("failed to clean old logs", "error", err)
+			}
+		}()
+	}
 
 	// Log detailed pipeline information
 	log.Info("executing pipeline",
