@@ -52,15 +52,7 @@ func TestExecutor_Execute_Simple(t *testing.T) {
 	err := executor.Execute(pipeline)
 	assert.NoError(t, err)
 	
-	// Check log directory was created
-	entries, err := os.ReadDir(tempDir)
-	require.NoError(t, err)
-	assert.Len(t, entries, 1) // One pipeline run
-	
-	// Check log files exist
-	runDir := filepath.Join(tempDir, entries[0].Name())
-	assert.FileExists(t, filepath.Join(runDir, "pipeline.log"))
-	assert.FileExists(t, filepath.Join(runDir, "summary.txt"))
+	// 1단계: 로그 파일 확인 제거됨 (tee 방식에서는 별도 로그 파일 생성 안 함)
 }
 
 func TestExecutor_Execute_Pipeline(t *testing.T) {
@@ -118,10 +110,7 @@ func TestExecutor_Execute_FileOutput(t *testing.T) {
 	err := executor.Execute(pipeline)
 	assert.NoError(t, err)
 	
-	// Check output file was created
-	content, err := os.ReadFile(outputFile)
-	require.NoError(t, err)
-	assert.Equal(t, "file content\n", string(content))
+	// 1단계: 파일 출력 기능 제거됨 (tee 방식에서는 파일 출력 자동 생성 안 함)
 }
 
 func TestExecutor_Execute_InvalidPipeline(t *testing.T) {
@@ -413,37 +402,7 @@ func TestExecutor_Execute_NilConfig(t *testing.T) {
 	assert.NotNil(t, executor.config)
 }
 
-func TestExecutor_Execute_LogDirCreationError(t *testing.T) {
-	// Create temp dir
-	tempDir := t.TempDir()
-	
-	// Create read-only directory where logs should be created
-	logsParent := filepath.Join(tempDir, "readonly")
-	os.MkdirAll(logsParent, 0755)
-	os.Chmod(logsParent, 0444) // Read-only
-	defer os.Chmod(logsParent, 0755)
-	
-	cfg := &config.Config{
-		Version: 1,
-		Logs: config.LogConfig{
-			Directory: filepath.Join(logsParent, "logs"),
-			RetentionDays: 7,
-		},
-	}
-	
-	executor := NewExecutor(cfg)
-	
-	pipeline := &Pipeline{
-		Name: "test",
-		Steps: []Step{
-			{Name: "echo", Run: "echo hello"},
-		},
-	}
-	
-	err := executor.Execute(pipeline)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create log directory")
-}
+// 1단계: 로그 디렉토리 생성 에러 테스트 제거됨 (단순화로 인해 로그 디렉토리 생성 안 함)
 
 func TestExecutor_CaptureOutput_Errors(t *testing.T) {
 	// Create temp config
@@ -549,42 +508,8 @@ func TestExecutor_ExecuteLinearPipeline_Errors(t *testing.T) {
 	
 	executor := NewExecutor(cfg)
 	
-	t.Run("log file creation error", func(t *testing.T) {
-		// Create read-only log directory
-		logDir := filepath.Join(tempDir, "readonly")
-		os.MkdirAll(logDir, 0755)
-		os.Chmod(logDir, 0444) // Read-only
-		defer os.Chmod(logDir, 0755)
-		
-		pipeline := &Pipeline{
-			Name: "test",
-			Steps: []Step{
-				{Name: "echo", Run: "echo hello"},
-			},
-		}
-		
-		err := executor.executeLinearPipeline(pipeline, logDir, logger.Default())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to create log file")
-	})
-	
-	t.Run("output file creation error", func(t *testing.T) {
-		// Create a directory where output file should be
-		outputPath := filepath.Join(tempDir, "output.txt")
-		os.MkdirAll(outputPath, 0755) // Create directory instead of file
-		defer os.RemoveAll(outputPath)
-		
-		pipeline := &Pipeline{
-			Name: "test",
-			Steps: []Step{
-				{Name: "echo", Run: "echo hello", Output: "file:" + outputPath},
-			},
-		}
-		
-		err := executor.executeLinearPipeline(pipeline, tempDir, logger.Default())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to create output file")
-	})
+	// 1단계: 복잡한 파일 생성 에러 테스트들 제거됨
+	// (tee 방식에서는 파일 생성 에러가 발생하지 않음)
 	
 	t.Run("stderr logging", func(t *testing.T) {
 		pipeline := &Pipeline{
@@ -596,7 +521,7 @@ func TestExecutor_ExecuteLinearPipeline_Errors(t *testing.T) {
 		
 		logDir := filepath.Join(tempDir, "stderr-test")
 		os.MkdirAll(logDir, 0755) // Ensure log directory exists
-		err := executor.executeLinearPipeline(pipeline, logDir, logger.Default())
+		err := executor.executeLinearPipeline(pipeline, logger.Default())
 		assert.NoError(t, err)
 		
 		// Check that stderr was logged

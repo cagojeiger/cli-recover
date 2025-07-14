@@ -22,7 +22,7 @@ func TestBuildCommand(t *testing.T) {
 					{Name: "step2", Run: "cat", Input: "data"},
 				},
 			},
-			expected: "echo hello | cat",
+			expected: "echo hello | cat | tee /tmp/cli-pipe-debug.log",
 			wantErr:  false,
 		},
 		{
@@ -46,7 +46,7 @@ func TestBuildCommand(t *testing.T) {
 					{Name: "count", Run: "wc -w", Input: "upper"},
 				},
 			},
-			expected: "echo test | tr a-z A-Z | wc -w",
+			expected: "echo test | tr a-z A-Z | wc -w | tee /tmp/cli-pipe-debug.log",
 			wantErr:  false,
 		},
 		{
@@ -58,7 +58,7 @@ func TestBuildCommand(t *testing.T) {
 					{Name: "save", Run: "cat", Input: "stream", Output: "file:output.txt"},
 				},
 			},
-			expected: "echo data | cat",
+			expected: "echo data | cat | tee /tmp/cli-pipe-debug.log",
 			wantErr:  false,
 		},
 		{
