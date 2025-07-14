@@ -6,12 +6,14 @@ import (
 	"path/filepath"
 	
 	"gopkg.in/yaml.v3"
+	"github.com/cagojeiger/cli-pipe/internal/logger"
 )
 
 // Config represents the cli-pipe configuration
 type Config struct {
-	Version int        `yaml:"version"`
-	Logs    LogConfig  `yaml:"logs"`
+	Version int                 `yaml:"version"`
+	Logs    LogConfig          `yaml:"logs"`
+	Logger  *logger.Config     `yaml:"logger,omitempty"`
 }
 
 // LogConfig represents logging configuration
@@ -28,6 +30,15 @@ func DefaultConfig() *Config {
 		Logs: LogConfig{
 			Directory:     filepath.Join(homeDir, ".cli-pipe", "logs"),
 			RetentionDays: 30,
+		},
+		Logger: &logger.Config{
+			Level:      "info",
+			Format:     "text",
+			Output:     "stderr",
+			FilePath:   filepath.Join(homeDir, ".cli-pipe", "logs", "cli-pipe.log"),
+			MaxSize:    10,  // 10MB
+			MaxBackups: 3,   // keep 3 old files
+			MaxAge:     30,  // 30 days
 		},
 	}
 }
