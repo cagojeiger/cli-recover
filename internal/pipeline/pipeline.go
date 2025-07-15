@@ -21,6 +21,24 @@ type Step struct {
 	Output string `yaml:"output,omitempty"`
 }
 
+// PipelineType represents the structure type of a pipeline
+type PipelineType int
+
+const (
+	// Linear represents a simple linear pipeline (no branches)
+	Linear PipelineType = iota
+	// Tree represents a tree-structured pipeline (branches but no merges)
+	Tree
+	// Graph represents a full DAG (not yet supported)
+	Graph
+)
+
+// Structure represents the analyzed structure of a pipeline
+type Structure struct {
+	Type      PipelineType
+	BranchMap map[string][]string // output -> consumers
+}
+
 // Validate validates the pipeline structure
 func (p *Pipeline) Validate() error {
 	if p.Name == "" {

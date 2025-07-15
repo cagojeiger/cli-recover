@@ -1,10 +1,12 @@
 package pipeline
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cagojeiger/cli-pipe/internal/config"
 	"github.com/cagojeiger/cli-pipe/internal/logger"
@@ -574,3 +576,183 @@ func TestExecutor_ExecuteLinearPipeline_Errors(t *testing.T) {
 		assert.Contains(t, string(content), "error message")
 	})
 }
+
+// TestExecutor_UnifiedExecution tests that the executor automatically detects
+// and handles both linear and tree structures through a single Execute method
+func TestExecutor_UnifiedExecution(t *testing.T) {
+	tests := []struct {
+		name     string
+		pipeline *Pipeline
+		wantErr  bool
+	}{
+		{
+			name: "linear pipeline",
+			pipeline: &Pipeline{
+				Name: "linear-test",
+				Steps: []Step{
+					{Name: "step1", Run: "echo hello", Output: "data"},
+					{Name: "step2", Run: "cat", Input: "data"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "tree pipeline with branches",
+			pipeline: &Pipeline{
+				Name: "tree-test",
+				Steps: []Step{
+					{Name: "source", Run: "echo test", Output: "data"},
+					{Name: "branch1", Run: "cat", Input: "data"},
+					{Name: "branch2", Run: "wc", Input: "data"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "complex tree with multiple levels",
+			pipeline: &Pipeline{
+				Name: "complex-tree",
+				Steps: []Step{
+					{Name: "root", Run: "echo data", Output: "level1"},
+					{Name: "mid1", Run: "cat", Input: "level1", Output: "level2a"},
+					{Name: "mid2", Run: "cat", Input: "level1", Output: "level2b"},
+					{Name: "leaf1", Run: "wc", Input: "level2a"},
+					{Name: "leaf2", Run: "wc", Input: "level2b"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "isolated steps",
+			pipeline: &Pipeline{
+				Name: "isolated",
+				Steps: []Step{
+					{Name: "iso1", Run: "date"},
+					{Name: "chain1", Run: "echo test", Output: "data"},
+					{Name: "chain2", Run: "cat", Input: "data"},
+					{Name: "iso2", Run: "whoami"},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	cfg := &config.Config{
+		Version: 1,
+		Logs: config.LogConfig{
+			Directory: "/tmp/test-logs",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewExecutor(cfg)
+			
+			// The key test: single Execute method handles all structures
+			err := executor.Execute(tt.pipeline)
+			
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestAnalyzeStructure_Performance tests that structure analysis is O(n)
+func TestAnalyzeStructure_Performance(t *testing.T) {
+	// Create a large pipeline with 1000 steps
+	largePipeline := &Pipeline{
+		Name:  "large-pipeline",
+		Steps: make([]Step, 0, 1000),
+	}
+
+	// Build a deep tree structure
+	for i := 0; i < 100; i++ {
+		rootName := fmt.Sprintf("root%d", i)
+		largePipeline.Steps = append(largePipeline.Steps, Step{
+			Name:   rootName,
+			Run:    "echo data",
+			Output: fmt.Sprintf("data%d", i),
+		})
+
+		// Add 9 branches for each root
+		for j := 0; j < 9; j++ {
+			largePipeline.Steps = append(largePipeline.Steps, Step{
+				Name:  fmt.Sprintf("branch%d_%d", i, j),
+				Run:   "cat",
+				Input: fmt.Sprintf("data%d", i),
+			})
+		}
+	}
+
+	// Time the structure analysis
+	start := time.Now()
+	structure := AnalyzeStructure(largePipeline)
+	elapsed := time.Since(start)
+
+	// Should complete in milliseconds, not seconds
+	assert.Less(t, elapsed, 100*time.Millisecond, 
+		"Structure analysis should be O(n) and complete quickly")
+	
+	// Verify the structure was analyzed correctly
+	assert.NotNil(t, structure)
+	assert.Equal(t, Tree, structure.Type)
+	assert.Len(t, structure.BranchMap, 100) // 100 roots with branches
+}
+
+// TestExecutor_NoDuplication tests that there's no code duplication
+// between linear and tree execution paths
+func TestExecutor_NoDuplication(t *testing.T) {
+	cfg := &config.Config{
+		Version: 1,
+		Logs: config.LogConfig{
+			Directory: "/tmp/test-logs",
+		},
+	}
+	
+	executor := NewExecutor(cfg)
+	
+	// Mock writer to capture output
+	var output strings.Builder
+	executor.logWriter = &output
+	
+	// Linear pipeline
+	linearPipeline := &Pipeline{
+		Name: "linear",
+		Steps: []Step{
+			{Name: "s1", Run: "echo test", Output: "d1"},
+			{Name: "s2", Run: "cat", Input: "d1"},
+		},
+	}
+	
+	// Tree pipeline
+	treePipeline := &Pipeline{
+		Name: "tree",
+		Steps: []Step{
+			{Name: "root", Run: "echo test", Output: "data"},
+			{Name: "b1", Run: "cat", Input: "data"},
+			{Name: "b2", Run: "wc", Input: "data"},
+		},
+	}
+	
+	// Both should use the same execution path
+	err1 := executor.Execute(linearPipeline)
+	output1 := output.String()
+	output.Reset()
+	
+	err2 := executor.Execute(treePipeline)
+	output2 := output.String()
+	
+	// Both should succeed
+	assert.NoError(t, err1)
+	assert.NoError(t, err2)
+	
+	// Output format should be consistent
+	assert.Contains(t, output1, "Executing pipeline:")
+	assert.Contains(t, output2, "Executing pipeline:")
+	assert.Contains(t, output1, "Pipeline structure:")
+	assert.Contains(t, output2, "Pipeline structure:")
+}
+

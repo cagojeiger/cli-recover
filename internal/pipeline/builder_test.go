@@ -460,3 +460,209 @@ func TestBuildTreeCommand_MultipleBranches(t *testing.T) {
 	}
 }
 
+// TestFindBranchPoints tests efficient branch point detection
+func TestFindBranchPoints(t *testing.T) {
+	tests := []struct {
+		name       string
+		steps      []Step
+		wantBranch map[string][]string
+	}{
+		{
+			name: "no branches",
+			steps: []Step{
+				{Name: "s1", Run: "cmd1", Output: "d1"},
+				{Name: "s2", Run: "cmd2", Input: "d1", Output: "d2"},
+				{Name: "s3", Run: "cmd3", Input: "d2"},
+			},
+			wantBranch: map[string][]string{},
+		},
+		{
+			name: "simple branch",
+			steps: []Step{
+				{Name: "root", Run: "cmd", Output: "data"},
+				{Name: "b1", Run: "cmd1", Input: "data"},
+				{Name: "b2", Run: "cmd2", Input: "data"},
+			},
+			wantBranch: map[string][]string{
+				"data": {"b1", "b2"},
+			},
+		},
+		{
+			name: "multiple branch points",
+			steps: []Step{
+				{Name: "r", Run: "cmd", Output: "d1"},
+				{Name: "m1", Run: "cmd", Input: "d1", Output: "d2"},
+				{Name: "m2", Run: "cmd", Input: "d1", Output: "d3"},
+				{Name: "l1", Run: "cmd", Input: "d2"},
+				{Name: "l2", Run: "cmd", Input: "d2"},
+				{Name: "l3", Run: "cmd", Input: "d3"},
+			},
+			wantBranch: map[string][]string{
+				"d1": {"m1", "m2"},
+				"d2": {"l1", "l2"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			branches := findBranchPoints(tt.steps)
+			
+			// Verify branch points
+			assert.Equal(t, len(tt.wantBranch), len(branches))
+			
+			for output, expectedConsumers := range tt.wantBranch {
+				consumers, exists := branches[output]
+				assert.True(t, exists, "Expected branch point %s not found", output)
+				
+				// Sort for consistent comparison
+				sort.Strings(consumers)
+				sort.Strings(expectedConsumers)
+				assert.Equal(t, expectedConsumers, consumers)
+			}
+		})
+	}
+}
+
+// TestAnalyzeStructure tests the pipeline structure analysis
+func TestAnalyzeStructure(t *testing.T) {
+	tests := []struct {
+		name             string
+		pipeline         *Pipeline
+		wantType         PipelineType
+		wantBranchPoints int
+	}{
+		{
+			name: "linear structure",
+			pipeline: &Pipeline{
+				Steps: []Step{
+					{Name: "s1", Run: "cmd1", Output: "d1"},
+					{Name: "s2", Run: "cmd2", Input: "d1", Output: "d2"},
+					{Name: "s3", Run: "cmd3", Input: "d2"},
+				},
+			},
+			wantType:         Linear,
+			wantBranchPoints: 0,
+		},
+		{
+			name: "simple tree",
+			pipeline: &Pipeline{
+				Steps: []Step{
+					{Name: "root", Run: "cmd", Output: "data"},
+					{Name: "b1", Run: "cmd1", Input: "data"},
+					{Name: "b2", Run: "cmd2", Input: "data"},
+				},
+			},
+			wantType:         Tree,
+			wantBranchPoints: 1,
+		},
+		{
+			name: "complex tree",
+			pipeline: &Pipeline{
+				Steps: []Step{
+					{Name: "r", Run: "cmd", Output: "d1"},
+					{Name: "m1", Run: "cmd", Input: "d1", Output: "d2"},
+					{Name: "m2", Run: "cmd", Input: "d1", Output: "d3"},
+					{Name: "l1", Run: "cmd", Input: "d2"},
+					{Name: "l2", Run: "cmd", Input: "d2"},
+					{Name: "l3", Run: "cmd", Input: "d3"},
+				},
+			},
+			wantType:         Tree,
+			wantBranchPoints: 2, // d1 and d2 are branch points
+		},
+		{
+			name: "isolated steps",
+			pipeline: &Pipeline{
+				Steps: []Step{
+					{Name: "iso1", Run: "date"},
+					{Name: "chain1", Run: "echo", Output: "d1"},
+					{Name: "chain2", Run: "cat", Input: "d1"},
+					{Name: "iso2", Run: "whoami"},
+				},
+			},
+			wantType:         Linear, // No branches, so linear
+			wantBranchPoints: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			structure := AnalyzeStructure(tt.pipeline)
+			
+			assert.Equal(t, tt.wantType, structure.Type)
+			
+			// Count actual branch points
+			branchCount := 0
+			for _, consumers := range structure.BranchMap {
+				if len(consumers) > 1 {
+					branchCount++
+				}
+			}
+			assert.Equal(t, tt.wantBranchPoints, branchCount)
+		})
+	}
+}
+
+// TestBuildUnifiedCommand tests the unified command builder
+func TestBuildUnifiedCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		pipeline *Pipeline
+		logDir   string
+		want     string
+		wantErr  bool
+	}{
+		{
+			name: "linear pipeline",
+			pipeline: &Pipeline{
+				Name: "linear",
+				Steps: []Step{
+					{Name: "s1", Run: "echo test", Output: "d1"},
+					{Name: "s2", Run: "cat", Input: "d1"},
+				},
+			},
+			logDir: "/tmp/logs",
+			want:   "echo test | cat | tee /tmp/logs/pipeline.out",
+			wantErr: false,
+		},
+		{
+			name: "tree pipeline",
+			pipeline: &Pipeline{
+				Name: "tree",
+				Steps: []Step{
+					{Name: "root", Run: "echo data", Output: "data"},
+					{Name: "b1", Run: "cat", Input: "data"},
+					{Name: "b2", Run: "wc", Input: "data"},
+				},
+			},
+			logDir: "/tmp/logs",
+			want:   "echo data | tee >(cat) >(wc) > /dev/null | tee /tmp/logs/pipeline.out",
+			wantErr: false,
+		},
+		{
+			name: "empty pipeline",
+			pipeline: &Pipeline{
+				Name:  "empty",
+				Steps: []Step{},
+			},
+			logDir:  "/tmp/logs",
+			want:    "",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := BuildUnifiedCommand(tt.pipeline, tt.logDir)
+			
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+

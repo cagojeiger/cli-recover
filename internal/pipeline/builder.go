@@ -209,3 +209,68 @@ func buildChain(nodeName string, graph map[string]*Node, processed map[string]bo
 	
 	return cmd
 }
+
+// findBranchPoints identifies outputs that are consumed by multiple steps
+func findBranchPoints(steps []Step) map[string][]string {
+	consumers := make(map[string][]string)
+	
+	// Build output -> consumers mapping
+	for _, step := range steps {
+		if step.Input != "" {
+			consumers[step.Input] = append(consumers[step.Input], step.Name)
+		}
+	}
+	
+	// Filter to only branch points (multiple consumers)
+	branches := make(map[string][]string)
+	for output, users := range consumers {
+		if len(users) > 1 {
+			branches[output] = users
+		}
+	}
+	
+	return branches
+}
+
+// AnalyzeStructure analyzes the pipeline structure in O(n) time
+func AnalyzeStructure(p *Pipeline) *Structure {
+	structure := &Structure{
+		Type:      Linear,
+		BranchMap: make(map[string][]string),
+	}
+	
+	// Single pass to build consumer mapping
+	for _, step := range p.Steps {
+		if step.Input != "" {
+			structure.BranchMap[step.Input] = append(structure.BranchMap[step.Input], step.Name)
+		}
+	}
+	
+	// Check if any output has multiple consumers
+	for _, consumers := range structure.BranchMap {
+		if len(consumers) > 1 {
+			structure.Type = Tree
+			break
+		}
+	}
+	
+	return structure
+}
+
+// BuildUnifiedCommand builds a command for any pipeline structure
+func BuildUnifiedCommand(p *Pipeline, logDir string) (string, error) {
+	if len(p.Steps) == 0 {
+		return "", fmt.Errorf("empty pipeline")
+	}
+	
+	// Analyze structure
+	structure := AnalyzeStructure(p)
+	
+	// Route to appropriate builder
+	if structure.Type == Linear || p.IsLinear() {
+		return BuildCommand(p, logDir)
+	}
+	
+	// Use tree builder for tree structures
+	return BuildTreeCommand(p, logDir)
+}
