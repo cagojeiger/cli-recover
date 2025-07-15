@@ -5,11 +5,16 @@ steps:
   - name: generate-data
     run: seq 1 1000
     output: data
-    
+
   - name: slow-processing
-    run: while read line; do echo "Processing: $line"; sleep 0.01; done
+    run: |
+      while read line; do 
+        echo "Processing: $line"
+        sleep 0.01
+      done
     input: data
-    
-  - name: final-output
+    output: processed
+
+  - name: count-processed
     run: wc -l
-    input: data
+    input: processed
