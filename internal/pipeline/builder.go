@@ -57,3 +57,46 @@ func ExtractFilename(output string) string {
 	}
 	return strings.TrimPrefix(output, "file:")
 }
+
+// Node represents a step in the dependency graph
+type Node struct {
+	Step     Step
+	Parents  []string
+	Children []string
+}
+
+// buildDependencyGraph builds a dependency graph from pipeline steps
+func buildDependencyGraph(steps []Step) map[string]*Node {
+	graph := make(map[string]*Node)
+	
+	// Initialize nodes
+	for _, step := range steps {
+		graph[step.Name] = &Node{
+			Step:     step,
+			Parents:  []string{},
+			Children: []string{},
+		}
+	}
+	
+	// Build output to producer mapping
+	outputProducers := make(map[string]string)
+	for _, step := range steps {
+		if step.Output != "" {
+			outputProducers[step.Output] = step.Name
+		}
+	}
+	
+	// Build relationships
+	for _, step := range steps {
+		if step.Input != "" {
+			if producer, exists := outputProducers[step.Input]; exists {
+				// Add parent relationship
+				graph[step.Name].Parents = append(graph[step.Name].Parents, producer)
+				// Add child relationship
+				graph[producer].Children = append(graph[producer].Children, step.Name)
+			}
+		}
+	}
+	
+	return graph
+}
