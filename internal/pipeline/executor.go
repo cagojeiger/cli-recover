@@ -100,14 +100,15 @@ func (e *Executor) Execute(p *Pipeline) error {
 		e.log("Description: %s\n", p.Description)
 	}
 
-	// For linear pipelines, execute as single command
-	if p.IsLinear() {
-		return e.executeLinearPipeline(p, log)
+	// Check if it's a tree structure
+	if p.IsTree() {
+		// Execute tree pipeline (which includes linear pipelines)
+		return e.executeTreePipeline(p, log)
 	}
 	
-	// Non-linear pipelines not yet supported
-	log.Error("non-linear pipelines not yet supported")
-	return fmt.Errorf("non-linear pipelines not yet supported")
+	// Non-tree pipelines (e.g., with merges) not supported
+	log.Error("non-tree pipelines not yet supported")
+	return fmt.Errorf("non-tree pipelines not yet supported (merges detected)")
 }
 
 // executeLinearPipeline executes a linear pipeline with tee logging
@@ -221,6 +222,161 @@ func (e *Executor) executeLinearPipeline(p *Pipeline, log logger.Logger) error {
 	e.log("• Summary: %s\n", filepath.Join(logDir, "summary.txt"))
 	
 	return cmdErr
+}
+
+// executeTreePipeline executes a tree-structured pipeline
+func (e *Executor) executeTreePipeline(p *Pipeline, log logger.Logger) error {
+	log.Debug("executing tree pipeline")
+	
+	// Create log directory for this execution
+	timestamp := time.Now().Format("20060102_150405")
+	logDir := filepath.Join(e.config.Logs.Directory, fmt.Sprintf("%s_%s", p.Name, timestamp))
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		log.Error("failed to create log directory", "error", err, "path", logDir)
+		return fmt.Errorf("failed to create log directory: %w", err)
+	}
+	
+	// Build tree command
+	shellCmd, err := buildTreeCommand(p, logDir)
+	if err != nil {
+		log.Error("failed to build tree command", "error", err)
+		return fmt.Errorf("failed to build tree command: %w", err)
+	}
+	log.Debug("tree command built", "command", shellCmd)
+	
+	// Display pipeline structure
+	e.log("\nPipeline structure:\n")
+	e.displayTreeStructure(p)
+	e.log("\nFull command: %s\n", shellCmd)
+	e.log("Log directory: %s\n\n", logDir)
+	
+	// Create and execute the command
+	log.Debug("creating command")
+	cmd := exec.Command("bash", "-c", shellCmd)
+	
+	// Set up output handling (reuse existing limiters)
+	stdoutLimiter := &OutputLimiter{maxLines: 50, prefix: ""}
+	stderrLimiter := &OutputLimiter{maxLines: 20, prefix: "[STDERR] "}
+	
+	cmd.Stdout = stdoutLimiter
+	cmd.Stderr = stderrLimiter
+	
+	// Execute with progress tracking
+	log.Info("starting tree pipeline command")
+	e.log("Starting execution...\n")
+	startTime := time.Now()
+	
+	// Progress tracker
+	done := make(chan bool)
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				elapsed := time.Since(startTime)
+				e.log("\r⏱️  Running: %v", elapsed.Round(time.Second))
+			}
+		}
+	}()
+	
+	cmdErr := cmd.Run()
+	done <- true
+	
+	duration := time.Since(startTime)
+	e.log("\n")
+	
+	// Show output summary
+	if stdoutLimiter.truncated {
+		e.log("[Output truncated: showing first %d lines]\n", stdoutLimiter.maxLines)
+	}
+	
+	// Log result
+	if cmdErr != nil {
+		log.Error("tree pipeline command failed", "error", cmdErr)
+	} else {
+		log.Info("tree pipeline command completed successfully")
+	}
+	
+	status := "Success"
+	if cmdErr != nil {
+		status = fmt.Sprintf("Failed: %v", cmdErr)
+	}
+	
+	log.Info("tree pipeline execution completed",
+		"duration", duration,
+		"status", status)
+	
+	// Create summary file
+	if err := e.writeSummary(logDir, p, duration, status); err != nil {
+		log.Error("failed to write summary", "error", err)
+	}
+	
+	// User feedback
+	e.log("\n%s\n", strings.Repeat("=", 50))
+	e.log("Pipeline completed\n")
+	e.log("• Duration: %v\n", duration)
+	e.log("• Status: %s\n", status)
+	e.log("• Full output: %s\n", filepath.Join(logDir, "pipeline.out"))
+	e.log("• Summary: %s\n", filepath.Join(logDir, "summary.txt"))
+	
+	return cmdErr
+}
+
+// displayTreeStructure displays the tree structure of the pipeline
+func (e *Executor) displayTreeStructure(p *Pipeline) {
+	// Build dependency graph
+	graph := buildDependencyGraph(p.Steps)
+	
+	// Find roots and display tree
+	roots := []string{}
+	for name, node := range graph {
+		if len(node.Parents) == 0 {
+			roots = append(roots, name)
+		}
+	}
+	
+	// Display each tree
+	for i, root := range roots {
+		if i > 0 {
+			e.log("\n")
+		}
+		e.displayNode(root, graph, "", true, make(map[string]bool))
+	}
+}
+
+// displayNode recursively displays a node and its children
+func (e *Executor) displayNode(name string, graph map[string]*Node, prefix string, isLast bool, visited map[string]bool) {
+	if visited[name] {
+		return
+	}
+	visited[name] = true
+	
+	node := graph[name]
+	
+	// Display current node
+	connector := "├── "
+	if isLast {
+		connector = "└── "
+	}
+	
+	e.log("%s%s[%s] %s\n", prefix, connector, name, node.Step.Run)
+	
+	// Prepare prefix for children
+	childPrefix := prefix
+	if isLast {
+		childPrefix += "    "
+	} else {
+		childPrefix += "│   "
+	}
+	
+	// Display children
+	for i, child := range node.Children {
+		isLastChild := i == len(node.Children)-1
+		e.displayNode(child, graph, childPrefix, isLastChild, visited)
+	}
 }
 
 // log writes to the log writer

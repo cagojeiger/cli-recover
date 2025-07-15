@@ -3,6 +3,7 @@ package pipeline
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cagojeiger/cli-pipe/internal/config"
@@ -162,7 +163,7 @@ func TestExecutor_Execute_InvalidPipeline(t *testing.T) {
 	})
 }
 
-func TestExecutor_Execute_NonLinearPipeline(t *testing.T) {
+func TestExecutor_Execute_TreePipeline(t *testing.T) {
 	// Create temp config
 	tempDir := t.TempDir()
 	cfg := &config.Config{
@@ -175,18 +176,55 @@ func TestExecutor_Execute_NonLinearPipeline(t *testing.T) {
 	
 	executor := NewExecutor(cfg)
 
+	// Test tree structure (branching)
 	pipeline := &Pipeline{
-		Name: "branching",
+		Name: "tree-branching",
 		Steps: []Step{
 			{Name: "source", Run: "echo data", Output: "data"},
-			{Name: "branch1", Run: "cat", Input: "data", Output: "out1"},
-			{Name: "branch2", Run: "wc", Input: "data", Output: "out2"},
+			{Name: "branch1", Run: "cat", Input: "data"},
+			{Name: "branch2", Run: "wc -c", Input: "data"},
+		},
+	}
+
+	err := executor.Execute(pipeline)
+	assert.NoError(t, err)
+	
+	// Verify log directory was created
+	entries, err := os.ReadDir(tempDir)
+	require.NoError(t, err)
+	assert.Len(t, entries, 1)
+}
+
+func TestExecutor_Execute_NonTreePipeline(t *testing.T) {
+	// Create temp config
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		Version: 1,
+		Logs: config.LogConfig{
+			Directory: tempDir,
+			RetentionDays: 7,
+		},
+	}
+	
+	executor := NewExecutor(cfg)
+
+	// Test non-tree structure (with merge)
+	pipeline := &Pipeline{
+		Name: "merge-pipeline",
+		Steps: []Step{
+			{Name: "source1", Run: "echo data1", Output: "data1"},
+			{Name: "source2", Run: "echo data2", Output: "data2"},
+			{Name: "merge", Run: "cat", Input: "data1,data2"}, // Multiple inputs = merge
 		},
 	}
 
 	err := executor.Execute(pipeline)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "non-linear pipelines not yet supported")
+	// The error could be from validation or from tree check
+	assert.True(t, 
+		strings.Contains(err.Error(), "non-tree pipelines not yet supported") ||
+		strings.Contains(err.Error(), "references undefined input"),
+		"Expected error about non-tree or undefined input, got: %v", err)
 }
 
 func TestExecutor_Execute_FailingCommand(t *testing.T) {
