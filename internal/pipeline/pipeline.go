@@ -3,6 +3,7 @@ package pipeline
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // Pipeline represents a series of steps to be executed
@@ -112,5 +113,69 @@ func (p *Pipeline) IsLinear() bool {
 		}
 	}
 
+	return true
+}
+
+// IsTree checks if the pipeline forms a tree structure (no merges, no cycles)
+func (p *Pipeline) IsTree() bool {
+	// Empty or single step pipelines are trees
+	if len(p.Steps) <= 1 {
+		return true
+	}
+
+	// Check 1: Each step can have at most one input (no merges)
+	for _, step := range p.Steps {
+		if step.Input != "" && strings.Contains(step.Input, ",") {
+			// Multiple inputs detected (comma-separated)
+			return false
+		}
+	}
+
+	// Check 2: No circular dependencies
+	visited := make(map[string]bool)
+	recStack := make(map[string]bool)
+	
+	// Build adjacency list
+	adj := make(map[string][]string)
+	for _, step := range p.Steps {
+		if step.Input != "" {
+			// Find the step that produces this input
+			for _, producer := range p.Steps {
+				if producer.Output == step.Input {
+					adj[producer.Name] = append(adj[producer.Name], step.Name)
+				}
+			}
+		}
+	}
+	
+	// Check for cycles using DFS
+	var hasCycle func(node string) bool
+	hasCycle = func(node string) bool {
+		visited[node] = true
+		recStack[node] = true
+		
+		for _, neighbor := range adj[node] {
+			if !visited[neighbor] {
+				if hasCycle(neighbor) {
+					return true
+				}
+			} else if recStack[neighbor] {
+				return true
+			}
+		}
+		
+		recStack[node] = false
+		return false
+	}
+	
+	// Check all nodes
+	for _, step := range p.Steps {
+		if !visited[step.Name] {
+			if hasCycle(step.Name) {
+				return false
+			}
+		}
+	}
+	
 	return true
 }

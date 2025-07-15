@@ -319,3 +319,118 @@ func TestPipeline_IsLinear_EdgeCases(t *testing.T) {
 		assert.False(t, p.IsLinear())
 	})
 }
+
+func TestPipeline_IsTree(t *testing.T) {
+	tests := []struct {
+		name     string
+		pipeline Pipeline
+		want     bool
+	}{
+		{
+			name: "simple tree - one branch",
+			pipeline: Pipeline{
+				Steps: []Step{
+					{Name: "root", Run: "echo data", Output: "data"},
+					{Name: "branch1", Run: "cat", Input: "data"},
+					{Name: "branch2", Run: "wc", Input: "data"},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "tree with multiple levels",
+			pipeline: Pipeline{
+				Steps: []Step{
+					{Name: "root", Run: "curl api.com", Output: "raw"},
+					{Name: "backup", Run: "gzip", Input: "raw"},
+					{Name: "process", Run: "jq .users", Input: "raw", Output: "users"},
+					{Name: "count", Run: "wc -l", Input: "users"},
+					{Name: "filter", Run: "grep active", Input: "users"},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "not tree - multiple inputs (merge)",
+			pipeline: Pipeline{
+				Steps: []Step{
+					{Name: "src1", Run: "echo 1", Output: "data1"},
+					{Name: "src2", Run: "echo 2", Output: "data2"},
+					{Name: "merge", Run: "cat", Input: "data1,data2"}, // Multiple inputs
+				},
+			},
+			want: false,
+		},
+		{
+			name: "not tree - circular reference",
+			pipeline: Pipeline{
+				Steps: []Step{
+					{Name: "step1", Run: "cat", Input: "data2", Output: "data1"},
+					{Name: "step2", Run: "cat", Input: "data1", Output: "data2"},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "linear pipeline is also a tree",
+			pipeline: Pipeline{
+				Steps: []Step{
+					{Name: "step1", Run: "echo hello", Output: "data1"},
+					{Name: "step2", Run: "cat", Input: "data1", Output: "data2"},
+					{Name: "step3", Run: "wc", Input: "data2"},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "disconnected components",
+			pipeline: Pipeline{
+				Steps: []Step{
+					{Name: "tree1_root", Run: "echo 1", Output: "data1"},
+					{Name: "tree1_leaf", Run: "cat", Input: "data1"},
+					{Name: "tree2_root", Run: "echo 2", Output: "data2"},
+					{Name: "tree2_leaf", Run: "wc", Input: "data2"},
+				},
+			},
+			want: true, // Multiple trees are still valid
+		},
+		{
+			name: "empty pipeline",
+			pipeline: Pipeline{
+				Steps: []Step{},
+			},
+			want: true,
+		},
+		{
+			name: "single step",
+			pipeline: Pipeline{
+				Steps: []Step{
+					{Name: "step1", Run: "echo hello"},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "complex tree structure",
+			pipeline: Pipeline{
+				Steps: []Step{
+					{Name: "fetch", Run: "curl api.com", Output: "api_data"},
+					{Name: "parse", Run: "jq .", Input: "api_data", Output: "json"},
+					{Name: "users", Run: "jq .users", Input: "json", Output: "user_list"},
+					{Name: "logs", Run: "jq .logs", Input: "json", Output: "log_list"},
+					{Name: "active_users", Run: "grep active", Input: "user_list"},
+					{Name: "error_logs", Run: "grep ERROR", Input: "log_list"},
+					{Name: "user_count", Run: "wc -l", Input: "user_list"},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.pipeline.IsTree()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
