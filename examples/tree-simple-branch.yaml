@@ -1,0 +1,15 @@
+name: simple-branch
+description: Demonstrates simple branching - one output to two consumers
+
+steps:
+  - name: generate-data
+    run: echo "Hello from tree pipeline"
+    output: data
+    
+  - name: uppercase
+    run: tr a-z A-Z
+    input: data
+    
+  - name: count-chars
+    run: wc -c
+    input: data

@@ -10,6 +10,7 @@ cli-pipe is a tool that allows you to define and execute Unix command pipelines 
 
 - 📝 **YAML-based pipeline definition** - Define complex command sequences in readable YAML
 - 🔗 **Explicit stream connections** - Clear data flow with named input/output streams
+- 🌳 **Tree-structured pipelines** - Support for branching pipelines (one input, multiple outputs)
 - 📊 **Automatic monitoring** - Always tracks bytes processed, lines, and execution time
 - 📁 **Persistent logging** - All runs are logged to `~/.cli-pipe/logs/`
 - 🏗️ **Clean architecture** - Simplified design with configuration-based approach
@@ -54,12 +55,19 @@ steps:
 
 See the `examples/` directory for sample pipelines:
 
+### Linear Pipelines
 - `hello-world.yaml` - Basic pipeline with text transformation
 - `word-count.yaml` - Count words in generated text
 - `file-processing.yaml` - Process and analyze files
 - `date-time.yaml` - Date/time formatting
 - `simple-test.yaml` - Minimal test pipeline
 - `backup.yaml` - Create compressed backups
+
+### Tree-Structured Pipelines (NEW!)
+- `tree-simple-branch.yaml` - Simple branching (one output to two consumers)
+- `tree-multi-branch.yaml` - Multiple branching (one output to three consumers)
+- `tree-multi-level.yaml` - Multi-level tree (branching after branching)
+- `tree-complex.yaml` - Complex tree with mixed branches and isolated steps
 
 ### Running an example:
 
@@ -84,6 +92,91 @@ Pipeline completed
 • Status: Success
 • Logs: /home/user/.cli-pipe/logs/hello-world_20250714_090000
 ```
+
+## Tree-Structured Pipelines
+
+cli-pipe now supports tree-structured pipelines, allowing you to split data flow to multiple consumers:
+
+### Simple Branching Example
+
+```yaml
+name: data-analysis
+steps:
+  - name: fetch-data
+    run: curl -s https://api.example.com/data
+    output: raw_data
+    
+  - name: backup
+    run: gzip > backup.gz
+    input: raw_data
+    
+  - name: analyze
+    run: jq .users
+    input: raw_data
+```
+
+In this example, the output from `fetch-data` is sent to both `backup` and `analyze` steps simultaneously using `tee`.
+
+### Multi-Level Trees
+
+You can create complex trees with multiple levels:
+
+```yaml
+name: log-processing
+steps:
+  - name: read-logs
+    run: cat server.log
+    output: logs
+    
+  - name: extract-errors
+    run: grep ERROR
+    input: logs
+    output: errors
+    
+  - name: extract-warnings
+    run: grep WARN
+    input: logs
+    output: warnings
+    
+  - name: count-errors
+    run: wc -l
+    input: errors
+    
+  - name: alert-errors
+    run: mail -s "Errors found" admin@example.com
+    input: errors
+    
+  - name: summarize-warnings
+    run: sort | uniq -c
+    input: warnings
+```
+
+### Visual Pipeline Structure
+
+When executing tree pipelines, cli-pipe displays the structure:
+
+```
+Pipeline structure:
+└── [read-logs] cat server.log
+    ├── [extract-errors] grep ERROR
+    │   ├── [count-errors] wc -l
+    │   └── [alert-errors] mail -s "Errors found" admin@example.com
+    └── [extract-warnings] grep WARN
+        └── [summarize-warnings] sort | uniq -c
+```
+
+### How It Works
+
+Tree pipelines use Unix process substitution and `tee` to efficiently split data:
+- Linear pipelines: `cmd1 | cmd2 | cmd3`
+- Branching: `cmd1 | tee >(cmd2) >(cmd3) > /dev/null`
+- Multi-level: `cmd1 | tee >(cmd2 | cmd4) >(cmd3 | cmd5) > /dev/null`
+
+### Limitations
+
+- Each step can have only one input (no merging)
+- No circular dependencies allowed
+- All branches execute in parallel
 
 ## Configuration
 

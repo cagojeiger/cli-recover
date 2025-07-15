@@ -1,0 +1,36 @@
+name: multi-level-tree
+description: Demonstrates multi-level tree - branching after branching
+
+steps:
+  - name: source
+    run: |
+      echo "Line 1: Hello World
+      Line 2: Test Data
+      Line 3: Sample Text"
+    output: text_data
+    
+  - name: filter-hello
+    run: grep -i hello
+    input: text_data
+    output: hello_lines
+    
+  - name: filter-test
+    run: grep -i test
+    input: text_data
+    output: test_lines
+    
+  - name: count-hello
+    run: wc -l
+    input: hello_lines
+    
+  - name: uppercase-hello
+    run: tr a-z A-Z
+    input: hello_lines
+    
+  - name: count-test-words
+    run: wc -w
+    input: test_lines
+    
+  - name: reverse-test
+    run: rev
+    input: test_lines

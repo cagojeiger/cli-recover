@@ -1,0 +1,24 @@
+name: multi-branch
+description: Demonstrates multiple branching - one output to three consumers
+
+steps:
+  - name: fetch-api
+    run: |
+      echo '{
+        "users": ["alice", "bob", "charlie"],
+        "status": "active",
+        "timestamp": 1234567890
+      }'
+    output: api_data
+    
+  - name: backup
+    run: gzip -c > /tmp/api-backup.gz
+    input: api_data
+    
+  - name: extract-users
+    run: jq -r '.users[]'
+    input: api_data
+    
+  - name: extract-status
+    run: jq -r '.status'
+    input: api_data

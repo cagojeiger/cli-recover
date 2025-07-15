@@ -1,0 +1,52 @@
+name: complex-tree
+description: Complex tree with mixed branches and isolated steps
+
+steps:
+  # Isolated step
+  - name: system-info
+    run: uname -a
+    
+  # Main tree
+  - name: fetch-data
+    run: |
+      cat <<EOF
+      2024-01-15 10:23:45 INFO User login alice
+      2024-01-15 10:24:12 ERROR Failed connection from 192.168.1.100
+      2024-01-15 10:25:03 INFO User login bob
+      2024-01-15 10:26:18 WARN High memory usage detected
+      2024-01-15 10:27:45 INFO User logout alice
+      EOF
+    output: logs
+    
+  - name: extract-errors
+    run: grep ERROR
+    input: logs
+    output: errors
+    
+  - name: extract-users
+    run: grep -E "(login|logout)" | cut -d' ' -f6
+    input: logs
+    output: users
+    
+  - name: count-errors
+    run: wc -l
+    input: errors
+    
+  - name: alert-errors
+    run: |
+      while read line; do
+        echo "ALERT: $line"
+      done
+    input: errors
+    
+  - name: unique-users
+    run: sort | uniq
+    input: users
+    
+  - name: count-users
+    run: wc -l
+    input: users
+    
+  # Another isolated step
+  - name: timestamp
+    run: date +%Y-%m-%d_%H:%M:%S

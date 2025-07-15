@@ -377,7 +377,7 @@ func TestBuildTreeCommand_SimpleBranch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildTreeCommand(tt.pipeline, tt.logDir)
+			got, err := BuildTreeCommand(tt.pipeline, tt.logDir)
 			
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -448,7 +448,7 @@ func TestBuildTreeCommand_MultipleBranches(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildTreeCommand(tt.pipeline, tt.logDir)
+			got, err := BuildTreeCommand(tt.pipeline, tt.logDir)
 			
 			if tt.wantErr {
 				assert.Error(t, err)

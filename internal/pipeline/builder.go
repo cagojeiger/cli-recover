@@ -101,8 +101,8 @@ func buildDependencyGraph(steps []Step) map[string]*Node {
 	return graph
 }
 
-// buildTreeCommand builds a shell command for tree-structured pipelines
-func buildTreeCommand(p *Pipeline, logDir string) (string, error) {
+// BuildTreeCommand builds a shell command for tree-structured pipelines
+func BuildTreeCommand(p *Pipeline, logDir string) (string, error) {
 	// Validate it's a tree
 	if !p.IsTree() {
 		return "", fmt.Errorf("pipeline is not a tree structure")

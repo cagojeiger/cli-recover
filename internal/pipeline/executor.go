@@ -237,7 +237,7 @@ func (e *Executor) executeTreePipeline(p *Pipeline, log logger.Logger) error {
 	}
 	
 	// Build tree command
-	shellCmd, err := buildTreeCommand(p, logDir)
+	shellCmd, err := BuildTreeCommand(p, logDir)
 	if err != nil {
 		log.Error("failed to build tree command", "error", err)
 		return fmt.Errorf("failed to build tree command: %w", err)
