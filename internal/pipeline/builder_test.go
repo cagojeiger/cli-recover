@@ -294,3 +294,98 @@ func TestBuildDependencyGraph(t *testing.T) {
 	}
 }
 
+func TestBuildTreeCommand_SimpleBranch(t *testing.T) {
+	tests := []struct {
+		name     string
+		pipeline *Pipeline
+		logDir   string
+		want     string
+		wantErr  bool
+	}{
+		{
+			name: "simple branch - one output to two consumers",
+			pipeline: &Pipeline{
+				Name: "simple-branch",
+				Steps: []Step{
+					{Name: "generate", Run: "echo hello", Output: "data"},
+					{Name: "upper", Run: "tr a-z A-Z", Input: "data"},
+					{Name: "count", Run: "wc -c", Input: "data"},
+				},
+			},
+			logDir: "/tmp/logs",
+			want:   `echo hello | tee >(tr a-z A-Z) >(wc -c) > /dev/null | tee /tmp/logs/pipeline.out`,
+			wantErr: false,
+		},
+		{
+			name: "branch with file output",
+			pipeline: &Pipeline{
+				Name: "branch-file",
+				Steps: []Step{
+					{Name: "generate", Run: "echo test", Output: "data"},
+					{Name: "save", Run: "cat > output.txt", Input: "data"},
+					{Name: "count", Run: "wc -w", Input: "data"},
+				},
+			},
+			logDir: "/tmp/logs",
+			want:   `echo test | tee >(cat > output.txt) >(wc -w) > /dev/null | tee /tmp/logs/pipeline.out`,
+			wantErr: false,
+		},
+		{
+			name: "not a tree - has merge",
+			pipeline: &Pipeline{
+				Name: "invalid-merge",
+				Steps: []Step{
+					{Name: "src1", Run: "echo 1", Output: "data1"},
+					{Name: "src2", Run: "echo 2", Output: "data2"},
+					{Name: "merge", Run: "cat", Input: "data1,data2"},
+				},
+			},
+			logDir: "/tmp/logs",
+			want:   "",
+			wantErr: true,
+		},
+		{
+			name: "linear pipeline still works",
+			pipeline: &Pipeline{
+				Name: "linear",
+				Steps: []Step{
+					{Name: "step1", Run: "echo hello", Output: "data1"},
+					{Name: "step2", Run: "cat", Input: "data1", Output: "data2"},
+					{Name: "step3", Run: "wc", Input: "data2"},
+				},
+			},
+			logDir: "/tmp/logs",
+			want:   "echo hello | cat | wc | tee /tmp/logs/pipeline.out",
+			wantErr: false,
+		},
+		{
+			name: "isolated steps",
+			pipeline: &Pipeline{
+				Name: "isolated",
+				Steps: []Step{
+					{Name: "standalone1", Run: "date"},
+					{Name: "connected1", Run: "echo data", Output: "stream"},
+					{Name: "connected2", Run: "cat", Input: "stream"},
+					{Name: "standalone2", Run: "whoami"},
+				},
+			},
+			logDir: "/tmp/logs",
+			want:   `date | echo data | cat | whoami | tee /tmp/logs/pipeline.out`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildTreeCommand(tt.pipeline, tt.logDir)
+			
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
