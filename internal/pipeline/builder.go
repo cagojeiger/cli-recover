@@ -196,8 +196,8 @@ func buildChain(nodeName string, graph map[string]*Node, processed map[string]bo
 		for _, childName := range node.Children {
 			if !processed[childName] {
 				processed[childName] = true
-				childNode := graph[childName]
-				childCmd := wrapCommand(childNode.Step.Run)
+				// Recursively build the full subtree for each child
+				childCmd := buildChain(childName, graph, processed)
 				branches = append(branches, fmt.Sprintf(">(%s)", childCmd))
 			}
 		}

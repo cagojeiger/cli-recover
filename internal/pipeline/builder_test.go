@@ -389,3 +389,74 @@ func TestBuildTreeCommand_SimpleBranch(t *testing.T) {
 	}
 }
 
+func TestBuildTreeCommand_MultipleBranches(t *testing.T) {
+	tests := []struct {
+		name     string
+		pipeline *Pipeline
+		logDir   string
+		want     string
+		wantErr  bool
+	}{
+		{
+			name: "one output to three consumers",
+			pipeline: &Pipeline{
+				Name: "triple-branch",
+				Steps: []Step{
+					{Name: "fetch", Run: "curl api.com", Output: "raw"},
+					{Name: "backup", Run: "gzip > backup.gz", Input: "raw"},
+					{Name: "users", Run: "jq .users", Input: "raw"},
+					{Name: "logs", Run: "jq .logs", Input: "raw"},
+				},
+			},
+			logDir: "/tmp/logs",
+			want:   `curl api.com | tee >(gzip > backup.gz) >(jq .users) >(jq .logs) > /dev/null | tee /tmp/logs/pipeline.out`,
+			wantErr: false,
+		},
+		{
+			name: "multi-level tree",
+			pipeline: &Pipeline{
+				Name: "multi-level",
+				Steps: []Step{
+					{Name: "root", Run: "echo data", Output: "level1"},
+					{Name: "branch1", Run: "tr a-z A-Z", Input: "level1", Output: "upper"},
+					{Name: "branch2", Run: "tr A-Z a-z", Input: "level1", Output: "lower"},
+					{Name: "leaf1", Run: "wc -c", Input: "upper"},
+					{Name: "leaf2", Run: "wc -w", Input: "lower"},
+				},
+			},
+			logDir: "/tmp/logs",
+			want:   `echo data | tee >(tr a-z A-Z | wc -c) >(tr A-Z a-z | wc -w) > /dev/null | tee /tmp/logs/pipeline.out`,
+			wantErr: false,
+		},
+		{
+			name: "mixed branches and chains",
+			pipeline: &Pipeline{
+				Name: "mixed",
+				Steps: []Step{
+					{Name: "src", Run: "cat data.txt", Output: "content"},
+					{Name: "analyze", Run: "python analyze.py", Input: "content", Output: "results"},
+					{Name: "backup", Run: "cp - backup.txt", Input: "content"},
+					{Name: "report", Run: "mail admin", Input: "results"},
+					{Name: "log", Run: "logger", Input: "results"},
+				},
+			},
+			logDir: "/tmp/logs", 
+			want:   `cat data.txt | tee >(python analyze.py | tee >(mail admin) >(logger) > /dev/null) >(cp - backup.txt) > /dev/null | tee /tmp/logs/pipeline.out`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildTreeCommand(tt.pipeline, tt.logDir)
+			
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
