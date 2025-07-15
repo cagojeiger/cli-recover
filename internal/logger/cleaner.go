@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/cagojeiger/cli-pipe/internal/pipeline"
+	"github.com/cagojeiger/cli-pipe/internal/utils"
 )
 
 // LogCleaner handles cleanup of old log files
@@ -87,7 +87,7 @@ func (c *LogCleaner) CleanOldLogs(logDir string, retentionDays int) error {
 		c.logger.Info("cleaned old logs",
 			"removed_directories", removed,
 			"reclaimed_bytes", totalSize,
-			"reclaimed_human", pipeline.FormatBytes(totalSize))
+			"reclaimed_human", utils.FormatBytes(totalSize))
 	} else {
 		c.logger.Debug("no old logs to clean")
 	}
