@@ -190,24 +190,6 @@ func TestLogCleaner_CalculateDirSize(t *testing.T) {
 }
 
 func TestFormatBytes(t *testing.T) {
-	tests := []struct {
-		bytes    int64
-		expected string
-	}{
-		{0, "0 B"},
-		{100, "100 B"},
-		{1024, "1.0 KB"},
-		{1536, "1.5 KB"},
-		{1048576, "1.0 MB"},
-		{1073741824, "1.0 GB"},
-	}
-	
-	for _, test := range tests {
-		t.Run(test.expected, func(t *testing.T) {
-			result := formatBytes(test.bytes)
-			if result != test.expected {
-				t.Errorf("formatBytes(%d) = %s, want %s", test.bytes, result, test.expected)
-			}
-		})
-	}
+	// This test is now removed as we use pipeline.FormatBytes
+	t.Skip("formatBytes function removed, using pipeline.FormatBytes instead")
 }

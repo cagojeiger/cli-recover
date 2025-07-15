@@ -299,8 +299,8 @@ func (e *Executor) log(format string, args ...interface{}) {
 	}
 }
 
-// formatBytes formats bytes in human readable format
-func formatBytes(bytes int64) string {
+// FormatBytes formats bytes in human readable format
+func FormatBytes(bytes int64) string {
 	const unit = 1024
 	if bytes < unit {
 		return fmt.Sprintf("%d B", bytes)

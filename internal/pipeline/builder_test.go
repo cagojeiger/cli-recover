@@ -122,45 +122,6 @@ echo "line2")`,
 
 
 
-func TestIsFileOutput(t *testing.T) {
-	tests := []struct {
-		output string
-		want   bool
-	}{
-		{"file:output.txt", true},
-		{"file:data.json", true},
-		{"stream-name", false},
-		{"", false},
-		{"file:", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.output, func(t *testing.T) {
-			got := IsFileOutput(tt.output)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func TestExtractFilename(t *testing.T) {
-	tests := []struct {
-		output string
-		want   string
-	}{
-		{"file:output.txt", "output.txt"},
-		{"file:data.json", "data.json"},
-		{"stream-name", ""},
-		{"", ""},
-		{"file:", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.output, func(t *testing.T) {
-			got := ExtractFilename(tt.output)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
 
 func TestBuildDependencyGraph(t *testing.T) {
 	tests := []struct {
@@ -460,69 +421,6 @@ func TestBuildTreeCommand_MultipleBranches(t *testing.T) {
 	}
 }
 
-// TestFindBranchPoints tests efficient branch point detection
-func TestFindBranchPoints(t *testing.T) {
-	tests := []struct {
-		name       string
-		steps      []Step
-		wantBranch map[string][]string
-	}{
-		{
-			name: "no branches",
-			steps: []Step{
-				{Name: "s1", Run: "cmd1", Output: "d1"},
-				{Name: "s2", Run: "cmd2", Input: "d1", Output: "d2"},
-				{Name: "s3", Run: "cmd3", Input: "d2"},
-			},
-			wantBranch: map[string][]string{},
-		},
-		{
-			name: "simple branch",
-			steps: []Step{
-				{Name: "root", Run: "cmd", Output: "data"},
-				{Name: "b1", Run: "cmd1", Input: "data"},
-				{Name: "b2", Run: "cmd2", Input: "data"},
-			},
-			wantBranch: map[string][]string{
-				"data": {"b1", "b2"},
-			},
-		},
-		{
-			name: "multiple branch points",
-			steps: []Step{
-				{Name: "r", Run: "cmd", Output: "d1"},
-				{Name: "m1", Run: "cmd", Input: "d1", Output: "d2"},
-				{Name: "m2", Run: "cmd", Input: "d1", Output: "d3"},
-				{Name: "l1", Run: "cmd", Input: "d2"},
-				{Name: "l2", Run: "cmd", Input: "d2"},
-				{Name: "l3", Run: "cmd", Input: "d3"},
-			},
-			wantBranch: map[string][]string{
-				"d1": {"m1", "m2"},
-				"d2": {"l1", "l2"},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			branches := findBranchPoints(tt.steps)
-			
-			// Verify branch points
-			assert.Equal(t, len(tt.wantBranch), len(branches))
-			
-			for output, expectedConsumers := range tt.wantBranch {
-				consumers, exists := branches[output]
-				assert.True(t, exists, "Expected branch point %s not found", output)
-				
-				// Sort for consistent comparison
-				sort.Strings(consumers)
-				sort.Strings(expectedConsumers)
-				assert.Equal(t, expectedConsumers, consumers)
-			}
-		})
-	}
-}
 
 // TestAnalyzeStructure tests the pipeline structure analysis
 func TestAnalyzeStructure(t *testing.T) {

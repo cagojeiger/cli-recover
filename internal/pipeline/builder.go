@@ -45,18 +45,6 @@ func wrapCommand(cmd string) string {
 	return cmd
 }
 
-// IsFileOutput checks if the output is a file (starts with "file:")
-func IsFileOutput(output string) bool {
-	return strings.HasPrefix(output, "file:")
-}
-
-// ExtractFilename extracts the filename from a file output specifier
-func ExtractFilename(output string) string {
-	if !IsFileOutput(output) {
-		return ""
-	}
-	return strings.TrimPrefix(output, "file:")
-}
 
 // Node represents a step in the dependency graph
 type Node struct {
@@ -210,27 +198,6 @@ func buildChain(nodeName string, graph map[string]*Node, processed map[string]bo
 	return cmd
 }
 
-// findBranchPoints identifies outputs that are consumed by multiple steps
-func findBranchPoints(steps []Step) map[string][]string {
-	consumers := make(map[string][]string)
-	
-	// Build output -> consumers mapping
-	for _, step := range steps {
-		if step.Input != "" {
-			consumers[step.Input] = append(consumers[step.Input], step.Name)
-		}
-	}
-	
-	// Filter to only branch points (multiple consumers)
-	branches := make(map[string][]string)
-	for output, users := range consumers {
-		if len(users) > 1 {
-			branches[output] = users
-		}
-	}
-	
-	return branches
-}
 
 // AnalyzeStructure analyzes the pipeline structure in O(n) time
 func AnalyzeStructure(p *Pipeline) *Structure {

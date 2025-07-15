@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/cagojeiger/cli-pipe/internal/pipeline"
 )
 
 // LogCleaner handles cleanup of old log files
@@ -85,7 +87,7 @@ func (c *LogCleaner) CleanOldLogs(logDir string, retentionDays int) error {
 		c.logger.Info("cleaned old logs",
 			"removed_directories", removed,
 			"reclaimed_bytes", totalSize,
-			"reclaimed_human", formatBytes(totalSize))
+			"reclaimed_human", pipeline.FormatBytes(totalSize))
 	} else {
 		c.logger.Debug("no old logs to clean")
 	}
@@ -161,16 +163,3 @@ func (c *LogCleaner) calculateDirSize(path string) (int64, error) {
 	return size, err
 }
 
-// formatBytes formats bytes in human readable format (duplicated from executor.go)
-func formatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}
