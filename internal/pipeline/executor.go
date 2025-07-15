@@ -89,10 +89,14 @@ func (e *Executor) Execute(p *Pipeline) error {
 		e.config = cfg
 	}
 
-	// Simple pipeline information (1단계: 단순화)
+	// Analyze structure in O(n) time
+	structure := AnalyzeStructure(p)
+	
+	// Simple pipeline information
 	log.Info("executing pipeline",
 		"description", p.Description,
-		"steps", len(p.Steps))
+		"steps", len(p.Steps),
+		"type", structure.Type)
 	
 	// Simple console output
 	e.log("Executing pipeline: %s\n", p.Name)
@@ -100,20 +104,21 @@ func (e *Executor) Execute(p *Pipeline) error {
 		e.log("Description: %s\n", p.Description)
 	}
 
-	// Check if it's a tree structure
-	if p.IsTree() {
-		// Execute tree pipeline (which includes linear pipelines)
-		return e.executeTreePipeline(p, log)
+	// Check if it's a tree structure (includes merges check)
+	if !p.IsTree() {
+		// Non-tree pipelines (e.g., with merges) not supported
+		log.Error("non-tree pipelines not yet supported")
+		return fmt.Errorf("non-tree pipelines not yet supported (merges detected)")
 	}
 	
-	// Non-tree pipelines (e.g., with merges) not supported
-	log.Error("non-tree pipelines not yet supported")
-	return fmt.Errorf("non-tree pipelines not yet supported (merges detected)")
+	// Use unified execution path
+	return e.executePipeline(p, structure, log)
 }
 
-// executeLinearPipeline executes a linear pipeline with tee logging
-func (e *Executor) executeLinearPipeline(p *Pipeline, log logger.Logger) error {
-	log.Debug("building shell command")
+// executePipeline is the unified execution method for all pipeline types
+func (e *Executor) executePipeline(p *Pipeline, structure *Structure, log logger.Logger) error {
+	log.Debug("executing pipeline", "type", structure.Type)
+	
 	// Create log directory for this execution
 	timestamp := time.Now().Format("20060102_150405")
 	logDir := filepath.Join(e.config.Logs.Directory, fmt.Sprintf("%s_%s", p.Name, timestamp))
@@ -122,32 +127,25 @@ func (e *Executor) executeLinearPipeline(p *Pipeline, log logger.Logger) error {
 		return fmt.Errorf("failed to create log directory: %w", err)
 	}
 	
-	// Build shell command with log directory
-	shellCmd, err := BuildCommand(p, logDir)
+	// Build command using unified builder
+	shellCmd, err := BuildUnifiedCommand(p, logDir)
 	if err != nil {
-		log.Error("failed to build pipeline command", "error", err)
-		return fmt.Errorf("failed to build pipeline command: %w", err)
+		log.Error("failed to build command", "error", err)
+		return fmt.Errorf("failed to build command: %w", err)
 	}
-	log.Debug("shell command built", "command", shellCmd)
+	log.Debug("command built", "command", shellCmd)
 	
-	// Display command structure
+	// Display pipeline structure based on type
 	e.log("\nPipeline structure:\n")
-	for i, step := range p.Steps {
-		e.log("  [%d] %s\n", i+1, step.Name)
-		if step.Run != "" {
-			e.log("      Command: %s\n", step.Run)
-		}
-		if step.Input != "" && step.Input != "stdin" {
-			e.log("      Input: %s\n", step.Input)
-		}
-		if step.Output != "" && step.Output != "stdout" {
-			e.log("      Output: %s\n", step.Output)
-		}
+	if structure.Type == Tree {
+		e.displayTreeStructure(p)
+	} else {
+		e.displayLinearStructure(p)
 	}
 	e.log("\nFull command: %s\n", shellCmd)
 	e.log("Log directory: %s\n\n", logDir)
 	
-	// Create the command (1단계: 단순화)
+	// Create the command
 	log.Debug("creating command")
 	cmd := exec.Command("bash", "-c", shellCmd)
 	
@@ -160,11 +158,11 @@ func (e *Executor) executeLinearPipeline(p *Pipeline, log logger.Logger) error {
 	cmd.Stderr = stderrLimiter
 	
 	// Execute the command with progress tracking
-	log.Info("starting pipeline command")
+	log.Info("starting command execution")
 	e.log("Starting execution...\n")
 	startTime := time.Now()
 	
-	// Start a goroutine to show progress (only time elapsed, no complex monitoring)
+	// Start a goroutine to show progress
 	done := make(chan bool)
 	go func() {
 		ticker := time.NewTicker(1 * time.Second)
@@ -187,16 +185,15 @@ func (e *Executor) executeLinearPipeline(p *Pipeline, log logger.Logger) error {
 	e.log("\n") // New line after progress
 	
 	// Show output summary
-	totalStdoutLines := stdoutLimiter.currentLine
 	if stdoutLimiter.truncated {
-		e.log("[Output truncated: showing first %d of %d+ lines]\n", stdoutLimiter.maxLines, totalStdoutLines)
+		e.log("[Output truncated: showing first %d lines]\n", stdoutLimiter.maxLines)
 	}
 	
-	// Simple result logging (1단계: 단순 결과 로깅)
+	// Log result
 	if cmdErr != nil {
-		log.Error("pipeline command failed", "error", cmdErr)
+		log.Error("command failed", "error", cmdErr)
 	} else {
-		log.Info("pipeline command completed successfully")
+		log.Info("command completed successfully")
 	}
 	
 	status := "Success"
@@ -224,106 +221,22 @@ func (e *Executor) executeLinearPipeline(p *Pipeline, log logger.Logger) error {
 	return cmdErr
 }
 
-// executeTreePipeline executes a tree-structured pipeline
-func (e *Executor) executeTreePipeline(p *Pipeline, log logger.Logger) error {
-	log.Debug("executing tree pipeline")
-	
-	// Create log directory for this execution
-	timestamp := time.Now().Format("20060102_150405")
-	logDir := filepath.Join(e.config.Logs.Directory, fmt.Sprintf("%s_%s", p.Name, timestamp))
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		log.Error("failed to create log directory", "error", err, "path", logDir)
-		return fmt.Errorf("failed to create log directory: %w", err)
-	}
-	
-	// Build tree command
-	shellCmd, err := BuildTreeCommand(p, logDir)
-	if err != nil {
-		log.Error("failed to build tree command", "error", err)
-		return fmt.Errorf("failed to build tree command: %w", err)
-	}
-	log.Debug("tree command built", "command", shellCmd)
-	
-	// Display pipeline structure
-	e.log("\nPipeline structure:\n")
-	e.displayTreeStructure(p)
-	e.log("\nFull command: %s\n", shellCmd)
-	e.log("Log directory: %s\n\n", logDir)
-	
-	// Create and execute the command
-	log.Debug("creating command")
-	cmd := exec.Command("bash", "-c", shellCmd)
-	
-	// Set up output handling (reuse existing limiters)
-	stdoutLimiter := &OutputLimiter{maxLines: 50, prefix: ""}
-	stderrLimiter := &OutputLimiter{maxLines: 20, prefix: "[STDERR] "}
-	
-	cmd.Stdout = stdoutLimiter
-	cmd.Stderr = stderrLimiter
-	
-	// Execute with progress tracking
-	log.Info("starting tree pipeline command")
-	e.log("Starting execution...\n")
-	startTime := time.Now()
-	
-	// Progress tracker
-	done := make(chan bool)
-	go func() {
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				elapsed := time.Since(startTime)
-				e.log("\r⏱️  Running: %v", elapsed.Round(time.Second))
-			}
+// displayLinearStructure displays a linear pipeline structure
+func (e *Executor) displayLinearStructure(p *Pipeline) {
+	for i, step := range p.Steps {
+		e.log("  [%d] %s\n", i+1, step.Name)
+		if step.Run != "" {
+			e.log("      Command: %s\n", step.Run)
 		}
-	}()
-	
-	cmdErr := cmd.Run()
-	done <- true
-	
-	duration := time.Since(startTime)
-	e.log("\n")
-	
-	// Show output summary
-	if stdoutLimiter.truncated {
-		e.log("[Output truncated: showing first %d lines]\n", stdoutLimiter.maxLines)
+		if step.Input != "" && step.Input != "stdin" {
+			e.log("      Input: %s\n", step.Input)
+		}
+		if step.Output != "" && step.Output != "stdout" {
+			e.log("      Output: %s\n", step.Output)
+		}
 	}
-	
-	// Log result
-	if cmdErr != nil {
-		log.Error("tree pipeline command failed", "error", cmdErr)
-	} else {
-		log.Info("tree pipeline command completed successfully")
-	}
-	
-	status := "Success"
-	if cmdErr != nil {
-		status = fmt.Sprintf("Failed: %v", cmdErr)
-	}
-	
-	log.Info("tree pipeline execution completed",
-		"duration", duration,
-		"status", status)
-	
-	// Create summary file
-	if err := e.writeSummary(logDir, p, duration, status); err != nil {
-		log.Error("failed to write summary", "error", err)
-	}
-	
-	// User feedback
-	e.log("\n%s\n", strings.Repeat("=", 50))
-	e.log("Pipeline completed\n")
-	e.log("• Duration: %v\n", duration)
-	e.log("• Status: %s\n", status)
-	e.log("• Full output: %s\n", filepath.Join(logDir, "pipeline.out"))
-	e.log("• Summary: %s\n", filepath.Join(logDir, "summary.txt"))
-	
-	return cmdErr
 }
+
 
 // displayTreeStructure displays the tree structure of the pipeline
 func (e *Executor) displayTreeStructure(p *Pipeline) {

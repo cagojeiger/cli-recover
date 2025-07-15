@@ -562,7 +562,8 @@ func TestExecutor_ExecuteLinearPipeline_Errors(t *testing.T) {
 		
 		logDir := filepath.Join(tempDir, "stderr-test")
 		os.MkdirAll(logDir, 0755) // Ensure log directory exists
-		err := executor.executeLinearPipeline(pipeline, logger.Default())
+		structure := AnalyzeStructure(pipeline)
+		err := executor.executePipeline(pipeline, structure, logger.Default())
 		assert.NoError(t, err)
 		
 		// Check that stderr was logged
