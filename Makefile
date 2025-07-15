@@ -5,7 +5,7 @@ LDFLAGS := -ldflags "-X main.version=$(VERSION) -s -w"
 
 # Default target
 .DEFAULT_GOAL := build
-.PHONY: build test lint clean version release release-build
+.PHONY: build test test-coverage coverage-html coverage-func lint clean version release release-build
 
 # Core targets
 build:
@@ -13,6 +13,24 @@ build:
 
 test:
 	go test -v -cover ./...
+
+# Generate coverage profile and show report
+test-coverage:
+	go test -v -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out
+
+# Generate HTML coverage report
+coverage-html: test-coverage
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Show function-level coverage
+coverage-func:
+	@if [ -f coverage.out ]; then \
+		go tool cover -func=coverage.out; \
+	else \
+		echo "No coverage.out file found. Run 'make test-coverage' first."; \
+	fi
 
 lint:
 	go vet ./...
